@@ -1,0 +1,37 @@
+# Maven target directory
+target/
+
+# IntelliJ IDEA directories
+.idea/
+
+# Compiled Java class files
+*.class
+
+# Logs
+*.log
+
+# Maven-specific files
+mvnw
+.mvn/
+*.jar
+*.war
+*.ear
+
+# IntelliJ-specific files
+*.iml
+*.ipr
+*.iws
+.idea/
+*.classpath
+*.project
+
+# Ignore IntelliJ IDEA workspace.xml file
+.idea/workspace.xml
+
+# Ignore Mac files
+.DS_Store
+
+# Erlang build artifacts
+*.beam
+*.dump
+erl_crash.dump
