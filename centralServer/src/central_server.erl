@@ -22,7 +22,8 @@ createState() ->
     }.
 
 start_server(Port) ->
-    {ok, LSock} = gen_tcp:listen(Port, [{packet, line}, {reuseaddr, true}]),
+    {ok, LSock} = gen_tcp:listen(Port, [{active, once}, {packet, line},
+                                      {reuseaddr, true}]),
 
     MainLoop = spawn(fun() -> main_loop:mainLoop(createState()) end),
     spawn(fun() -> acceptor(LSock, MainLoop) end),

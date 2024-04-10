@@ -1,51 +1,51 @@
 -module(main_loop).
 -export([mainLoop/1]).
 
-handler({create, Username, Passwd}, {UserMap,_} = State, Dest) ->
+handler({create, Username, Passwd}, {UserMap, Metadata} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, _} ->
-            Dest ! {user_exists, ?MODULE},
-            Map;
+            From ! {user_exists, self()},
+            State;
 
         error ->
-            Dest ! {ok, ?MODULE},
-            maps:put(Username, {Passwd, offline}, Map)
+            From ! {ok, self()},
+            {maps:put(Username, Passwd, UserMap), Metadata}
     end;
 
-handler({close, Username, Passwd}, Map, Dest) ->
-    case maps:find(Username, Map) of
-        {ok, {Passwd, _}} ->
-            Dest ! {ok, ?MODULE},
-            maps:remove(Username, Map);
+handler({close, Username, Passwd}, {UserMap, Metadata} = State, From) ->
+    case maps:find(Username, UserMap) of
+        {ok, Passwd} ->
+            From ! {ok, self()},
+            {maps:remove(Username, UserMap), Metadata};
 
         _ ->
-            Dest ! {invalid, ?MODULE},
-            Map
+            From ! {invalid, self()},
+            State
     end;
 
-handler({login, Username, Passwd}, Map, Dest) ->
+handler({login, Username, Passwd}, {UserMap, Metadata} = State, From) ->
+    case maps:find(Username, UserMap) of
+        {ok, Passwd} ->
+            From ! {ok, self()},
+            maps:update(Username, {Passwd, online}, UserMap);
+
+        _ ->
+            From ! {invalid, self()},
+            Map
+    end;
+handler({logout, Username, Passwd}, Map, From) ->
     case maps:find(Username, Map) of
-        {ok, {Passwd, offline}} ->
-            Dest ! {ok, ?MODULE},
+        {ok, Passwd} ->
+            From ! {ok, self()},
             maps:update(Username, {Passwd, online}, Map);
 
         _ ->
-            Dest ! {invalid, ?MODULE},
-            Map
-    end;
-handler({logout, Username, Passwd}, Map, Dest) ->
-    case maps:find(Username, Map) of
-        {ok, {Passwd, offline}} ->
-            Dest ! {ok, ?MODULE},
-            maps:update(Username, {Passwd, online}, Map);
-
-        _ ->
-            Dest ! {invalid, ?MODULE},
+            From ! {invalid, self()},
             Map
     end.
 
 mainLoop(State) ->
     receive
         {Msg, From} ->
-            mainLoop(server_logic:handler(Msg, State, From))
+            mainLoop(handler(Msg, State, From))
     end.
