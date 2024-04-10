@@ -7,9 +7,9 @@ erlc ../src/central_server.erl
 erlc ../src/main_loop.erl
 
 if [ -z $1 ]; then
-    erl -eval "central_server:start(1234)"
+    erl -eval "Server = central_server:start(1234)"
 else
-    erl -eval "central_server:start($1)"
+    erl -eval "Server = central_server:start($1)"
 fi
 
 cd ../scripts/
