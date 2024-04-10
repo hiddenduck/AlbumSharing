@@ -23,7 +23,7 @@ handler({login, {Username, Passwd}}, {UserMap, OnlineMap, Metadata} = State, Fro
             State
     end;
 
-handler({logout}, {UserMap, OnlineMap, Metadata} = State, From) ->
+handler({log_out}, {UserMap, OnlineMap, Metadata} = State, From) ->
     case maps:find(From, OnlineMap) of
         {ok, _} ->
             {UserMap, maps:remove(From, OnlineMap), Metadata};
