@@ -36,5 +36,4 @@ start_server(Port) ->
 acceptor(LSock, MainLoop) ->
     {ok, Sock} = gen_tcp:accept(LSock),
     spawn(fun() -> acceptor(LSock, MainLoop) end),
-    MainLoop ! {enter, self()},
     user_logic:user(Sock, MainLoop).
