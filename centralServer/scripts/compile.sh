@@ -7,9 +7,9 @@ erlc ../src/central_server.erl
 erlc ../src/main_loop.erl
 
 if [ -z $1 ]; then
-    erl -pa ebin -eval "central_server:start(1234)"
+    erl -eval "central_server:start(1234)"
 else
-    erl -pa ebin -eval "central_server:start($1)"
+    erl -eval "central_server:start($1)"
 fi
 
 cd ../scripts/
