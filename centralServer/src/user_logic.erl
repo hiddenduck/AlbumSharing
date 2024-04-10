@@ -11,13 +11,18 @@ auth_user_handler({tcp, _, "logout\n"}, _, MainLoop) ->
 
 auth_user_handler({tcp, _, Msg}, Sock, MainLoop)->
     case string:split(Msg, ":", all) of
-        [Action, AlbumName] when Action =:= "create_album"; Action =:= "get_album_replica"->
+        [Action, AlbumName] when Action =:= "create_album"; Action =:= "get_album"->
             MainLoop ! {{list_to_atom(Action), AlbumName}, self()},
             user(Sock, MainLoop);
     
         _ ->
             gen_tcp:send(Sock, "Incorrect Format\n")
     end;
+
+auth_user_handler({get_album_ok, AlbumData, MainLoop}, Sock, MainLoop) ->
+    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
+    gen_tcp:send(Sock, atom_to_list(get_album_ok)++maps:to_list(AlbumData)++"\n"),
+    auth_user(Sock, MainLoop);
 
 auth_user_handler({Info, MainLoop}, Sock, MainLoop) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
@@ -49,10 +54,15 @@ user_handler({tcp, _, Msg}, Sock, MainLoop)->
             gen_tcp:send(Sock, "Incorrect Format\n")
     end;
 
-user_handler({Info, MainLoop}, Sock, MainLoop) ->
+user_handler({login_ok, MainLoop}, Sock, MainLoop) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-    gen_tcp:send(Sock, atom_to_list(Info)++"\n"),
+    gen_tcp:send(Sock, atom_to_list(login_ok)++"\n"),
     auth_user(Sock, MainLoop);
+
+user_handler({register_ok, MainLoop}, Sock, MainLoop) ->
+    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
+    gen_tcp:send(Sock, atom_to_list(register_ok)++"\n"),
+    user(Sock, MainLoop);
 
 user_handler(_, Sock, MainLoop) ->
     user(Sock, MainLoop).

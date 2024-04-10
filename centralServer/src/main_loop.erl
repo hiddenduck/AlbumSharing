@@ -45,17 +45,23 @@ handler({create_album, AlbumName}, {UserMap, OnlineMap, Metadata} = State, From)
             {UserMap, OnlineMap, maps:put(AlbumName, {[Username], #{}}, Metadata)}
     end;
 
-handler({get_album_replica, AlbumName}, {UserMap, OnlineMap, Metadata} = State, From) ->
+handler({get_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
     {ok, Username} = maps:find(From, OnlineMap),
     
     case maps:find(AlbumName, Metadata) of
-        {ok, _} ->
-            From ! {get_album_replica_error, self()},
+        {ok, {Users, _}=AlbumData} ->
+            case lists:member(Username, Users) of
+                true ->
+                    From ! {get_album_ok, AlbumData, self()};
+
+                false ->
+                    From ! {get_album_no_permission, self()}
+            end,
             State;
     
         _ ->
-            From ! {create_album_ok, self()},
-            {UserMap, OnlineMap, maps:put(AlbumName, {[Username], #{}}, Metadata)}
+            From ! {get_album_error, self()},
+            State
     end.
 
 mainLoop(State) ->
