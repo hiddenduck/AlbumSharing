@@ -1,7 +1,7 @@
 -module(main_loop).
 -export([mainLoop/1]).
 
-handler({create, Username, Passwd}, {UserMap, Metadata} = State, From) ->
+handler({register, {Username, Passwd}}, {UserMap, OnlineMap, Metadata} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, _} ->
             From ! {user_exists, self()},
@@ -9,39 +9,40 @@ handler({create, Username, Passwd}, {UserMap, Metadata} = State, From) ->
 
         error ->
             From ! {ok, self()},
-            {maps:put(Username, Passwd, UserMap), Metadata}
+            {maps:put(Username, Passwd, UserMap) ,OnlineMap, Metadata}
     end;
 
-handler({close, Username, Passwd}, {UserMap, Metadata} = State, From) ->
+handler({login, {Username, Passwd}}, {UserMap, OnlineMap, Metadata} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, Passwd} ->
             From ! {ok, self()},
-            {maps:remove(Username, UserMap), Metadata};
+            {UserMap, maps:update(From, UserName, OnlineMap), Metadata}
 
         _ ->
             From ! {invalid, self()},
             State
     end;
 
-handler({login, Username, Passwd}, {UserMap, Metadata} = State, From) ->
+handler({logout}, {UserMap, OnlineMap, Metadata} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, Passwd} ->
             From ! {ok, self()},
-            maps:update(Username, {Passwd, online}, UserMap);
+            {UserMap, maps:remove(From, OnlineMap), Metadata}
 
         _ ->
             From ! {invalid, self()},
-            Map
-    end;
-handler({logout, Username, Passwd}, Map, From) ->
-    case maps:find(Username, Map) of
+            State
+    end.
+
+handler(create_album, AlbumName, {UserMap, OnlineMap, Metadata} = State, From) ->
+    case maps:find(AlbumName, OnlineMap) of
         {ok, Passwd} ->
             From ! {ok, self()},
-            maps:update(Username, {Passwd, online}, Map);
-
+            {UserMap, maps:remove(From, OnlineMap), Metadata}
+    
         _ ->
             From ! {invalid, self()},
-            Map
+            State
     end.
 
 mainLoop(State) ->

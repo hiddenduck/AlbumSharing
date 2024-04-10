@@ -14,11 +14,12 @@ createState() ->
         % All Users
         #{}, % Users -> Password
 
+        % Online Users
+        #{}, % Pid -> User
+
         % Album Metadata
-        {
-            #{}, % Users -> 
-            #{}  % File  -> (Rating -> {count, [Users]})
-        }
+        #{} % AlbumName -> {[Users], #{Files -> {User, Rating}}}
+        
     }.
 
 start_server(Port) ->

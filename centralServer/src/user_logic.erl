@@ -5,13 +5,15 @@
 % Authenticated
 
 %todo, meter args
-auth_user_handler({tcp, _, "create_album\n"}, Sock, MainLoop) ->
-    MainLoop ! {create_album, self()},
-    auth_user(Sock, MainLoop);
-
-auth_user_handler({tcp, _, "get_album_replica\n"}, Sock, MainLoop) ->
-    MainLoop ! {get_album_replica, self()},
-    auth_user(Sock, MainLoop);
+auth_user_handler({tcp, _, Msg}, Sock, MainLoop)->
+    case string:split(Msg, ":", all) of
+        [Action, AlbumName] when Action =:= "create_album:"; Action =:= "get_album_replica:"->
+            MainLoop ! {list_to_atom(lists:droplast(Action)), AlbumName, self()},
+            user(Sock, MainLoop);
+    
+        _ ->
+            gen_tcp:send(Sock, "Incorrect Format")
+    end;
 
 auth_user_handler({tcp, _, "logout\n"}, _, MainLoop) ->
     MainLoop ! {log_out, self()};
