@@ -1,10 +1,10 @@
 package main
 
 import (
-        "log"
-        "time"
+	"log"
+	"time"
 
-        zmq "github.com/pebbe/zmq4"
+	zmq "github.com/pebbe/zmq4"
 )
 
 func main() {
