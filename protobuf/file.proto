@@ -10,11 +10,16 @@ service File {
 }
 
 message FileMessage {
-    reserved 1 to 4;
+    reserved 1 to 3;
     CommandType command = 1;
-    ByteString  key = 2;
-    optional ByteString  data = 3;
-    optional boolean end = 4;
+    byte  key = 2;
+
+    message Data{
+        byte bytes = 1;
+        bool end = 2;
+    }
+
+    optional Data data = 3
 }
 
 enum CommandType {
