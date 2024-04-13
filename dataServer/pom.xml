@@ -44,6 +44,22 @@
             <artifactId>rxjava</artifactId>
             <version>${rxjava.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.akarnokd</groupId>
+            <artifactId>rxjava3-fiber-interop</artifactId>
+            <version>0.0.18</version>
+        </dependency>
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-spi</artifactId>
+            <version>1.0.0.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>r2dbc-postgresql</artifactId>
+            <version>1.0.0.RELEASE</version>
+        </dependency>
+
     </dependencies>
 
     <build>
