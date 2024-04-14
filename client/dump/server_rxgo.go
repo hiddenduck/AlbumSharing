@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 
 	proto "google.golang.org/protobuf/proto"
 	pb "main/protobuf"
@@ -32,6 +31,7 @@ func producer(ch chan rxgo.Item, connection net.Conn) {
 		ch <- rxgo.Of(p)
 
 		if err != nil {
+			close(ch)
 			fmt.Println("Error reading:", err.Error())
 			break
 		}
@@ -62,27 +62,31 @@ func main() {
 	// Create the input channel
 	ch := make(chan rxgo.Item)
 
-	var wg = sync.WaitGroup{}
-
 	// Create an Observable
 	observable := rxgo.FromChannel(ch)
 
 	// Data producer
-	wg.Add(2)
 	go producer(ch, connection)
 
-	c := observable.Map(func(_ context.Context, item interface{}) (interface{}, error) {
+	observable = observable.Map(func(_ context.Context, item interface{}) (interface{}, error) {
 		fileMessage := item.(pb.FileMessage)
 
 		return fileMessage, nil
 
-	}).Observe()
+	}).Map(func(_ context.Context, item interface{}) (interface{}, error) {
+		fmt.Println("lmao")
+		return item, nil
+	})
+	// .DoOnNext(func (item interface{}){print("iduno")})
+	// observable.DoOnCompleted(func () {print("DoOnCompleted")})
 
-	for {
-		x := <-c
-		fmt.Println(x.V)
-	}
+	<-observable.ForEach(
+		func(item interface{}) { fmt.Println(item) },
+		func(error error) {
+			panic(error)
+		},
+		func() {
+			println("i coomed")
+		})
 
-	// wg.Wait()
-	print("lmao")
 }
