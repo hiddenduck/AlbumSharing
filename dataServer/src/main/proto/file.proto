@@ -5,10 +5,24 @@ package file;
 option java_multiple_files = true;
 
 service File {
-
-  rpc fileMany(stream FileMessage) returns (stream FileMessage);
+  rpc Download(DownloadMessage) returns (stream FileMessage) {};
+  rpc Upload(stream FileMessage) returns (UploadMessage) {};
 }
 
+message DownloadMessage {
+  bytes hash_key = 1;
+}
+
+message UploadMessage {
+  string status = 1;
+}
+
+message FileMessage {
+  bytes key = 1;
+  bytes data = 2;
+}
+
+/*
 message FileMessage {
 
   CommandType command = 1;
@@ -26,3 +40,4 @@ enum CommandType {
   I_WANT = 0;
   I_HAVE = 1;
 }
+*/

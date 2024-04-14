@@ -1,21 +1,19 @@
-import Storage.Store;
-import com.google.common.primitives.Bytes;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
-import file.FileMessage;
-import io.reactivex.rxjava3.core.Flowable;
+import io.grpc.ServerBuilder;
 
-import java.nio.charset.Charset;
+import java.io.IOException;
+
 
 public class Main {
-    public static void main(String[] args) throws Exception{
+    public static void main(String[] args) throws IOException, InterruptedException {
+        /*
+        ServerBuilder.forPort(12345)
+                .addService(new FileService())
+                .build()
+                .start()
+                .awaitTermination();
+         */
+
         Store store = new Store();
-
-        Flowable<FileMessage> f = Flowable.just(FileMessage.newBuilder().setData(
-                FileMessage.Data.newBuilder().setBytes(ByteString.copyFromUtf8("ola")).build()
-        ).build());
-        store.storeMessages(f);
-
-        Thread.sleep(1000000);
+        store.query();
     }
 }
