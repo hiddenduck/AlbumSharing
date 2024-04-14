@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// package file;
+
+option java_multiple_files = true;
+
+option go_package = "protobuf/";
+
+service File {
+
+    rpc fileMany(stream FileMessage) returns (stream FileMessage);
+}
+
+message FileMessage {
+    // reserved 1 to 3;
+    CommandType command = 1;
+    bytes key = 2;
+
+    message Data{
+        bytes bytes = 1;
+        bool end = 2;
+    }
+
+    Data data = 3;
+}
+
+enum CommandType {
+    I_WANT = 0;
+    I_HAVE = 1;
+}
