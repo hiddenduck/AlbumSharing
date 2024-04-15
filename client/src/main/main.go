@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"main/chat"
 	"os"
 	"strings"
 )
@@ -13,24 +14,29 @@ func myprint(l []string) {
     }
 }
 
-func myprint2(l []string) {
-    for range l {
-        fmt.Println("bar")
-    }
-}
-
-var commandMap map[string]interface{} = map[string]interface{}{
-    "print": myprint,
-    "bar": myprint2,
-}
-
 func main() {
+
+    fmt.Println(os.Args[1])
+
+    go chat.Server(os.Args[1])
+
+    var is_in_Album bool = true
+
+    var clients_in_current_album chat.ClientMap = chat.Make_ClientMap()
+
+    var commandMap map[string]interface{} = map[string]interface{}{
+        "print": myprint,
+    }
 
 	for {
 
 		reader := bufio.NewReader(os.Stdin)
 
 		input, _ := reader.ReadString('\n')
+
+        if input == "\n"{
+            continue
+        }
 
         input = strings.TrimSuffix(input, "\n")
 
@@ -42,9 +48,19 @@ func main() {
 
             if ok {
                 function.(func([]string))(list[1:])
+            }else {
+                fmt.Printf("\"%v\"; not a valid command!\n", list[0])
             }
 
+            continue
 		}
 
+        if !is_in_Album {
+            fmt.Printf("Not associated with an album\n")
+
+            continue
+        }
+
+        chat.SendToAll(clients_in_current_album, input)
 	}
 }
