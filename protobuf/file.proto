@@ -10,10 +10,8 @@ service File {
 }
 
 message FileMessage {
-    reserved 1 to 3;
     CommandType command = 1;
     byte  key = 2;
-
     message Data{
         byte bytes = 1;
         bool end = 2;

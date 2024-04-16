@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 
 DIR=/home/utilizador/Documents/Mestrado_1_ano/2_semestre/PSD/projeto/client/src/main/
-CMD="go run server.go"
 
 tmux kill-pane -a -t 0
 tmux setw remain-on-exit on
 
+CMD="go run main.go 1111 server"
 PANE_ID=$(tmux split-window -d -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
 
-sleep 1
+CMD="go run main.go 2222 client"
+PANE_ID=$(tmux split-window -d -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
 
-CMD="nc localhost 1234"
+# CMD="go run main.go 3333 client"
+# PANE_ID=$(tmux split-window -d -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
 
-PANE_ID=$(tmux split-window -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
+# CMD="go run main.go 4444 client"
+# PANE_ID=$(tmux split-window -d -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
 
 tmux select-layout tiled
 

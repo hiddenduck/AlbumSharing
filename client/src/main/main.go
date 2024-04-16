@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"main/chat"
+	chat "main/connection_management"
 	"os"
 	"strings"
 )
@@ -25,6 +25,8 @@ func main() {
     connector.Start_Publish(os.Args[1])
 
     connector.Add_Peer("Emanueldo Gonçalves Faria", "localhost", os.Args[2])
+
+    connector.Add_Peer("Emanueldo Gonçalves Faria da Costa", "localhost", os.Args[3])
 
     connector.Connect_to_Peers("")
 

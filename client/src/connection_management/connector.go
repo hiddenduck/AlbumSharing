@@ -1,11 +1,7 @@
 package chat
 
 import (
-	// "log"
-	// "time"
-
 	"fmt"
-
 	"github.com/pebbe/zmq4"
 	zmq "github.com/pebbe/zmq4"
 )
@@ -23,10 +19,10 @@ type ConnectorInfo struct{
 
 func Make_ConnectorInfo() ConnectorInfo {
 
-	zctx, _ := zmq.NewContext()
+	context, _ := zmq.NewContext()
 
-    pubSocket, _ := zctx.NewSocket(zmq.PUB)
-    subSocket, _ := zctx.NewSocket(zmq.SUB)
+    pubSocket, _ := context.NewSocket(zmq.PUB)
+    subSocket, _ := context.NewSocket(zmq.SUB)
 
     var connectorInfo ConnectorInfo
 
