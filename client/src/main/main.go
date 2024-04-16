@@ -9,24 +9,30 @@ import (
 )
 
 func myprint(l []string) {
-    for range l {
-        fmt.Println("foo")
-    }
+	for range l {
+		fmt.Println("foo")
+	}
 }
 
 func main() {
 
-    fmt.Println(os.Args[1])
+	fmt.Println(os.Args[1])
 
-    go chat.Server(os.Args[1])
+	var is_in_Album bool = true
 
-    var is_in_Album bool = true
+	var connector chat.ConnectorInfo = chat.Make_ConnectorInfo()
 
-    var clients_in_current_album chat.ClientMap = chat.Make_ClientMap()
+    connector.Start_Publish(os.Args[1])
 
-    var commandMap map[string]interface{} = map[string]interface{}{
-        "print": myprint,
-    }
+    connector.Add_Peer("Emanueldo Gonçalves Faria", "localhost", os.Args[2])
+
+    connector.Connect_to_Peers("")
+
+    go connector.Listen_to_Peers()
+
+	var commandMap map[string]interface{} = map[string]interface{}{
+		"print": myprint,
+	}
 
 	for {
 
@@ -34,33 +40,32 @@ func main() {
 
 		input, _ := reader.ReadString('\n')
 
-        if input == "\n"{
-            continue
-        }
+		if input == "\n" {
+			continue
+		}
 
-        input = strings.TrimSuffix(input, "\n")
+		input = strings.TrimSuffix(input, "\n")
 
 		if input[0] == '/' {
 
 			list := strings.Split(input[1:], " ")
 
-            function, ok := commandMap[list[0]]
+			function, ok := commandMap[list[0]]
 
-            if ok {
-                function.(func([]string))(list[1:])
-            }else {
-                fmt.Printf("\"%v\"; not a valid command!\n", list[0])
-            }
+			if ok {
+				function.(func([]string))(list[1:])
+			} else {
+				fmt.Printf("\"%v\"; not a valid command!\n", list[0])
+			}
 
-            continue
+			continue
 		}
 
-        if !is_in_Album {
-            fmt.Printf("Not associated with an album\n")
+		if !is_in_Album {
+			fmt.Printf("Not associated with an album\n")
 
-            continue
-        }
-
-        chat.SendToAll(clients_in_current_album, input)
+			continue
+		}
+        connector.Send_to_Peers(input)
 	}
 }

@@ -1,83 +1,75 @@
 package chat
 
 import (
+	// "log"
+	// "time"
+
 	"fmt"
-	"log"
-	"time"
 
 	"github.com/pebbe/zmq4"
 	zmq "github.com/pebbe/zmq4"
 )
 
 type ClientInfo struct {
-    Ip_Addres string
-    Port string
+	Ip_Addres string
+	Port      string
 }
 
-type ClientMap map[string]ClientInfo
-
-func Make_ClientMap() (ClientMap) {
-    return make(map[string]ClientInfo)
+type ConnectorInfo struct{
+    PeerMap map[string]ClientInfo
+    PubSocket *zmq4.Socket
+    SubSocket *zmq4.Socket
 }
 
-func AddTo_ClientMap(clientMap ClientMap, name string, ip string, port string){
-
-    var clientInfo ClientInfo
-    clientInfo.Ip_Addres = ip
-    clientInfo.Port = port
-
-    clientMap[name] = clientInfo
-}
-
-func Server(port string) {
-	zctx, _ := zmq.NewContext()
-
-	s, _ := zctx.NewSocket(zmq.REP)
-	s.Bind("tcp://*:" + port)
-
-	for {
-		// Wait for next request from client
-		msg, _ := s.Recv(0)
-		log.Printf("Received %s\n", msg)
-
-		// Do some 'work'
-		time.Sleep(time.Second * 1)
-
-		// Send reply back to client
-		s.Send("World", 0)
-	}
-}
-
-func client(ip string, port string) (*zmq4.Socket) {
+func Make_ConnectorInfo() ConnectorInfo {
 
 	zctx, _ := zmq.NewContext()
 
-	// Socket to talk to server
-	fmt.Printf("Connecting to the server...\n")
-	s, _ := zctx.NewSocket(zmq.REQ)
-	s.Connect("tcp://"+ip+":"+port)
+    pubSocket, _ := zctx.NewSocket(zmq.PUB)
+    subSocket, _ := zctx.NewSocket(zmq.SUB)
 
-    return s
+    var connectorInfo ConnectorInfo
 
-	// Do 10 requests, waiting each time for a response
-	// for i := 0; i < 10; i++ {
-	// 	fmt.Printf("Sending request %d...\n", i)
-	// 	s.Send("Hello", 0)
-	//
-	// 	msg, _ := s.Recv(0)
-	// 	fmt.Printf("Received reply %d [ %s ]\n", i, msg)
-	// }
+    connectorInfo.PeerMap = make(map[string]ClientInfo)
+    connectorInfo.PubSocket = pubSocket
+    connectorInfo.SubSocket = subSocket
+
+	return connectorInfo
 }
 
-func SendToAll(clients ClientMap, message string)  {
-    for name, clientInfo := range clients{
-    
+func (connectorInfo ConnectorInfo) Add_Peer (name string, ip string, port string) {
+
+	var clientInfo ClientInfo
+
+	clientInfo.Ip_Addres = ip
+	clientInfo.Port = port
+
+	connectorInfo.PeerMap[name] = clientInfo
+}
+
+func (connectorInfo ConnectorInfo) Start_Publish(port string){
+	connectorInfo.PubSocket.Bind("tcp://*:" + port)
+}
+
+func (connectorInfo ConnectorInfo) Connect_to_Peers (filter string){
+
+    for _, clientInfo := range connectorInfo.PeerMap{
+
         ip := clientInfo.Ip_Addres
         port := clientInfo.Port
 
-        socket := client(string(ip), port)
+        connectorInfo.SubSocket.Connect("tcp://" + ip + ":" + port)
+        connectorInfo.SubSocket.SetSubscribe(filter)
+    }
+}
 
-        socket.Send(string(name)+": "+message, 0)
+func (connectorInfo ConnectorInfo) Send_to_Peers(msg string) {
+    connectorInfo.PubSocket.Send(msg, 0)
+}
 
+func (connectorInfo ConnectorInfo) Listen_to_Peers() {
+    for {
+        msg, _ := connectorInfo.SubSocket.Recv(0)
+        fmt.Println(msg)
     }
 }
