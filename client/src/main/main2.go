@@ -16,13 +16,13 @@ func myprint(l []string) {
 
 func main() {
 
-	fmt.Println(os.Args[1])
+	fmt.Println("2222")
 
     is_in_Album := true
 
     connector := chat.Make_ConnectorInfo()
 
-    connector.Start_Publish(os.Args[1])
+    connector.Start_Publish("2222")
 
     connector.Add_Peer("Emanueldo Gonçalves Faria 1", "localhost", "1111")
     connector.Add_Peer("Emanueldo Gonçalves Faria 3", "localhost", "3333")
