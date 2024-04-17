@@ -18,15 +18,13 @@ func main() {
 
 	fmt.Println(os.Args[1])
 
-	var is_in_Album bool = true
+    is_in_Album := true
 
-	var connector chat.ConnectorInfo = chat.Make_ConnectorInfo()
+    connector := chat.Make_ConnectorInfo()
 
     connector.Start_Publish(os.Args[1])
 
-    connector.Add_Peer("Emanueldo Gonçalves Faria", "localhost", os.Args[2])
-
-    connector.Add_Peer("Emanueldo Gonçalves Faria da Costa", "localhost", os.Args[3])
+    // connector.Add_Peer("Emanueldo Gonçalves Faria", "localhost", os.Args[2])
 
     connector.Connect_to_Peers("")
 
@@ -68,6 +66,8 @@ func main() {
 
 			continue
 		}
+
+        fmt.Println(input)
         connector.Send_to_Peers(input)
 	}
 }
