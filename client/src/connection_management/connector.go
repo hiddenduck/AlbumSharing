@@ -2,7 +2,6 @@ package chat
 
 import (
 	"fmt"
-	"github.com/pebbe/zmq4"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -13,8 +12,8 @@ type ClientInfo struct {
 
 type ConnectorInfo struct{
     PeerMap map[string]ClientInfo
-    PubSocket *zmq4.Socket
-    SubSocket *zmq4.Socket
+    PubSocket *zmq.Socket
+    SubSocket *zmq.Socket
 }
 
 func Make_ConnectorInfo() ConnectorInfo {
