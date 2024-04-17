@@ -69,3 +69,7 @@ func (connectorInfo ConnectorInfo) Listen_to_Peers() {
         fmt.Println(msg)
     }
 }
+
+func (connectorInfo ConnectorInfo) Set_Subscribe(filter string) {
+    connectorInfo.SubSocket.SetSubscribe(filter)
+}
