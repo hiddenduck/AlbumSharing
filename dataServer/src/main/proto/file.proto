@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package file;
+
+option java_multiple_files = true;
+
+service File {
+  rpc Download(DownloadMessage) returns (stream FileMessage) {};
+  rpc Upload(stream FileMessage) returns (UploadMessage) {};
+}
+
+message DownloadMessage {
+  bytes hash_key = 1;
+}
+
+message UploadMessage {
+  string status = 1;
+}
+
+message FileMessage {
+  bytes key = 1;
+  bytes data = 2;
+}
+
+/*
+message FileMessage {
+
+  CommandType command = 1;
+  bytes key = 2;
+
+  message Data{
+    bytes bytes = 1;
+    bool end = 2;
+  }
+
+  optional Data data = 3;
+}
+
+enum CommandType {
+  I_WANT = 0;
+  I_HAVE = 1;
+}
+*/
