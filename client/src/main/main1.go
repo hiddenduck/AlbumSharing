@@ -24,7 +24,8 @@ func main() {
 
     connector.Start_Publish(os.Args[1])
 
-    // connector.Add_Peer("Emanueldo Gonçalves Faria", "localhost", os.Args[2])
+    connector.Add_Peer("Emanueldo Gonçalves Faria 2", "localhost", "2222")
+    connector.Add_Peer("Emanueldo Gonçalves Faria 3", "localhost", "3333")
 
     connector.Connect_to_Peers("")
 
