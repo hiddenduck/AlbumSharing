@@ -16,20 +16,17 @@ type ConnectorInfo struct{
     SubSocket *zmq.Socket
 }
 
-func Make_ConnectorInfo() ConnectorInfo {
+func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 
 	context, _ := zmq.NewContext()
 
     pubSocket, _ := context.NewSocket(zmq.PUB)
     subSocket, _ := context.NewSocket(zmq.SUB)
 
-    var connectorInfo ConnectorInfo
-
     connectorInfo.PeerMap = make(map[string]ClientInfo)
     connectorInfo.PubSocket = pubSocket
     connectorInfo.SubSocket = subSocket
-
-	return connectorInfo
+	return
 }
 
 func (connectorInfo ConnectorInfo) Add_Peer (name string, ip string, port string) {

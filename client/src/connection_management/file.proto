@@ -8,6 +8,8 @@ message CbCastMessage {
     
     uint32 Src = 1;
 
+
+
     repeated uint64 VersionVector = 2;
 
     bytes Data = 3;
