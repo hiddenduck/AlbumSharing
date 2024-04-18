@@ -40,7 +40,6 @@ def test_msg(src_msg, vv_msg, message):
                 changed.discard(dep)
         changed.add(src_msg)
         vv[src_msg] += 1
-        delivered.append(message)
         flag = True
     return flag
 

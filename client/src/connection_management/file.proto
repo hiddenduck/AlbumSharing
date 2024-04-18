@@ -6,13 +6,10 @@ option go_package = "cbCastProtobuf/";
 
 message CbCastMessage {
     
-    MessageType Type = 1;
+    uint32 Src = 1;
 
     repeated uint64 VersionVector = 2;
 
-    bytes data = 3;
+    bytes Data = 3;
 }
 
-enum MessageType {
-    FORWARD_MSG = 0;
-}

@@ -58,8 +58,8 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers (filter string){
     }
 }
 
-func (connectorInfo ConnectorInfo) Send_to_Peers(msg string) {
-    connectorInfo.PubSocket.Send(msg, 0)
+func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
+    connectorInfo.PubSocket.SendBytes(msg ,0)
 }
 
 func (connectorInfo ConnectorInfo) Listen_to_Peers() {
