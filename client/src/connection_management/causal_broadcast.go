@@ -9,7 +9,8 @@ import (
 type CausalBroadcastInfo struct {
 	self          uint32
 	connectorInfo ConnectorInfo
-	versionVector []uint64
+	versionVector map[uint32]uint64
+	changedNodes  map[uint32]uint64
 }
 
 func (causalBroadcastInfo CausalBroadcastInfo) CausalReceive() {
@@ -24,33 +25,52 @@ func (causalBroadcastInfo CausalBroadcastInfo) CausalReceive() {
 
 }
 
-func updateVersionVector(versionVector *[]uint64, self_versionVector *[]uint64) {
-	N := len(*self_versionVector)
-	*self_versionVector = append(*self_versionVector, (*versionVector)[N:]...)
-}
+func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *map[uint32]uint64) bool {
 
-func test_msg(src uint32, versionVector *[]uint64, self_versionVector *[]uint64, data []byte) bool {
+	flag := (*self_versionVector)[src] == ((*changedNodes)[src] + 1)
 
-	flag := (*versionVector)[src] == ((*self_versionVector)[src] + 1)
-
-	if !flag {
-		return flag
-	} else {
-        flag = true
-		for index := range *versionVector {
-			if uint32(index) == src {
+	if flag {
+		for node, version := range *changedNodes {
+			if node == src {
 				continue
 			}
-            flag = flag && ((*self_versionVector)[index] <= (*versionVector)[index])
+			if version <= (*self_versionVector)[node] {
+				flag = false
+				break
+			}
 		}
 	}
-    return flag
+	return flag
 }
 
-func unpack_msg(msg *pb.CbCastMessage) (src uint32, vv []uint64, data []byte) {
+func (causalBroadcastInfo CausalBroadcastInfo) update_versionVector(changedNodes *map[uint32]uint64) {
+
+    for node, version := range *changedNodes{
+
+        _, ok := causalBroadcastInfo.versionVector[node]
+
+        if !ok {
+            causalBroadcastInfo.versionVector[node] = version
+        }
+    }
+}
+
+func (causalBroadcastInfo CausalBroadcastInfo) update_state(changedNodes *map[uint32]uint64, src uint32) {
+
+	for node, version := range *changedNodes {
+		if (node != causalBroadcastInfo.self) && causalBroadcastInfo.versionVector[node] == version {
+			delete(causalBroadcastInfo.changedNodes, node)
+		}
+	}
+
+	causalBroadcastInfo.changedNodes[src] = causalBroadcastInfo.versionVector[src]
+	causalBroadcastInfo.versionVector[src] += 1
+}
+
+func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data []byte) {
 	//existe getters do protobuf, nao sei qual a melhor alternativa
 	src = msg.Src
-	vv = msg.VersionVector
+	ch = msg.ChangedNodes
 	data = msg.Data
 	return
 }
@@ -72,22 +92,26 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		proto.Unmarshal(bytes, &msg)
 
-		src, versionVector, data := unpack_msg(&msg)
+		src, changedNodes, data := unpack_msg(&msg)
 
-		if len(versionVector) > len(self_versionVector) {
-			updateVersionVector(&versionVector, &self_versionVector)
-		}
+        causalBroadcastInfo.update_versionVector(&changedNodes) 
 
-		if test_msg(src, &versionVector, &self_versionVector, data) {
+		if test_msg(src, &self_versionVector, &changedNodes) {
+
+			causalBroadcastInfo.update_state(&changedNodes, src)
 
 			ch <- data
 
 			for buffered_msg := range buffer {
 
-				src, versionVector, data = unpack_msg(buffered_msg)
+				src, changedNodes, data := unpack_msg(buffered_msg)
 
-				if test_msg(src, &versionVector, &self_versionVector, data) {
+				if test_msg(src, &self_versionVector, &changedNodes) {
+
+					causalBroadcastInfo.update_state(&changedNodes, src)
+
 					ch <- data
+
 					delete(buffer, &msg)
 				}
 			}
@@ -99,28 +123,31 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 }
 
-func InitCausalBroadCast() (causalBroadcastInfo CausalBroadcastInfo, self uint32) {
+func InitCausalBroadCast(self uint32) (causalBroadcastInfo CausalBroadcastInfo) {
 
 	connectorInfo := Make_ConnectorInfo()
 
+	changedNodes := make(map[uint32]uint64)
+
+	changedNodes[self] = uint64(0)
+
 	causalBroadcastInfo.connectorInfo = connectorInfo
-	causalBroadcastInfo.versionVector = []uint64{}
+	causalBroadcastInfo.versionVector = make(map[uint32]uint64)
 	causalBroadcastInfo.self = self
+	causalBroadcastInfo.changedNodes = changedNodes
 
 	return
 }
 
-func (causalBroadcastInfo CausalBroadcastInfo) CausalBroadcast(self uint32, msg []byte, versionVector []uint64) {
-
-	connector := causalBroadcastInfo.connectorInfo
+func (causalBroadcastInfo CausalBroadcastInfo) CausalBroadcast(self uint32, msg []byte) {
 
 	data := pb.CbCastMessage{
-		Src:           self,
-		VersionVector: versionVector,
-		Data:          msg,
+		Src:          self,
+		ChangedNodes: causalBroadcastInfo.changedNodes,
+		Data:         msg,
 	}
 
 	bytes, _ := proto.Marshal(&data)
 
-	connector.Send_to_Peers(bytes)
+	causalBroadcastInfo.connectorInfo.Send_to_Peers(bytes)
 }
