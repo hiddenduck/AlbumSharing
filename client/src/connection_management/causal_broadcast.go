@@ -1,16 +1,15 @@
 package connectionmanagement
 
 import (
-	"fmt" 
-    proto "google.golang.org/protobuf/proto"
+	"fmt"
+	proto "google.golang.org/protobuf/proto"
 	pb "main/connection_management/cbCastProtobuf"
 )
 
-type CausalBroadcastInfo struct{
-
-    self uint32
-    connectorInfo ConnectorInfo
-    versionVector []uint64
+type CausalBroadcastInfo struct {
+	self          uint32
+	connectorInfo ConnectorInfo
+	versionVector []uint64
 }
 
 func (causalBroadcastInfo CausalBroadcastInfo) CausalReceive() {
@@ -19,19 +18,33 @@ func (causalBroadcastInfo CausalBroadcastInfo) CausalReceive() {
 
 	go causalBroadcastInfo.fwd_message(ch)
 
-    for msg := range ch{
-        fmt.Println(string(msg))
-    }
+	for msg := range ch {
+		fmt.Println(string(msg))
+	}
 
 }
 
 func updateVersionVector(versionVector *[]uint64, self_versionVector *[]uint64) {
-    N := len(*self_versionVector)
-    *self_versionVector = append(*self_versionVector, (*versionVector)[N:]...)
+	N := len(*self_versionVector)
+	*self_versionVector = append(*self_versionVector, (*versionVector)[N:]...)
 }
 
 func test_msg(src uint32, versionVector *[]uint64, self_versionVector *[]uint64, data []byte) bool {
-    return false
+
+	flag := (*versionVector)[src] == ((*self_versionVector)[src] + 1)
+
+	if !flag {
+		return flag
+	} else {
+        flag = true
+		for index := range *versionVector {
+			if uint32(index) == src {
+				continue
+			}
+            flag = flag && ((*self_versionVector)[index] <= (*versionVector)[index])
+		}
+	}
+    return flag
 }
 
 func unpack_msg(msg *pb.CbCastMessage) (src uint32, vv []uint64, data []byte) {
@@ -44,9 +57,9 @@ func unpack_msg(msg *pb.CbCastMessage) (src uint32, vv []uint64, data []byte) {
 
 func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
-    connector := causalBroadcastInfo.connectorInfo
+	connector := causalBroadcastInfo.connectorInfo
 
-    self_versionVector := causalBroadcastInfo.versionVector
+	self_versionVector := causalBroadcastInfo.versionVector
 
 	//this is a set
 	var buffer = make(map[*pb.CbCastMessage]struct{}, 0)
@@ -61,9 +74,9 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		src, versionVector, data := unpack_msg(&msg)
 
-        if len(versionVector) > len(self_versionVector) {
-            updateVersionVector(&versionVector, &self_versionVector)
-        }
+		if len(versionVector) > len(self_versionVector) {
+			updateVersionVector(&versionVector, &self_versionVector)
+		}
 
 		if test_msg(src, &versionVector, &self_versionVector, data) {
 
@@ -86,20 +99,20 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 }
 
-func InitCausalBroadCast() (causalBroadcastInfo CausalBroadcastInfo, self uint32){
+func InitCausalBroadCast() (causalBroadcastInfo CausalBroadcastInfo, self uint32) {
 
-    connectorInfo := Make_ConnectorInfo()
+	connectorInfo := Make_ConnectorInfo()
 
-    causalBroadcastInfo.connectorInfo = connectorInfo
-    causalBroadcastInfo.versionVector = []uint64{}
-    causalBroadcastInfo.self = self
+	causalBroadcastInfo.connectorInfo = connectorInfo
+	causalBroadcastInfo.versionVector = []uint64{}
+	causalBroadcastInfo.self = self
 
-    return
+	return
 }
 
 func (causalBroadcastInfo CausalBroadcastInfo) CausalBroadcast(self uint32, msg []byte, versionVector []uint64) {
 
-    connector := causalBroadcastInfo.connectorInfo
+	connector := causalBroadcastInfo.connectorInfo
 
 	data := pb.CbCastMessage{
 		Src:           self,
