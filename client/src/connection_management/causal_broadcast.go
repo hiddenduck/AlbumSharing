@@ -13,11 +13,11 @@ type CausalBroadcastInfo struct{
     versionVector []uint64
 }
 
-func CausalReceive(connector ConnectorInfo) {
+func (causalBroadcastInfo CausalBroadcastInfo) CausalReceive() {
 
 	ch := make(chan []byte)
 
-	go fwd_message(connector, ch)
+	go causalBroadcastInfo.fwd_message(ch)
 
     for msg := range ch{
         fmt.Println(string(msg))
@@ -25,7 +25,12 @@ func CausalReceive(connector ConnectorInfo) {
 
 }
 
-func test_msg(src uint32, versionVector []uint64, data []byte) bool {
+func updateVersionVector(versionVector *[]uint64, self_versionVector *[]uint64) {
+    N := len(*self_versionVector)
+    *self_versionVector = append(*self_versionVector, (*versionVector)[N:]...)
+}
+
+func test_msg(src uint32, versionVector *[]uint64, self_versionVector *[]uint64, data []byte) bool {
     return false
 }
 
@@ -37,7 +42,11 @@ func unpack_msg(msg *pb.CbCastMessage) (src uint32, vv []uint64, data []byte) {
 	return
 }
 
-func fwd_message(connector ConnectorInfo, ch chan []byte) {
+func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
+
+    connector := causalBroadcastInfo.connectorInfo
+
+    self_versionVector := causalBroadcastInfo.versionVector
 
 	//this is a set
 	var buffer = make(map[*pb.CbCastMessage]struct{}, 0)
@@ -52,7 +61,11 @@ func fwd_message(connector ConnectorInfo, ch chan []byte) {
 
 		src, versionVector, data := unpack_msg(&msg)
 
-		if test_msg(src, versionVector, data) {
+        if len(versionVector) > len(self_versionVector) {
+            updateVersionVector(&versionVector, &self_versionVector)
+        }
+
+		if test_msg(src, &versionVector, &self_versionVector, data) {
 
 			ch <- data
 
@@ -60,7 +73,7 @@ func fwd_message(connector ConnectorInfo, ch chan []byte) {
 
 				src, versionVector, data = unpack_msg(buffered_msg)
 
-				if test_msg(src, versionVector, data) {
+				if test_msg(src, &versionVector, &self_versionVector, data) {
 					ch <- data
 					delete(buffer, &msg)
 				}
@@ -84,20 +97,9 @@ func InitCausalBroadCast() (causalBroadcastInfo CausalBroadcastInfo, self uint32
     return
 }
 
-func (causalBroadcastInfo CausalBroadcastInfo) AddCausalPeer(id uint32, name string, ip string, port string){
+func (causalBroadcastInfo CausalBroadcastInfo) CausalBroadcast(self uint32, msg []byte, versionVector []uint64) {
 
-    N := uint32(len(causalBroadcastInfo.versionVector))
-
-    if N == id {
-        causalBroadcastInfo.versionVector = append(causalBroadcastInfo.versionVector, 0)
-    }else if N < id {
-        panic("Bad, Bad, Bad")
-    }
-
-    causalBroadcastInfo.connectorInfo.Add_Peer(name, ip, port)
-}
-
-func CausalBroadcast(self uint32, connector ConnectorInfo, msg []byte, versionVector []uint64) {
+    connector := causalBroadcastInfo.connectorInfo
 
 	data := pb.CbCastMessage{
 		Src:           self,
