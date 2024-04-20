@@ -35,7 +35,8 @@ func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *m
 			if node == src {
 				continue
 			}
-			if version <= (*self_versionVector)[node] {
+			//TODO esta condição vai verificar-se sempre para nodos não existentes no mapa
+			if version > (*self_versionVector)[node] {
 				flag = -1
 				break
 			}
