@@ -94,8 +94,6 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		src, changedNodes, data := unpack_msg(&msg)
 
-        causalBroadcastInfo.update_versionVector(&changedNodes) 
-
 		if test_msg(src, &self_versionVector, &changedNodes) {
 
 			causalBroadcastInfo.update_state(&changedNodes, src)
@@ -110,7 +108,7 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 					causalBroadcastInfo.update_state(&changedNodes, src)
 
-					ch <- data
+					ch <- data //ele vai bloquear aqui devido a GO isto tem que ser tratado
 
 					delete(buffer, &msg)
 				}
@@ -119,6 +117,9 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 		} else {
 			buffer[&msg] = struct{}{}
 		}
+
+        causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
+
 	}
 
 }
