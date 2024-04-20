@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+// package file;
+
+option go_package = "cbCastProtobuf/";
+
+message CbCastMessage {
+    
+    uint32 Src = 1;
+
+    map<uint32, uint64> ChangedNodes = 2;
+
+    bytes Data = 3;
+}
+
