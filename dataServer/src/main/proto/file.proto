@@ -14,11 +14,11 @@ message DownloadMessage {
 }
 
 message UploadMessage {
-  string status = 1;
+  int64 lines = 1;
 }
 
 message FileMessage {
-  bytes key = 1;
+  bytes hash_key = 1;
   bytes data = 2;
 }
 
