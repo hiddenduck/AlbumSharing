@@ -25,17 +25,18 @@ func (causalBroadcastInfo CausalBroadcastInfo) CausalReceive() {
 
 }
 
-func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *map[uint32]uint64) bool {
+//Devolve 0 se funcionou, negativo se mensagem futura e positivo se mensagem passada
+func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *map[uint32]uint64) uint32 {
 
-	flag := (*self_versionVector)[src] == ((*changedNodes)[src] + 1)
+	flag := (*self_versionVector)[src] - ((*changedNodes)[src] + 1)
 
-	if flag {
+	if flag == 0 {
 		for node, version := range *changedNodes {
 			if node == src {
 				continue
 			}
 			if version <= (*self_versionVector)[node] {
-				flag = false
+				flag = -1
 				break
 			}
 		}
@@ -58,7 +59,7 @@ func (causalBroadcastInfo CausalBroadcastInfo) update_versionVector(changedNodes
 func (causalBroadcastInfo CausalBroadcastInfo) update_state(changedNodes *map[uint32]uint64, src uint32) {
 
 	for node, version := range *changedNodes {
-		if (node != causalBroadcastInfo.self) && causalBroadcastInfo.versionVector[node] == version {
+		if (node != causalBroadcastInfo.self) && (causalBroadcastInfo.versionVector[node] == version) {
 			delete(causalBroadcastInfo.changedNodes, node)
 		}
 	}
@@ -94,7 +95,9 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		src, changedNodes, data := unpack_msg(&msg)
 
-		if test_msg(src, &self_versionVector, &changedNodes) {
+		test := test_msg(src, &self_versionVector, &changedNodes)
+
+		if test == 0 {
 
 			causalBroadcastInfo.update_state(&changedNodes, src)
 
@@ -104,17 +107,21 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 				src, changedNodes, data := unpack_msg(buffered_msg)
 
-				if test_msg(src, &self_versionVector, &changedNodes) {
+				test := test_msg(src, &self_versionVector, &changedNodes)
+
+				if test == 0 {
 
 					causalBroadcastInfo.update_state(&changedNodes, src)
 
 					ch <- data //ele vai bloquear aqui devido a GO isto tem que ser tratado
 
 					delete(buffer, &msg)
+				} else if test > 0 {
+					delete(buffer, &msg)
 				}
 			}
 
-		} else {
+		} else if test < 0 {
 			buffer[&msg] = struct{}{}
 		}
 
