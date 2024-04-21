@@ -113,7 +113,10 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 					causalBroadcastInfo.update_state(&changedNodes, src)
 
-					ch <- data //ele vai bloquear aqui devido a GO isto tem que ser tratado
+					select {
+					case ch <- data:
+					default:
+					}
 
 					delete(buffer, &msg)
 				}
@@ -155,7 +158,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port 
 
 func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive() {
 
-	ch := make(chan []byte)
+	ch := make(chan []byte, 1024) //buffered channel for 1024 messages
 
 	context, _ := zmq.NewContext() //NOTE: vou deixar assim por agora mas os gajos do zeroMQ recomendam usar so um context
 
