@@ -68,6 +68,6 @@ func main() {
 		}
 
         fmt.Println(input)
-        connector.Send_to_Peers(input)
+        connector.Send_to_Peers([]byte(input))
 	}
 }

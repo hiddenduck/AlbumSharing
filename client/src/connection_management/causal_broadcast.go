@@ -2,62 +2,54 @@ package connectionmanagement
 
 import (
 	"fmt"
+	zmq "github.com/pebbe/zmq4"
 	proto "google.golang.org/protobuf/proto"
 	pb "main/connection_management/cbCastProtobuf"
+	"sync"
 )
 
 type CausalBroadcastInfo struct {
-	self          uint32
-	connectorInfo ConnectorInfo
-	versionVector map[uint32]uint64
-	changedNodes  map[uint32]uint64
+	mutex            sync.Mutex
+	hasVersionVector bool
+	self             uint32
+	connectorInfo    ConnectorInfo
+	versionVector    map[uint32]uint64
+	changedNodes     map[uint32]uint64
+	replySocket      *zmq.Socket
 }
 
-func (causalBroadcastInfo CausalBroadcastInfo) CausalReceive() {
+func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *map[uint32]uint64) (flag bool) {
 
-	ch := make(chan []byte)
+	flag = (*self_versionVector)[src] == ((*changedNodes)[src] + 1)
 
-	go causalBroadcastInfo.fwd_message(ch)
-
-	for msg := range ch {
-		fmt.Println(string(msg))
-	}
-
-}
-
-//Devolve 0 se funcionou, negativo se mensagem futura e positivo se mensagem passada
-func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *map[uint32]uint64) uint32 {
-
-	flag := (*self_versionVector)[src] - ((*changedNodes)[src] + 1)
-
-	if flag == 0 {
+	if flag {
 		for node, version := range *changedNodes {
 			if node == src {
 				continue
 			}
 			//TODO esta condição vai verificar-se sempre para nodos não existentes no mapa
 			if version > (*self_versionVector)[node] {
-				flag = -1
+				flag = false
 				break
 			}
 		}
 	}
-	return flag
+	return
 }
 
-func (causalBroadcastInfo CausalBroadcastInfo) update_versionVector(changedNodes *map[uint32]uint64) {
+func (causalBroadcastInfo *CausalBroadcastInfo) update_versionVector(changedNodes *map[uint32]uint64) {
 
-    for node, version := range *changedNodes{
+	for node, version := range *changedNodes {
 
-        _, ok := causalBroadcastInfo.versionVector[node]
+		_, ok := causalBroadcastInfo.versionVector[node]
 
-        if !ok {
-            causalBroadcastInfo.versionVector[node] = version
-        }
-    }
+		if !ok {
+			causalBroadcastInfo.versionVector[node] = version
+		}
+	}
 }
 
-func (causalBroadcastInfo CausalBroadcastInfo) update_state(changedNodes *map[uint32]uint64, src uint32) {
+func (causalBroadcastInfo *CausalBroadcastInfo) update_state(changedNodes *map[uint32]uint64, src uint32) {
 
 	for node, version := range *changedNodes {
 		if (node != causalBroadcastInfo.self) && (causalBroadcastInfo.versionVector[node] == version) {
@@ -77,7 +69,7 @@ func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data [
 	return
 }
 
-func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
+func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 	connector := causalBroadcastInfo.connectorInfo
 
@@ -92,13 +84,22 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		msg := pb.CbCastMessage{}
 
+		causalBroadcastInfo.mutex.Lock()
+
+		hasVersionVector := causalBroadcastInfo.hasVersionVector
+
+		defer causalBroadcastInfo.mutex.Unlock()
+
+		if hasVersionVector {
+			buffer[&msg] = struct{}{}
+			continue
+		}
+
 		proto.Unmarshal(bytes, &msg)
 
 		src, changedNodes, data := unpack_msg(&msg)
 
-		test := test_msg(src, &self_versionVector, &changedNodes)
-
-		if test == 0 {
+		if test_msg(src, &self_versionVector, &changedNodes) {
 
 			causalBroadcastInfo.update_state(&changedNodes, src)
 
@@ -108,31 +109,90 @@ func (causalBroadcastInfo CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 				src, changedNodes, data := unpack_msg(buffered_msg)
 
-				test := test_msg(src, &self_versionVector, &changedNodes)
-
-				if test == 0 {
+				if test_msg(src, &self_versionVector, &changedNodes) {
 
 					causalBroadcastInfo.update_state(&changedNodes, src)
 
 					ch <- data //ele vai bloquear aqui devido a GO isto tem que ser tratado
 
 					delete(buffer, &msg)
-				} else if test > 0 {
-					delete(buffer, &msg)
 				}
 			}
 
-		} else if test < 0 {
+		} else {
 			buffer[&msg] = struct{}{}
 		}
 
-        causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
+		// causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
 
 	}
 
 }
 
+func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port string) {
+
+	socket := causalBroadcastInfo.replySocket
+
+	socket.Bind("tcp://*:" + port)
+
+	for {
+		// Wait for next request from client
+		socket.Recv(0) //NOTE: ignoring messages, only here to block until someone wants it
+
+		//using protobuf, maybe uneccessary
+		data := pb.CbCastMessage{
+			Src:          causalBroadcastInfo.self,
+			ChangedNodes: causalBroadcastInfo.changedNodes,
+			Data:         make([]byte, 0),
+		}
+
+		bytes, _ := proto.Marshal(&data)
+
+		// Send reply back to client
+		socket.SendBytes(bytes, 0)
+	}
+}
+
+func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive() {
+
+	ch := make(chan []byte)
+
+	context, _ := zmq.NewContext() //NOTE: vou deixar assim por agora mas os gajos do zeroMQ recomendam usar so um context
+
+	requestSocket, _ := context.NewSocket(zmq.REQ)
+
+	requestSocket.Send("", 0) //This bitch better not block
+
+	go causalBroadcastInfo.fwd_message(ch)
+
+	bytes, _ := requestSocket.RecvBytes(0)
+
+	msg := pb.CbCastMessage{}
+
+	proto.Unmarshal(bytes, &msg)
+
+	_, versionVector, _ := unpack_msg(&msg)
+
+	causalBroadcastInfo.mutex.Lock()
+
+	causalBroadcastInfo.hasVersionVector = true
+
+	causalBroadcastInfo.versionVector = versionVector
+
+	defer causalBroadcastInfo.mutex.Unlock()
+
+	for msg := range ch {
+		fmt.Println(string(msg))
+	}
+
+}
+
 func InitCausalBroadCast(self uint32) (causalBroadcastInfo CausalBroadcastInfo) {
+
+	context, _ := zmq.NewContext() //NOTE: vou deixar assim por agora mas os gajos do zeroMQ recomendam usar so um context
+	//temos que ver depois como encapsular para ter so um context
+
+	replySocket, _ := context.NewSocket(zmq.REQ)
 
 	connectorInfo := Make_ConnectorInfo()
 
@@ -144,14 +204,15 @@ func InitCausalBroadCast(self uint32) (causalBroadcastInfo CausalBroadcastInfo) 
 	causalBroadcastInfo.versionVector = make(map[uint32]uint64)
 	causalBroadcastInfo.self = self
 	causalBroadcastInfo.changedNodes = changedNodes
+	causalBroadcastInfo.replySocket = replySocket
 
 	return
 }
 
-func (causalBroadcastInfo CausalBroadcastInfo) CausalBroadcast(self uint32, msg []byte) {
+func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
 	data := pb.CbCastMessage{
-		Src:          self,
+		Src:          causalBroadcastInfo.self,
 		ChangedNodes: causalBroadcastInfo.changedNodes,
 		Data:         msg,
 	}
