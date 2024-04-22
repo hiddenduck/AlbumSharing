@@ -10,6 +10,7 @@ import (
 )
 
 type CausalBroadcastInfo struct {
+	messageBuffer    map[*pb.CbCastMessage]struct{}
 	mutex            sync.Mutex
 	hasVersionVector bool
 	self             uint32
@@ -70,17 +71,15 @@ func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data [
 	return
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
+func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []byte) {
 
 	connector := causalBroadcastInfo.connectorInfo
 
-	self_versionVector := causalBroadcastInfo.versionVector
+	causalBroadcastInfo.messageBuffer = make(map[*pb.CbCastMessage]struct{}, 0)
 
-	//this is a set
-	var buffer = make(map[*pb.CbCastMessage]struct{}, 0)
+	buffer := causalBroadcastInfo.messageBuffer
 
 	for {
-
 		bytes, _ := connector.SubSocket.RecvBytes(0)
 
 		msg := pb.CbCastMessage{}
@@ -91,10 +90,73 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		defer causalBroadcastInfo.mutex.Unlock()
 
+		proto.Unmarshal(bytes, &msg)
+
+		buffer[&msg] = struct{}{}
+
 		if hasVersionVector {
-			buffer[&msg] = struct{}{}
-			continue
+			break
 		}
+
+	}
+
+	causalBroadcastInfo.test_buffer_messages(ch)
+	go causalBroadcastInfo.fwd_message(ch)
+}
+
+func (causalBroadcastInfo *CausalBroadcastInfo) test_buffer_messages(ch chan []byte) {
+
+	self_versionVector := causalBroadcastInfo.versionVector
+
+	buffer := causalBroadcastInfo.messageBuffer
+
+	flag_delivered_message := true
+
+	for flag_delivered_message {
+
+		flag_delivered_message = false
+
+		for buffered_msg := range buffer {
+
+			src, changedNodes, data := unpack_msg(buffered_msg)
+
+			if test_msg(src, &self_versionVector, &changedNodes) {
+
+				causalBroadcastInfo.update_state(&changedNodes, src)
+
+				select {
+				case ch <- data:
+				default:
+				}
+
+				delete(buffer, buffered_msg)
+
+				flag_delivered_message = true
+
+				break
+
+			} else if self_versionVector[src] > (changedNodes[src] + 1) {
+				//Test if the message is in the past of the last delivered message for that source
+				delete(buffer, buffered_msg)
+
+			}
+		}
+	}
+}
+
+func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
+
+	connector := causalBroadcastInfo.connectorInfo
+
+	self_versionVector := causalBroadcastInfo.versionVector
+
+	buffer := causalBroadcastInfo.messageBuffer
+
+	for {
+
+		bytes, _ := connector.SubSocket.RecvBytes(0)
+
+		msg := pb.CbCastMessage{}
 
 		proto.Unmarshal(bytes, &msg)
 
@@ -106,22 +168,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 			ch <- data
 
-			for buffered_msg := range buffer {
-
-				src, changedNodes, data := unpack_msg(buffered_msg)
-
-				if test_msg(src, &self_versionVector, &changedNodes) {
-
-					causalBroadcastInfo.update_state(&changedNodes, src)
-
-					select {
-					case ch <- data:
-					default:
-					}
-
-					delete(buffer, &msg)
-				}
-			}
+			causalBroadcastInfo.test_buffer_messages(ch)
 
 		} else {
 			buffer[&msg] = struct{}{}
@@ -165,7 +212,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive() {
 
 	requestSocket, _ := context.NewSocket(zmq.REQ)
 
-	go causalBroadcastInfo.fwd_message(ch)
+	go causalBroadcastInfo.buffer_messages_loop(ch)
 
 	requestSocket.Send("", 0) //This bitch blocks
 
