@@ -51,8 +51,8 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers(filter string) {
 		port := clientInfo.Port
 
 		connectorInfo.SubSocket.Connect("tcp://" + ip + ":" + port)
-		connectorInfo.SubSocket.SetSubscribe(filter)
 	}
+    connectorInfo.SubSocket.SetSubscribe(filter)
 }
 
 func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
