@@ -29,7 +29,8 @@ func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *m
 			if node == src {
 				continue
 			}
-			//TODO esta condição vai verificar-se sempre para nodos não existentes no mapa
+			//This condition will be verified for new nodes, as the map returns 0 by default
+			//This is fine, messages from new nodes will be received in order with no trouble, so we must wait for them
 			if version > (*self_versionVector)[node] {
 				flag = false
 				break
