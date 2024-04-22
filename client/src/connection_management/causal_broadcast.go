@@ -2,10 +2,11 @@ package connectionmanagement
 
 import (
 	"fmt"
-	zmq "github.com/pebbe/zmq4"
-	proto "google.golang.org/protobuf/proto"
 	pb "main/connection_management/cbCastProtobuf"
 	"sync"
+
+	zmq "github.com/pebbe/zmq4"
+	proto "google.golang.org/protobuf/proto"
 )
 
 type CausalBroadcastInfo struct {
@@ -164,9 +165,9 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive() {
 
 	requestSocket, _ := context.NewSocket(zmq.REQ)
 
-	requestSocket.Send("", 0) //This bitch better not block
-
 	go causalBroadcastInfo.fwd_message(ch)
+
+	requestSocket.Send("", 0) //This bitch better not block
 
 	bytes, _ := requestSocket.RecvBytes(0)
 
