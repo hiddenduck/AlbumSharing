@@ -167,7 +167,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive() {
 
 	go causalBroadcastInfo.fwd_message(ch)
 
-	requestSocket.Send("", 0) //This bitch better not block
+	requestSocket.Send("", 0) //This bitch blocks
 
 	bytes, _ := requestSocket.RecvBytes(0)
 
