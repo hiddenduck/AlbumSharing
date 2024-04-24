@@ -10,3 +10,4 @@ Technologies used in the project:
 
 *   Java
 *   Erlang
+*   Go
