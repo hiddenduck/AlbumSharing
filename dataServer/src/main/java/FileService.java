@@ -10,7 +10,11 @@ import java.io.*;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
 
-
+	/**
+     * Opens the file and create the stream.
+     * @param request Request message for download.
+     * @return Stream.
+     */
     private Flowable<String> openFileToStream(DownloadMessage request) {
         // Flowable using does 3 things:
         // 1: request a resource (BufferedReader)
@@ -23,7 +27,11 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         );
     }
 
-
+	/**
+     * Implements the service of file download.
+     * @param request Request message for download.
+     * @return Message Stream.
+     */
     @Override
     public Flowable<FileMessage> download(DownloadMessage request) {
         return openFileToStream(request)
@@ -31,19 +39,29 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 .map(n -> FileMessage.newBuilder().setHashKey(request.getHashKey()).setData(ByteString.copyFromUtf8(n)).build());
     }
 
+	/**
+     * Implements the service of file upload.
+     * @param request Message Stream.
+     * @return Single with confirmation message of the upload.
+     */
     public Single<UploadMessage> upload(Flowable<FileMessage> request) {
-        var r = request
+        var uploadResult = request
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
                     try (BufferedWriter writer = new BufferedWriter(new FileWriter(String.valueOf(message.getHashKey())))) {
                         writer.write(message.getData().toStringUtf8() + "\n");
+						// Flush the buffer to write data immediately (Perhaps redundant but it's good practice)
+						writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {
-                        return Flowable.error(e);
+                        // Log the error
+						logger.error("Error occurred during upload: " + e.getMessage());
+						// Notify client about the error
+						return Flowable.error(new RuntimeException("Failed to upload file."));
                     }
                 });
 
-        return r.firstOrError();
+        return uploadResult.firstOrError();
     }
 
 }
