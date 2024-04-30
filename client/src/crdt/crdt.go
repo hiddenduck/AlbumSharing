@@ -94,6 +94,16 @@ func (replica Replica) causalContextUnion(versionVector map[uint32]uint64) {
 func (replica *Replica) peerJoin(peerReplica Replica) {
 	newPeers := make(map[string]Nil)
 
+	// s & s'
+	for peer := range replica.Peers {
+		_, ok := peerReplica.Peers[peer]
+
+		if ok {
+			newPeers[peer] = Nil{}
+		}
+	}
+
+	// s | c'
 	for peer := range replica.Peers {
 		_, ok := peerReplica.Peers[peer]
 
@@ -102,6 +112,7 @@ func (replica *Replica) peerJoin(peerReplica Replica) {
 		}
 	}
 
+	// s' | c
 	for peer := range peerReplica.Peers {
 		_, ok := replica.Peers[peer]
 
@@ -114,7 +125,11 @@ func (replica *Replica) peerJoin(peerReplica Replica) {
 }
 
 func (replica *Replica) fileJoin(peerReplica Replica) {
+	newFiles := make(map[string]map[string]uint8)
 
+	for file := range replica.Files {
+
+	}
 }
 
 func (replica Replica) DSJoin(peerReplica Replica) {
