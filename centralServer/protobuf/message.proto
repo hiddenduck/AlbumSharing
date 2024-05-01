@@ -1,0 +1,44 @@
+syntax = "proto3"
+
+message registerLoginFormat {
+  string userName = 1;
+  string password = 2;
+}
+
+message album {
+  string albumName = 1;
+}
+
+message reply {
+  string status = 1;
+}
+
+message voteValue {
+  int64 sum   = 1;
+  int64 count = 2;
+}
+
+message sessionStart {
+  uint32 id = 1;
+  map<string, map<uint32, voteValue>> map_field = 2;
+  repeated string peers = 3;
+}
+
+message Message {
+  required Type type = 1;
+  oneof msg {
+    registerLoginFormat m1 = 2;
+    album               m2 = 3;
+  }
+}
+
+enum Type {
+  register = 0; // registerLoginFormat
+  login    = 1; // registerLoginFormat
+  logout   = 2; // <None>
+  create   = 3; // album
+  get      = 4; // album
+  send     = 5; // sessionStart
+  quit     = 6;
+  reply    = 7; // reply
+}
