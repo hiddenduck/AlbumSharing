@@ -18,17 +18,36 @@ message voteValue {
   int64 count = 2;
 }
 
+message voteMap {
+  map<uint32, voteValue> map = 1;
+}
+
+message peerInfo {
+  uint32 id   = 1;
+  string ip   = 2;
+  string port = 3;
+}
+
 message sessionStart {
-  uint32 id = 1;
-  map<string, map<uint32, voteValue>> map_field = 2;
-  repeated string peers = 3;
+  uint32 id                      = 1;
+  map<string, voteMap> map       = 2;
+  repeated string peers          = 3;
+  repeated peerInfo sessionPeers = 4;
+}
+
+message quitMessage {
+  map<string, voteMap> map = 1;
+  repeated string peers    = 2;
 }
 
 message Message {
-  required Type type = 1;
+  Type type = 1;
   oneof msg {
     registerLoginFormat m1 = 2;
     album               m2 = 3;
+    sessionStart        m3 = 4;
+    quitMessage         m4 = 5;
+    reply               m5 = 6;
   }
 }
 
@@ -39,6 +58,6 @@ enum Type {
   create   = 3; // album
   get      = 4; // album
   send     = 5; // sessionStart
-  quit     = 6;
+  quit     = 6; // quitMessage
   reply    = 7; // reply
 }
