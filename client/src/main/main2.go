@@ -20,12 +20,12 @@ func main() {
 
     connector := chat.Make_ConnectorInfo()
 
-    connector.SetIdentity(2)
+    connector.SetIdentity("PEER2")
 
     connector.BindSocket("2222")
 
-    connector.Add_Peer(1, "Emanueldo Gonçalves Faria 1", "localhost", "1111")
-    connector.Add_Peer(3, "Emanueldo Gonçalves Faria 3", "localhost", "3333")
+    connector.Add_Peer("PEER1", "Emanueldo Gonçalves Faria 1", "localhost", "1111")
+    connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
 
     connector.Connect_to_Peers()
 
