@@ -9,6 +9,11 @@ type VoteInfo struct {
 	Count int
 }
 
+func (voteInfo VoteInfo) joinInfos(peerVoteInfo VoteInfo) {
+	voteInfo.Sum = max(voteInfo.Sum, peerVoteInfo.Sum)
+	voteInfo.Count = max(voteInfo.Count, peerVoteInfo.Count)
+}
+
 func (voteInfo VoteInfo) incrementVote(classification int) {
 	voteInfo.Sum += classification
 	voteInfo.Count++
@@ -19,7 +24,7 @@ type Replica struct {
 	// DotMap<String, ORSet<(string, int)>>
 	// DotMap<String, GSet<(string, int)>> visto que nao se pode mudar o rating
 	// NEW idea: DotMap<String, GCounter<int,int>>
-	Files         map[string]map[int]VoteInfo
+	Files         map[string]map[uint32]VoteInfo
 	Peers         map[string]Nil
 	VersionVector map[uint32]uint64
 }
@@ -28,7 +33,7 @@ func (replica Replica) AddFile(fileName string, currentID uint32) bool {
 
 	_, ok := replica.Files[fileName]
 	if !ok {
-		replica.Files[fileName] = make(map[int]VoteInfo)
+		replica.Files[fileName] = make(map[uint32]VoteInfo)
 		replica.VersionVector[currentID]++
 	}
 
@@ -71,19 +76,15 @@ func (replica Replica) RemoveUser(userName string) (ok bool) {
 	return
 }
 
-func (replica Replica) AddUserClassification(fileName string, userName string, classification uint8, currentID uint32) (fileExists bool, classificationAlreadyExists bool) {
-	fileInfo, fileExists := replica.Files[fileName]
+func (replica Replica) AddUserClassification(fileName string, classification int, currentID uint32, voteTable map[string]bool) (fileExists bool, canVote bool) {
+	voteMap, fileExists := replica.Files[fileName]
+	canVote = voteTable[fileName]
 
-	if !fileExists {
+	if !fileExists || !canVote {
 		return
 	}
 
-	_, classificationAlreadyExists = fileInfo[userName]
-
-	if !classificationAlreadyExists {
-		fileInfo[userName] = classification
-		replica.VersionVector[currentID]++
-	}
+	voteMap[currentID].incrementVote(classification)
 
 	return
 }
@@ -134,12 +135,68 @@ func (replica *Replica) peerJoin(peerReplica Replica) {
 	replica.Peers = newPeers
 }
 
+func joinInfoMaps(infoMap map[uint32]VoteInfo, peerInfoMap map[uint32]VoteInfo) (newInfoMap map[uint32]VoteInfo) {
+
+	newInfoMap = make(map[uint32]VoteInfo)
+
+	for id := range infoMap {
+		newInfoMap[id] = infoMap[id]
+
+		info, ok := peerInfoMap[id]
+
+		if ok {
+			newInfoMap[id].joinInfos(info)
+		}
+	}
+
+	for id := range peerInfoMap {
+
+		_, exist := newInfoMap[id]
+
+		if !exist {
+
+			newInfoMap[id] = peerInfoMap[id]
+
+			info, ok := infoMap[id]
+
+			if ok {
+				newInfoMap[id].joinInfos(info)
+			}
+		}
+	}
+
+	return
+}
+
 func (replica *Replica) fileJoin(peerReplica Replica) {
-	newFiles := make(map[string]map[string]uint8)
+	newFiles := make(map[string]map[uint32]VoteInfo)
+
+	for file := range peerReplica.Files {
+		_, ok := replica.Files[file]
+
+		if ok {
+			newFiles[file] = joinInfoMaps(replica.Files[file], peerReplica.Files[file])
+		} else {
+			newFiles[file] = peerReplica.Files[file]
+		}
+	}
 
 	for file := range replica.Files {
+		_, ok := newFiles[file]
 
+		if !ok {
+			_, ok = peerReplica.Files[file]
+
+			if ok {
+
+				newFiles[file] = joinInfoMaps(replica.Files[file], peerReplica.Files[file])
+			} else {
+				newFiles[file] = replica.Files[file]
+			}
+		}
 	}
+
+	replica.Files = newFiles
 }
 
 func (replica Replica) DSJoin(peerReplica Replica) {
