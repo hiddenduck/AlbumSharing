@@ -4,11 +4,22 @@ import "fmt"
 
 type Nil struct{}
 
+type VoteInfo struct {
+	Sum   int
+	Count int
+}
+
+func (voteInfo VoteInfo) incrementVote(classification int) {
+	voteInfo.Sum += classification
+	voteInfo.Count++
+}
+
 type Replica struct {
 	// filename -> {userName -> rating}
 	// DotMap<String, ORSet<(string, int)>>
 	// DotMap<String, GSet<(string, int)>> visto que nao se pode mudar o rating
-	Files         map[string]map[string]uint8
+	// NEW idea: DotMap<String, GCounter<int,int>>
+	Files         map[string]map[int]VoteInfo
 	Peers         map[string]Nil
 	VersionVector map[uint32]uint64
 }
@@ -17,9 +28,8 @@ func (replica Replica) AddFile(fileName string, currentID uint32) bool {
 
 	_, ok := replica.Files[fileName]
 	if !ok {
-		replica.Files[fileName] = make(map[string]uint8)
+		replica.Files[fileName] = make(map[int]VoteInfo)
 		replica.VersionVector[currentID]++
-		//TODO: talk with data server
 	}
 
 	return !ok
