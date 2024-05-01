@@ -81,7 +81,11 @@ func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []b
 	buffer := causalBroadcastInfo.messageBuffer
 
 	for {
-		bytes, _ := connector.SubSocket.RecvBytes(0)
+        //TODO this only receives message part
+		parts, _ := connector.RouterSocket.RecvMessageBytes(0)
+
+        bytes := parts[2]
+        //NOTE this os hacky, three parts will always be sent, id, delimiter, data
 
 		msg := pb.CbCastMessage{}
 
@@ -155,7 +159,10 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 	for {
 
-		bytes, _ := connector.SubSocket.RecvBytes(0)
+		parts, _ := connector.RouterSocket.RecvMessageBytes(0)
+
+        bytes := parts[2]
+        //NOTE this os hacky, three parts will always be sent, id, delimiter, data
 
 		msg := pb.CbCastMessage{}
 

@@ -8,64 +8,75 @@ import (
 type ClientInfo struct {
 	Ip_Addres string
 	Port      string
+	Id        string
 }
 
 type ConnectorInfo struct {
-	PeerMap     map[string]ClientInfo
-	PubSocket   *zmq.Socket
-	SubSocket   *zmq.Socket
+	PeerMap      map[string]ClientInfo
+	RouterSocket *zmq.Socket
 }
 
 func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 
 	context, _ := zmq.NewContext()
 
-	pubSocket, _ := context.NewSocket(zmq.PUB)
-	subSocket, _ := context.NewSocket(zmq.SUB)
+	routerSocket, _ := context.NewSocket(zmq.ROUTER)
 
 	connectorInfo.PeerMap = make(map[string]ClientInfo)
-	connectorInfo.PubSocket = pubSocket
-	connectorInfo.SubSocket = subSocket
+	connectorInfo.RouterSocket = routerSocket
 	return
 }
 
-func (connectorInfo ConnectorInfo) Add_Peer(name string, ip string, port string) {
+func (connectorInfo ConnectorInfo) Add_Peer(id uint32, name string, ip string, port string) {
 
-	var clientInfo ClientInfo
-
-	clientInfo.Ip_Addres = ip
-	clientInfo.Port = port
+    clientInfo := ClientInfo{
+        Ip_Addres: ip,
+        Port: port,
+        Id: string(id),
+    }
 
 	connectorInfo.PeerMap[name] = clientInfo
 }
 
-func (connectorInfo ConnectorInfo) Start_Publish(port string) {
-	connectorInfo.PubSocket.Bind("tcp://*:" + port)
+//NOTE: isto tem que ser feito antes do bind e dos connects
+func (connectorInfo ConnectorInfo) SetIdentity(self_id uint32) {
+    connectorInfo.RouterSocket.SetIdentity(string(self_id))
 }
 
-func (connectorInfo ConnectorInfo) Connect_to_Peers(filter string) {
+func (connectorInfo ConnectorInfo) BindSocket( port string) {
+	connectorInfo.RouterSocket.Bind("tcp://*:" + port)
+}
+
+func (connectorInfo ConnectorInfo) Connect_to_Peers() {
 
 	for _, clientInfo := range connectorInfo.PeerMap {
 
 		ip := clientInfo.Ip_Addres
 		port := clientInfo.Port
 
-		connectorInfo.SubSocket.Connect("tcp://" + ip + ":" + port)
+		connectorInfo.RouterSocket.Connect("tcp://" + ip + ":" + port)
 	}
-    connectorInfo.SubSocket.SetSubscribe(filter)
 }
 
 func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
-	connectorInfo.PubSocket.SendBytes(msg, 0)
+
+	for _, clientInfo := range connectorInfo.PeerMap {
+
+        id := clientInfo.Id
+
+        connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
+        connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
+        connectorInfo.RouterSocket.SendBytes(msg, 0)
+    }
+
 }
 
 func (connectorInfo ConnectorInfo) Listen_to_Peers() {
 	for {
-		msg, _ := connectorInfo.SubSocket.Recv(0)
-		fmt.Println(msg)
+		msg, _ := connectorInfo.RouterSocket.RecvMessage(0)
+        for i, x := range msg {
+            fmt.Printf("frame %v: %v\n", i, x)
+        }
 	}
 }
 
-func (connectorInfo ConnectorInfo) Set_Subscribe(filter string) {
-	connectorInfo.SubSocket.SetSubscribe(filter)
-}
