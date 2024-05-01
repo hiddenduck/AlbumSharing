@@ -75,7 +75,7 @@ func (connectorInfo ConnectorInfo) Listen_to_Peers() {
 	for {
 		msg, _ := connectorInfo.RouterSocket.RecvMessage(0)
         for i, x := range msg {
-            fmt.Printf("frame %v: %v", i, x)
+            fmt.Printf("frame %v: %v\n", i, x)
         }
 	}
 }
