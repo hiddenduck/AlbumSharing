@@ -1,0 +1,3 @@
+[submodule "centralServer/src/gpb"]
+	path = centralServer/src/gpb
+	url = https://github.com/tomas-abrahamsson/gpb.git
