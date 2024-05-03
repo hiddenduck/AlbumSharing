@@ -67,5 +67,6 @@ handler({get_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
 mainLoop(State) ->
     receive
         {Msg, From} ->
+            io:format("~p~n", [Msg]),
             mainLoop(handler(Msg, State, From))
     end.

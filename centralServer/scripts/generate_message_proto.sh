@@ -11,3 +11,5 @@ cd ../proto_generated
 mv ../../protobuf/message.erl ../../protobuf/message.hrl .
 
 erlc -I../gpb/include message.erl
+
+mv message.beam ../

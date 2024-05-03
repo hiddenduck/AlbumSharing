@@ -1,6 +1,7 @@
 -module(user_logic).
 -export([user/2]).
 -define(ACTIVE_TIMES, 10).
+-include("proto_generated/message.hrl").
 
 % Authenticated
 
@@ -42,17 +43,13 @@ auth_user(Sock, MainLoop) ->
 
 
 % Before Authentication
+message_handler(register, {m1, #registerLoginFormat{userName = UserName, password = Password}}, Sock, MainLoop) ->
+    MainLoop ! {{register, {UserName, Password}}, self()},
+    user(Sock, MainLoop);
 
-user_handler({tcp, _, Msg}, Sock, MainLoop)->
-    io:format("~p~n", [Msg]),
-    case string:split(Msg, ":", all) of
-        [Action, UserName, Password] when Action =:= "register"; Action =:= "login"->
-            MainLoop ! {{list_to_atom(Action), {UserName, lists:droplast(Password)}}, self()},
-            user(Sock, MainLoop);
-
-        _ ->
-            gen_tcp:send(Sock, "Incorrect Format\n")
-    end;
+message_handler(login, #registerLoginFormat{userName = UserName, password = Password}, Sock, MainLoop) ->
+    MainLoop ! {{login, {UserName, Password}}, self()},
+    user(Sock, MainLoop).
 
 user_handler({login_ok, MainLoop}, Sock, MainLoop) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
@@ -61,7 +58,13 @@ user_handler({login_ok, MainLoop}, Sock, MainLoop) ->
 
 user_handler({register_ok, MainLoop}, Sock, MainLoop) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-    gen_tcp:send(Sock, atom_to_list(register_ok)++"\n"),
+    Data = message:encode_msg(#'Message'{
+        type=0,
+        msg={m1, #registerLoginFormat{
+            userName = "status"
+        }}
+    }),
+    gen_tcp:send(Sock, Data),
     user(Sock, MainLoop);
 
 user_handler(_, Sock, MainLoop) ->
@@ -72,5 +75,9 @@ user(Sock, MainLoop) ->
         {TCP_Info, _} when TCP_Info =:= tcp_closed;TCP_Info =:= tcp_error ->
             MainLoop ! {{log_out}, self()};
         
+        {tcp, _, Msg} ->
+            Message = message:decode_msg(Msg, 'Message'),
+            message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop);
+
         Msg -> user_handler(Msg, Sock, MainLoop)
     end.
