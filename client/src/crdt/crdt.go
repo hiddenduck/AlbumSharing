@@ -4,6 +4,13 @@ import "fmt"
 
 type Nil struct{}
 
+type DotPair struct {
+	Id      uint32
+	Version uint64
+}
+
+type DotSet map[DotPair]bool
+
 type VoteInfo struct {
 	Sum   int
 	Count int
@@ -19,9 +26,13 @@ func (voteInfo VoteInfo) incrementVote(classification int) {
 	voteInfo.Count++
 }
 
-type DotPair struct {
-	Id      uint32
-	Version uint64
+type FileInfo struct {
+	Votes  map[uint32]VoteInfo
+	DotSet DotSet
+}
+
+type GroupInfo struct {
+	DotSet DotSet
 }
 
 type Replica struct {
@@ -29,8 +40,8 @@ type Replica struct {
 	// DotMap<String, ORSet<(string, int)>>
 	// DotMap<String, GSet<(string, int)>> visto que nao se pode mudar o rating
 	// NEW idea: DotMap<String, GCounter<int,int>>
-	Files         map[string]map[uint32]VoteInfo
-	GroupUsers    map[string][]DotPair
+	Files         map[string]FileInfo
+	GroupUsers    map[string]GroupInfo
 	VersionVector map[uint32]uint64
 }
 
@@ -38,8 +49,9 @@ func (replica Replica) AddFile(fileName string, currentID uint32) bool {
 
 	_, ok := replica.Files[fileName]
 	if !ok {
-		replica.Files[fileName] = make(map[uint32]VoteInfo)
 		replica.VersionVector[currentID]++
+		replica.Files[fileName] = FileInfo{make(map[uint32]VoteInfo), make(DotSet)}
+		replica.Files[fileName].DotSet[DotPair{currentID, replica.VersionVector[currentID]}] = true
 	}
 
 	return !ok
@@ -65,8 +77,9 @@ func (replica Replica) AddUser(userName string, currentID uint32) bool {
 
 	_, ok := replica.GroupUsers[userName]
 	if !ok {
-		replica.GroupUsers[userName] = Nil{}
 		replica.VersionVector[currentID]++
+		replica.GroupUsers[userName] = GroupInfo{make(DotSet)}
+		replica.GroupUsers[userName].DotSet[DotPair{currentID, replica.VersionVector[currentID]}] = true
 	}
 
 	return !ok
