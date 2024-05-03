@@ -23,9 +23,9 @@
         }).
 -endif.
 
--ifndef('REPLY_PB_H').
--define('REPLY_PB_H', true).
--record(reply,
+-ifndef('REPLY_MESSAGE_PB_H').
+-define('REPLY_MESSAGE_PB_H', true).
+-record(reply_message,
         {status = []            :: unicode:chardata() | undefined % = 1, optional
         }).
 -endif.
@@ -76,7 +76,7 @@
 -define('MESSAGE_PB_H', true).
 -record('Message',
         {type = register        :: register | login | logout | create | get | send | quit | reply | integer() | undefined, % = 1, optional, enum Type
-         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply()} | undefined % oneof
+         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | undefined % oneof
         }).
 -endif.
 

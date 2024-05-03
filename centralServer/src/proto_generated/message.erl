@@ -60,7 +60,7 @@
 
 -type album() :: #album{}.
 
--type reply() :: #reply{}.
+-type reply_message() :: #reply_message{}.
 
 -type voteValue() :: #voteValue{}.
 
@@ -74,9 +74,9 @@
 
 -type 'Message'() :: #'Message'{}.
 
--export_type(['registerLoginFormat'/0, 'album'/0, 'reply'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
--type '$msg_name'() :: registerLoginFormat | album | reply | voteValue | voteMap | peerInfo | sessionStart | quitMessage | 'Message'.
--type '$msg'() :: registerLoginFormat() | album() | reply() | voteValue() | voteMap() | peerInfo() | sessionStart() | quitMessage() | 'Message'().
+-export_type(['registerLoginFormat'/0, 'album'/0, 'reply_message'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
+-type '$msg_name'() :: registerLoginFormat | album | reply_message | voteValue | voteMap | peerInfo | sessionStart | quitMessage | 'Message'.
+-type '$msg'() :: registerLoginFormat() | album() | reply_message() | voteValue() | voteMap() | peerInfo() | sessionStart() | quitMessage() | 'Message'().
 -export_type(['$msg_name'/0, '$msg'/0]).
 
 -record('map<uint32,voteValue>',{key, value}).
@@ -107,7 +107,7 @@ encode_msg(Msg, MsgName, Opts) ->
     case MsgName of
         registerLoginFormat -> encode_msg_registerLoginFormat(id(Msg, TrUserData), TrUserData);
         album -> encode_msg_album(id(Msg, TrUserData), TrUserData);
-        reply -> encode_msg_reply(id(Msg, TrUserData), TrUserData);
+        reply_message -> encode_msg_reply_message(id(Msg, TrUserData), TrUserData);
         voteValue -> encode_msg_voteValue(id(Msg, TrUserData), TrUserData);
         voteMap -> encode_msg_voteMap(id(Msg, TrUserData), TrUserData);
         peerInfo -> encode_msg_peerInfo(id(Msg, TrUserData), TrUserData);
@@ -157,10 +157,10 @@ encode_msg_album(#album{albumName = F1}, Bin, TrUserData) ->
            end
     end.
 
-encode_msg_reply(Msg, TrUserData) -> encode_msg_reply(Msg, <<>>, TrUserData).
+encode_msg_reply_message(Msg, TrUserData) -> encode_msg_reply_message(Msg, <<>>, TrUserData).
 
 
-encode_msg_reply(#reply{status = F1}, Bin, TrUserData) ->
+encode_msg_reply_message(#reply_message{status = F1}, Bin, TrUserData) ->
     if F1 == undefined -> Bin;
        true ->
            begin
@@ -390,7 +390,7 @@ e_mfield_Message_m4(Msg, Bin, TrUserData) ->
     <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_Message_m5(Msg, Bin, TrUserData) ->
-    SubBin = encode_msg_reply(Msg, <<>>, TrUserData),
+    SubBin = encode_msg_reply_message(Msg, <<>>, TrUserData),
     Bin2 = e_varint(byte_size(SubBin), Bin),
     <<Bin2/binary, SubBin/binary>>.
 
@@ -562,7 +562,7 @@ decode_msg_1_catch(Bin, MsgName, TrUserData) ->
 
 decode_msg_2_doit(registerLoginFormat, Bin, TrUserData) -> id(decode_msg_registerLoginFormat(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(album, Bin, TrUserData) -> id(decode_msg_album(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(reply, Bin, TrUserData) -> id(decode_msg_reply(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(reply_message, Bin, TrUserData) -> id(decode_msg_reply_message(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(voteValue, Bin, TrUserData) -> id(decode_msg_voteValue(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(voteMap, Bin, TrUserData) -> id(decode_msg_voteMap(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(peerInfo, Bin, TrUserData) -> id(decode_msg_peerInfo(Bin, TrUserData), TrUserData);
@@ -667,49 +667,49 @@ skip_32_album(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_fi
 
 skip_64_album(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_album(Rest, Z1, Z2, F, F@_1, TrUserData).
 
-decode_msg_reply(Bin, TrUserData) -> dfp_read_field_def_reply(Bin, 0, 0, 0, id([], TrUserData), TrUserData).
+decode_msg_reply_message(Bin, TrUserData) -> dfp_read_field_def_reply_message(Bin, 0, 0, 0, id([], TrUserData), TrUserData).
 
-dfp_read_field_def_reply(<<10, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> d_field_reply_status(Rest, Z1, Z2, F, F@_1, TrUserData);
-dfp_read_field_def_reply(<<>>, 0, 0, _, F@_1, _) -> #reply{status = F@_1};
-dfp_read_field_def_reply(Other, Z1, Z2, F, F@_1, TrUserData) -> dg_read_field_def_reply(Other, Z1, Z2, F, F@_1, TrUserData).
+dfp_read_field_def_reply_message(<<10, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> d_field_reply_message_status(Rest, Z1, Z2, F, F@_1, TrUserData);
+dfp_read_field_def_reply_message(<<>>, 0, 0, _, F@_1, _) -> #reply_message{status = F@_1};
+dfp_read_field_def_reply_message(Other, Z1, Z2, F, F@_1, TrUserData) -> dg_read_field_def_reply_message(Other, Z1, Z2, F, F@_1, TrUserData).
 
-dg_read_field_def_reply(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_reply(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-dg_read_field_def_reply(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, TrUserData) ->
+dg_read_field_def_reply_message(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_reply_message(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
+dg_read_field_def_reply_message(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_reply_status(Rest, 0, 0, 0, F@_1, TrUserData);
+        10 -> d_field_reply_message_status(Rest, 0, 0, 0, F@_1, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                1 -> skip_64_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                2 -> skip_length_delimited_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                3 -> skip_group_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                5 -> skip_32_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData)
+                0 -> skip_varint_reply_message(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
+                1 -> skip_64_reply_message(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
+                2 -> skip_length_delimited_reply_message(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
+                3 -> skip_group_reply_message(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
+                5 -> skip_32_reply_message(Rest, 0, 0, Key bsr 3, F@_1, TrUserData)
             end
     end;
-dg_read_field_def_reply(<<>>, 0, 0, _, F@_1, _) -> #reply{status = F@_1}.
+dg_read_field_def_reply_message(<<>>, 0, 0, _, F@_1, _) -> #reply_message{status = F@_1}.
 
-d_field_reply_status(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> d_field_reply_status(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-d_field_reply_status(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, TrUserData) ->
+d_field_reply_message_status(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> d_field_reply_message_status(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
+d_field_reply_message_status(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_reply(RestF, 0, 0, F, NewFValue, TrUserData).
+    dfp_read_field_def_reply_message(RestF, 0, 0, F, NewFValue, TrUserData).
 
-skip_varint_reply(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> skip_varint_reply(Rest, Z1, Z2, F, F@_1, TrUserData);
-skip_varint_reply(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_reply(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_varint_reply_message(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> skip_varint_reply_message(Rest, Z1, Z2, F, F@_1, TrUserData);
+skip_varint_reply_message(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_reply_message(Rest, Z1, Z2, F, F@_1, TrUserData).
 
-skip_length_delimited_reply(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> skip_length_delimited_reply(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-skip_length_delimited_reply(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) ->
+skip_length_delimited_reply_message(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> skip_length_delimited_reply_message(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
+skip_length_delimited_reply_message(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_reply(Rest2, 0, 0, F, F@_1, TrUserData).
+    dfp_read_field_def_reply_message(Rest2, 0, 0, F, F@_1, TrUserData).
 
-skip_group_reply(Bin, _, Z2, FNum, F@_1, TrUserData) ->
+skip_group_reply_message(Bin, _, Z2, FNum, F@_1, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_reply(Rest, 0, Z2, FNum, F@_1, TrUserData).
+    dfp_read_field_def_reply_message(Rest, 0, Z2, FNum, F@_1, TrUserData).
 
-skip_32_reply(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_reply(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_32_reply_message(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_reply_message(Rest, Z1, Z2, F, F@_1, TrUserData).
 
-skip_64_reply(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_reply(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_64_reply_message(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_reply_message(Rest, Z1, Z2, F, F@_1, TrUserData).
 
 decode_msg_voteValue(Bin, TrUserData) -> dfp_read_field_def_voteValue(Bin, 0, 0, 0, id(0, TrUserData), id(0, TrUserData), TrUserData).
 
@@ -1081,7 +1081,7 @@ d_field_Message_m4(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData)
 
 d_field_Message_m5(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_Message_m5(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
 d_field_Message_m5(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_reply(Bs, TrUserData), TrUserData), Rest2} end,
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_reply_message(Bs, TrUserData), TrUserData), Rest2} end,
     dfp_read_field_def_Message(RestF,
                                0,
                                0,
@@ -1089,7 +1089,7 @@ d_field_Message_m5(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData)
                                F@_1,
                                case Prev of
                                    undefined -> id({m5, NewFValue}, TrUserData);
-                                   {m5, MVPrev} -> id({m5, merge_msg_reply(MVPrev, NewFValue, TrUserData)}, TrUserData);
+                                   {m5, MVPrev} -> id({m5, merge_msg_reply_message(MVPrev, NewFValue, TrUserData)}, TrUserData);
                                    _ -> id({m5, NewFValue}, TrUserData)
                                end,
                                TrUserData).
@@ -1307,7 +1307,7 @@ merge_msgs(Prev, New, MsgName, Opts) ->
     case MsgName of
         registerLoginFormat -> merge_msg_registerLoginFormat(Prev, New, TrUserData);
         album -> merge_msg_album(Prev, New, TrUserData);
-        reply -> merge_msg_reply(Prev, New, TrUserData);
+        reply_message -> merge_msg_reply_message(Prev, New, TrUserData);
         voteValue -> merge_msg_voteValue(Prev, New, TrUserData);
         voteMap -> merge_msg_voteMap(Prev, New, TrUserData);
         peerInfo -> merge_msg_peerInfo(Prev, New, TrUserData);
@@ -1334,12 +1334,12 @@ merge_msg_album(#album{albumName = PFalbumName}, #album{albumName = NFalbumName}
                   true -> NFalbumName
                end}.
 
--compile({nowarn_unused_function,merge_msg_reply/3}).
-merge_msg_reply(#reply{status = PFstatus}, #reply{status = NFstatus}, _) ->
-    #reply{status =
-               if NFstatus =:= undefined -> PFstatus;
-                  true -> NFstatus
-               end}.
+-compile({nowarn_unused_function,merge_msg_reply_message/3}).
+merge_msg_reply_message(#reply_message{status = PFstatus}, #reply_message{status = NFstatus}, _) ->
+    #reply_message{status =
+                       if NFstatus =:= undefined -> PFstatus;
+                          true -> NFstatus
+                       end}.
 
 -compile({nowarn_unused_function,merge_msg_voteValue/3}).
 merge_msg_voteValue(#voteValue{sum = PFsum, count = PFcount}, #voteValue{sum = NFsum, count = NFcount}, _) ->
@@ -1422,7 +1422,7 @@ merge_msg_Message(#'Message'{type = PFtype, msg = PFmsg}, #'Message'{type = NFty
                        {{m2, OPFmsg}, {m2, ONFmsg}} -> {m2, merge_msg_album(OPFmsg, ONFmsg, TrUserData)};
                        {{m3, OPFmsg}, {m3, ONFmsg}} -> {m3, merge_msg_sessionStart(OPFmsg, ONFmsg, TrUserData)};
                        {{m4, OPFmsg}, {m4, ONFmsg}} -> {m4, merge_msg_quitMessage(OPFmsg, ONFmsg, TrUserData)};
-                       {{m5, OPFmsg}, {m5, ONFmsg}} -> {m5, merge_msg_reply(OPFmsg, ONFmsg, TrUserData)};
+                       {{m5, OPFmsg}, {m5, ONFmsg}} -> {m5, merge_msg_reply_message(OPFmsg, ONFmsg, TrUserData)};
                        {_, undefined} -> PFmsg;
                        _ -> NFmsg
                    end}.
@@ -1440,7 +1440,7 @@ verify_msg(Msg, MsgName, Opts) ->
     case MsgName of
         registerLoginFormat -> v_msg_registerLoginFormat(Msg, [MsgName], TrUserData);
         album -> v_msg_album(Msg, [MsgName], TrUserData);
-        reply -> v_msg_reply(Msg, [MsgName], TrUserData);
+        reply_message -> v_msg_reply_message(Msg, [MsgName], TrUserData);
         voteValue -> v_msg_voteValue(Msg, [MsgName], TrUserData);
         voteMap -> v_msg_voteMap(Msg, [MsgName], TrUserData);
         peerInfo -> v_msg_peerInfo(Msg, [MsgName], TrUserData);
@@ -1480,18 +1480,18 @@ v_msg_album(#album{albumName = F1}, Path, TrUserData) ->
     ok;
 v_msg_album(X, Path, _TrUserData) -> mk_type_error({expected_msg, album}, X, Path).
 
--compile({nowarn_unused_function,v_submsg_reply/3}).
--dialyzer({nowarn_function,v_submsg_reply/3}).
-v_submsg_reply(Msg, Path, TrUserData) -> v_msg_reply(Msg, Path, TrUserData).
+-compile({nowarn_unused_function,v_submsg_reply_message/3}).
+-dialyzer({nowarn_function,v_submsg_reply_message/3}).
+v_submsg_reply_message(Msg, Path, TrUserData) -> v_msg_reply_message(Msg, Path, TrUserData).
 
--compile({nowarn_unused_function,v_msg_reply/3}).
--dialyzer({nowarn_function,v_msg_reply/3}).
-v_msg_reply(#reply{status = F1}, Path, TrUserData) ->
+-compile({nowarn_unused_function,v_msg_reply_message/3}).
+-dialyzer({nowarn_function,v_msg_reply_message/3}).
+v_msg_reply_message(#reply_message{status = F1}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [status | Path], TrUserData)
     end,
     ok;
-v_msg_reply(X, Path, _TrUserData) -> mk_type_error({expected_msg, reply}, X, Path).
+v_msg_reply_message(X, Path, _TrUserData) -> mk_type_error({expected_msg, reply_message}, X, Path).
 
 -compile({nowarn_unused_function,v_submsg_voteValue/3}).
 -dialyzer({nowarn_function,v_submsg_voteValue/3}).
@@ -1591,7 +1591,7 @@ v_msg_Message(#'Message'{type = F1, msg = F2}, Path, TrUserData) ->
         {m2, OF2} -> v_submsg_album(OF2, [m2, msg | Path], TrUserData);
         {m3, OF2} -> v_submsg_sessionStart(OF2, [m3, msg | Path], TrUserData);
         {m4, OF2} -> v_submsg_quitMessage(OF2, [m4, msg | Path], TrUserData);
-        {m5, OF2} -> v_submsg_reply(OF2, [m5, msg | Path], TrUserData);
+        {m5, OF2} -> v_submsg_reply_message(OF2, [m5, msg | Path], TrUserData);
         _ -> mk_type_error(invalid_oneof, F2, [msg | Path])
     end,
     ok;
@@ -1768,7 +1768,7 @@ get_msg_defs() ->
     [{{enum, 'Type'}, [{register, 0}, {login, 1}, {logout, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}]},
      {{msg, registerLoginFormat}, [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
      {{msg, album}, [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
-     {{msg, reply}, [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
+     {{msg, reply_message}, [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
      {{msg, voteValue}, [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
      {{msg, voteMap}, [#field{name = map, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteValue}}, occurrence = repeated, opts = []}]},
      {{msg, peerInfo},
@@ -1789,17 +1789,17 @@ get_msg_defs() ->
                        #field{name = m2, fnum = 3, rnum = 3, type = {msg, album}, occurrence = optional, opts = []},
                        #field{name = m3, fnum = 4, rnum = 3, type = {msg, sessionStart}, occurrence = optional, opts = []},
                        #field{name = m4, fnum = 5, rnum = 3, type = {msg, quitMessage}, occurrence = optional, opts = []},
-                       #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply}, occurrence = optional, opts = []}],
+                       #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply_message}, occurrence = optional, opts = []}],
                   opts = []}]}].
 
 
-get_msg_names() -> [registerLoginFormat, album, reply, voteValue, voteMap, peerInfo, sessionStart, quitMessage, 'Message'].
+get_msg_names() -> [registerLoginFormat, album, reply_message, voteValue, voteMap, peerInfo, sessionStart, quitMessage, 'Message'].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> [registerLoginFormat, album, reply, voteValue, voteMap, peerInfo, sessionStart, quitMessage, 'Message'].
+get_msg_or_group_names() -> [registerLoginFormat, album, reply_message, voteValue, voteMap, peerInfo, sessionStart, quitMessage, 'Message'].
 
 
 get_enum_names() -> ['Type'].
@@ -1821,7 +1821,7 @@ fetch_enum_def(EnumName) ->
 
 find_msg_def(registerLoginFormat) -> [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
 find_msg_def(album) -> [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
-find_msg_def(reply) -> [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
+find_msg_def(reply_message) -> [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
 find_msg_def(voteValue) -> [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
 find_msg_def(voteMap) -> [#field{name = map, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteValue}}, occurrence = repeated, opts = []}];
 find_msg_def(peerInfo) ->
@@ -1842,7 +1842,7 @@ find_msg_def('Message') ->
                      #field{name = m2, fnum = 3, rnum = 3, type = {msg, album}, occurrence = optional, opts = []},
                      #field{name = m3, fnum = 4, rnum = 3, type = {msg, sessionStart}, occurrence = optional, opts = []},
                      #field{name = m4, fnum = 5, rnum = 3, type = {msg, quitMessage}, occurrence = optional, opts = []},
-                     #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply}, occurrence = optional, opts = []}],
+                     #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply_message}, occurrence = optional, opts = []}],
                 opts = []}];
 find_msg_def(_) -> error.
 
@@ -1922,7 +1922,7 @@ service_and_rpc_name_to_fqbins(S, R) -> error({gpb_error, {badservice_or_rpc, {S
 
 fqbin_to_msg_name(<<"registerLoginFormat">>) -> registerLoginFormat;
 fqbin_to_msg_name(<<"album">>) -> album;
-fqbin_to_msg_name(<<"reply">>) -> reply;
+fqbin_to_msg_name(<<"reply_message">>) -> reply_message;
 fqbin_to_msg_name(<<"voteValue">>) -> voteValue;
 fqbin_to_msg_name(<<"voteMap">>) -> voteMap;
 fqbin_to_msg_name(<<"peerInfo">>) -> peerInfo;
@@ -1934,7 +1934,7 @@ fqbin_to_msg_name(E) -> error({gpb_error, {badmsg, E}}).
 
 msg_name_to_fqbin(registerLoginFormat) -> <<"registerLoginFormat">>;
 msg_name_to_fqbin(album) -> <<"album">>;
-msg_name_to_fqbin(reply) -> <<"reply">>;
+msg_name_to_fqbin(reply_message) -> <<"reply_message">>;
 msg_name_to_fqbin(voteValue) -> <<"voteValue">>;
 msg_name_to_fqbin(voteMap) -> <<"voteMap">>;
 msg_name_to_fqbin(peerInfo) -> <<"peerInfo">>;
@@ -1979,7 +1979,7 @@ get_all_source_basenames() -> ["message.proto"].
 get_all_proto_names() -> ["message"].
 
 
-get_msg_containment("message") -> ['Message', album, peerInfo, quitMessage, registerLoginFormat, reply, sessionStart, voteMap, voteValue];
+get_msg_containment("message") -> ['Message', album, peerInfo, quitMessage, registerLoginFormat, reply_message, sessionStart, voteMap, voteValue];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -2003,9 +2003,9 @@ get_proto_by_msg_name_as_fqbin(<<"voteMap">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"sessionStart">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"registerLoginFormat">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"voteValue">>) -> "message";
+get_proto_by_msg_name_as_fqbin(<<"reply_message">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"quitMessage">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"Message">>) -> "message";
-get_proto_by_msg_name_as_fqbin(<<"reply">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"album">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"peerInfo">>) -> "message";
 get_proto_by_msg_name_as_fqbin(E) -> error({gpb_error, {badmsg, E}}).

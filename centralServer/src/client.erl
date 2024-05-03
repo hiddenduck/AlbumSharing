@@ -1,4 +1,4 @@
--module(client).
+-module(client). %% For testing purposes ONLY
 -export([start/1]).
 -include("proto_generated/message.hrl").
 
