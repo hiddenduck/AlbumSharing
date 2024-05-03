@@ -3,17 +3,18 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
 )
 
 func main()  {
 
-    albumName := "albumName"
-    fileName := "fileName"
+    fileName := os.Args[1]
+
+    dat, _ := os.ReadFile(fileName)
 
     h := sha256.New()
 
-    h.Write([]byte(albumName))
-    h.Write([]byte(fileName))
+    h.Write(dat)
 
     fmt.Printf("%v\n", h.Sum(nil))
     
