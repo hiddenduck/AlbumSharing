@@ -19,13 +19,18 @@ func (voteInfo VoteInfo) incrementVote(classification int) {
 	voteInfo.Count++
 }
 
+type DotPair struct {
+	Id      uint32
+	Version uint64
+}
+
 type Replica struct {
 	// filename -> {userName -> rating}
 	// DotMap<String, ORSet<(string, int)>>
 	// DotMap<String, GSet<(string, int)>> visto que nao se pode mudar o rating
 	// NEW idea: DotMap<String, GCounter<int,int>>
 	Files         map[string]map[uint32]VoteInfo
-	Peers         map[string]Nil
+	GroupUsers    map[string][]DotPair
 	VersionVector map[uint32]uint64
 }
 
@@ -58,9 +63,9 @@ func (replica Replica) ListFiles() {
 
 func (replica Replica) AddUser(userName string, currentID uint32) bool {
 
-	_, ok := replica.Peers[userName]
+	_, ok := replica.GroupUsers[userName]
 	if !ok {
-		replica.Peers[userName] = Nil{}
+		replica.GroupUsers[userName] = Nil{}
 		replica.VersionVector[currentID]++
 	}
 
@@ -68,9 +73,9 @@ func (replica Replica) AddUser(userName string, currentID uint32) bool {
 }
 
 func (replica Replica) RemoveUser(userName string) (ok bool) {
-	_, ok = replica.Peers[userName]
+	_, ok = replica.GroupUsers[userName]
 	if ok {
-		delete(replica.Peers, userName)
+		delete(replica.GroupUsers, userName)
 	}
 
 	return
@@ -106,8 +111,8 @@ func (replica *Replica) peerJoin(peerReplica Replica) {
 	newPeers := make(map[string]Nil)
 
 	// s & s'
-	for peer := range replica.Peers {
-		_, ok := peerReplica.Peers[peer]
+	for peer := range replica.GroupUsers {
+		_, ok := peerReplica.GroupUsers[peer]
 
 		if ok {
 			newPeers[peer] = Nil{}
@@ -115,8 +120,8 @@ func (replica *Replica) peerJoin(peerReplica Replica) {
 	}
 
 	// s | c'
-	for peer := range replica.Peers {
-		_, ok := peerReplica.Peers[peer]
+	for peer := range replica.GroupUsers {
+		_, ok := peerReplica.VersionVector[peer]
 
 		if !ok {
 			newPeers[peer] = Nil{}
@@ -124,15 +129,15 @@ func (replica *Replica) peerJoin(peerReplica Replica) {
 	}
 
 	// s' | c
-	for peer := range peerReplica.Peers {
-		_, ok := replica.Peers[peer]
+	for peer := range peerReplica.GroupUsers {
+		_, ok := replica.VersionVector[peer]
 
 		if !ok {
 			newPeers[peer] = Nil{}
 		}
 	}
 
-	replica.Peers = newPeers
+	replica.GroupUsers = newPeers
 }
 
 func joinInfoMaps(infoMap map[uint32]VoteInfo, peerInfoMap map[uint32]VoteInfo) (newInfoMap map[uint32]VoteInfo) {
