@@ -40,7 +40,9 @@ type Replica struct {
 	// DotMap<String, ORSet<(string, int)>>
 	// DotMap<String, GSet<(string, int)>> visto que nao se pode mudar o rating
 	// NEW idea: DotMap<String, GCounter<int,int>>
-	Files         map[string]FileInfo
+	//ORSet<File> + votação como valor, o que implica que o join vai ter em conta
+	Files map[string]FileInfo
+	//ORSet<Username>
 	GroupUsers    map[string]GroupInfo
 	VersionVector map[uint32]uint64
 }
