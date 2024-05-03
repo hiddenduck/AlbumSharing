@@ -154,14 +154,7 @@ func joinInfoMaps(infoMap map[uint32]VoteInfo, peerInfoMap map[uint32]VoteInfo) 
 		_, exist := newInfoMap[id]
 
 		if !exist {
-
 			newInfoMap[id] = peerInfoMap[id]
-
-			info, ok := infoMap[id]
-
-			if ok {
-				newInfoMap[id].joinInfos(info)
-			}
 		}
 	}
 
