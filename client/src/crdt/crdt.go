@@ -97,14 +97,14 @@ func (replica Replica) RemoveUser(userName string) (ok bool) {
 }
 
 func (replica Replica) AddUserClassification(fileName string, classification int, currentID uint32, voteTable map[string]bool) (fileExists bool, canVote bool) {
-	voteMap, fileExists := replica.Files[fileName]
+	voteInfo, fileExists := replica.Files[fileName]
 	canVote = voteTable[fileName]
 
 	if !fileExists || !canVote {
 		return
 	}
 
-	voteMap[currentID].incrementVote(classification)
+	voteInfo.Votes[currentID].incrementVote(classification)
 
 	return
 }
