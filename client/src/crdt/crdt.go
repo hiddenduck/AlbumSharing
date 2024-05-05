@@ -127,9 +127,7 @@ func dotSetJoin(versionVector VersionVector, peerVersionVector VersionVector,
 	// s & s'
 	for dotPair := range dotSet {
 
-		_, ok := peerDotSet[dotPair]
-
-		if ok {
+		if peerDotSet[dotPair] {
 			newDotSet[dotPair] = true
 		}
 	}
