@@ -26,6 +26,8 @@ func (voteInfo VoteInfo) incrementVote(classification int) {
 	voteInfo.Count++
 }
 
+type VersionVector map[uint32]uint64
+
 type FileInfo struct {
 	Votes  map[uint32]VoteInfo
 	DotSet DotSet
@@ -36,15 +38,11 @@ type GroupInfo struct {
 }
 
 type Replica struct {
-	// filename -> {userName -> rating}
-	// DotMap<String, ORSet<(string, int)>>
-	// DotMap<String, GSet<(string, int)>> visto que nao se pode mudar o rating
-	// NEW idea: DotMap<String, GCounter<int,int>>
 	//ORSet<File> + votação como valor, o que implica que o join vai ter em conta
-	Files map[string]FileInfo
 	//ORSet<Username>
+	Files         map[string]FileInfo
 	GroupUsers    map[string]GroupInfo
-	VersionVector map[uint32]uint64
+	VersionVector VersionVector
 }
 
 func (replica Replica) AddFile(fileName string, currentID uint32) bool {
@@ -120,6 +118,41 @@ func (replica Replica) causalContextUnion(versionVector map[uint32]uint64) {
 			replica.VersionVector[id] = max(replica.VersionVector[id], versionVector[id])
 		}
 	}
+}
+
+func dotSetJoin(versionVector VersionVector, peerVersionVector VersionVector,
+	dotSet DotSet, peerDotSet DotSet) DotSet {
+	newDotSet := make(DotSet)
+
+	// s & s'
+	for dotPair := range dotSet {
+
+		_, ok := peerDotSet[dotPair]
+
+		if ok {
+			newDotSet[dotPair] = true
+		}
+	}
+
+	// s | c'
+	for dotPair := range dotSet {
+		version, ok := peerVersionVector[dotPair.Id]
+
+		if !ok || version < dotPair.Version {
+			newDotSet[dotPair] = true
+		}
+	}
+
+	// s' | c
+	for dotPair := range peerDotSet {
+		version, ok := versionVector[dotPair.Id]
+
+		if !ok || version < dotPair.Version {
+			newDotSet[dotPair] = true
+		}
+	}
+
+	return newDotSet
 }
 
 func (replica *Replica) peerJoin(peerReplica Replica) {
