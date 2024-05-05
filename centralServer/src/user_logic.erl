@@ -5,6 +5,15 @@
 
 % Authenticated
 
+auth_user_handler({Status, MainLoop}, Sock, MainLoop) when
+    Status =:= create_album_error;
+    Status =:= create_album_ok;
+    Status =:= get_album_no_permission;
+    Status =:= get_album_error
+->
+    send_reply(atom_to_list(Status), Sock),
+    auth_user(Sock, MainLoop);
+
 auth_user_handler({get_album_ok, AlbumData, MainLoop}, Sock, MainLoop) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
     gen_tcp:send(Sock, atom_to_list(get_album_ok) ++ maps:to_list(AlbumData) ++ "\n"),
