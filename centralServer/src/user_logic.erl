@@ -28,13 +28,13 @@ auth_user_handler(_, Sock, MainLoop, UserName) ->
     auth_user(Sock, MainLoop, UserName).
 
 auth_message_handler(album, {m1, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
-    MainLoop ! {{create_album, AlbumName}, self()},
+    MainLoop ! {{create_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName).
 
 auth_user(Sock, MainLoop, UserName) ->
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
-            MainLoop ! {{log_out}, self()};
+            MainLoop ! {log_out, UserName};
 
         {tcp, _, Msg} ->
             Message = message:decode_msg(Msg, 'Message'),
@@ -90,7 +90,7 @@ message_handler(
 user(Sock, MainLoop) ->
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
-            MainLoop ! {{log_out}, self()};
+            ok;
         {tcp, _, Msg} ->
             Message = message:decode_msg(Msg, 'Message'),
             message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop);

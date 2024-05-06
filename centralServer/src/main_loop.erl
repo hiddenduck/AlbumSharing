@@ -12,6 +12,15 @@ createAlbumMetaData() -> % replica data
     #{}
     }.
 
+handler({log_out, UserName}, {UserMap, Metadata} = State) ->
+    case maps:find(UserName, UserMap) of
+        {ok, {online, Passwd}} ->
+            {maps:update(UserName, {offline, Passwd}, UserMap), Metadata};
+
+        _ ->
+            State
+    end.
+
 handler({register, {Username, Passwd}}, {UserMap, Metadata} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, _} ->
@@ -34,18 +43,7 @@ handler({login, {Username, Passwd}}, {UserMap, Metadata} = State, From) ->
             State
     end;
 
-handler({log_out}, {UserMap, OnlineMap, Metadata} = State, From) ->
-    case maps:find(From, OnlineMap) of
-        {ok, _} ->
-            {UserMap, maps:remove(From, OnlineMap), Metadata};
-
-        _ ->
-            State
-    end;
-
-handler({create_album, AlbumName}, {UserMap, OnlineMap, Metadata} = State, From) ->
-    {ok, Username} = maps:find(From, OnlineMap),
-    
+handler({create_album, Username, AlbumName}, {UserMap, Metadata} = State, From) ->
     case maps:find(AlbumName, Metadata) of
         {ok, _} ->
             From ! {create_album_error, self()},
@@ -54,12 +52,10 @@ handler({create_album, AlbumName}, {UserMap, OnlineMap, Metadata} = State, From)
         _ ->
             From ! {create_album_ok, self()},
             {Files, Users, VV} = createAlbumMetaData(),
-            {UserMap, OnlineMap, maps:put(AlbumName, {{Files, [Username | Users], VV}, #{}}, Metadata)}
+            {UserMap, maps:put(AlbumName, {{Files, [Username | Users], VV}, #{}}, Metadata)}
     end;
 
-handler({get_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
-    {ok, Username} = maps:find(From, OnlineMap),
-    
+handler({get_album, Username, AlbumName}, {_, Metadata} = State, From) -> 
     case maps:find(AlbumName, Metadata) of
         {ok, {AlbumMetaData, UserMap}} ->
             case maps:find(Username, UserMap) of
@@ -76,12 +72,10 @@ handler({get_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
             State
     end;
 
-handler({put_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
-    {ok, Username} = maps:find(From, OnlineMap),
-
+handler({put_album, UserName, AlbumName}, {_, Metadata} = State, From) ->
     case maps:find(AlbumName, Metadata) of
         {ok, {_, UserMap}=AlbumData} ->
-            case maps:find(Username, UserMap) of
+            case maps:find(UserName, UserMap) of
                 true ->
                     From ! {put_album_ok, AlbumData, self()};
 
@@ -97,6 +91,9 @@ handler({put_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
 
 mainLoop(State) ->
     receive
+        {log_out, UserName} ->
+            mainLoop(handler({log_out, UserName}, State));
+
         {Msg, From} ->
             io:format("~p~n", [Msg]),
             mainLoop(handler(Msg, State, From))
