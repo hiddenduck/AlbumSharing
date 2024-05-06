@@ -15,7 +15,10 @@ import (
 
 func producer(ch chan rxgo.Item) (nBytes int64, nChunks int64) {
 
-    const N int = 10485940*512
+    const N int = 10485940/4
+    // const N int = 10737418240
+
+
 
 	fileName := os.Args[1]
 	f, err := os.Open(fileName)
@@ -28,7 +31,7 @@ func producer(ch chan rxgo.Item) (nBytes int64, nChunks int64) {
 
 	for {
 
-        n, err := r.Read(buf[:N])
+        n, err := r.Read(buf)
         // fmt.Printf("n: %v\n", n)
 		buf = buf[:n]
 
@@ -62,6 +65,7 @@ func producer(ch chan rxgo.Item) (nBytes int64, nChunks int64) {
         ch<-rxgo.Of(buff_copy)
 	}
     fmt.Printf("nChunks: %v\n", nChunks)
+    fmt.Printf("nBytes: %v\n", nBytes)
     return
 }
 

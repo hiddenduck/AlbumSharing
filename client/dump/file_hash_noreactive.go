@@ -16,6 +16,8 @@ func main() {
 
     h := sha256.New()
 
+    chunkSize := 0
+
 	fileName := os.Args[1]
 	f, err := os.Open(fileName)
 
@@ -41,6 +43,8 @@ func main() {
 			log.Fatal(err)
 		}
 
+		chunkSize++
+
 		// process buf
 		if err != nil && err != io.EOF {
 			log.Fatal(err)
@@ -58,6 +62,8 @@ func main() {
 
         // ch<-rxgo.Of(buff_copy)
 	}
+
+    fmt.Printf("chunkSize: %v\n", chunkSize)
 
     fmt.Printf("h.Sum(nil): %v\n", h.Sum(nil))
 
