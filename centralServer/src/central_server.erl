@@ -12,14 +12,10 @@ stop() ->
 createState() ->
     {
         % All Users
-        #{}, % Users -> Password
-
-        % Online Users
-        #{}, % Pid -> User
-
-        % Album Metadata
-        #{} % AlbumName -> {[Users], #{Files -> {User, Rating}}}
+        #{}, % Users -> {isOnline, Password}
         
+        % Album Room, String(album name) -> {albumMetaData, map(userName)->{isInSession, voteTable}}
+        #{}
     }.
 
 start_server(Port) ->

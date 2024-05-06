@@ -1,7 +1,18 @@
 -module(main_loop).
 -export([mainLoop/1]).
 
-handler({register, {Username, Passwd}}, {UserMap, OnlineMap, Metadata} = State, From) ->
+% Album Metadata
+createAlbumMetaData() -> % replica data
+    {
+    %Files         map[string]FileInfo
+	#{},
+    %GroupUsers    map[string]GroupInfo
+    #{},
+    % VersionVector map[uint32]uint64
+    #{}
+    }.
+
+handler({register, {Username, Passwd}}, {UserMap, Metadata} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, _} ->
             From ! {register_error, self()},
@@ -9,14 +20,14 @@ handler({register, {Username, Passwd}}, {UserMap, OnlineMap, Metadata} = State, 
 
         error ->
             From ! {register_ok, self()},
-            {maps:put(Username, Passwd, UserMap) ,OnlineMap, Metadata}
+            {maps:put(Username, {offline, Passwd}, UserMap), Metadata}
     end;
 
-handler({login, {Username, Passwd}}, {UserMap, OnlineMap, Metadata} = State, From) ->
+handler({login, {Username, Passwd}}, {UserMap, Metadata} = State, From) ->
     case maps:find(Username, UserMap) of
-        {ok, Passwd} ->
-            From ! {login_ok, self()},
-            {UserMap, maps:put(From, Username, OnlineMap), Metadata};
+        {ok, {offline, Passwd}} ->
+            From ! {login_ok, Username, self()},
+            {maps:update(Username, {online, Passwd}, UserMap), Metadata};
 
         _ ->
             From ! {login_error, self()},
@@ -42,20 +53,40 @@ handler({create_album, AlbumName}, {UserMap, OnlineMap, Metadata} = State, From)
     
         _ ->
             From ! {create_album_ok, self()},
-            {UserMap, OnlineMap, maps:put(AlbumName, {[Username], #{}}, Metadata)}
+            {Files, Users, VV} = createAlbumMetaData(),
+            {UserMap, OnlineMap, maps:put(AlbumName, {{Files, [Username | Users], VV}, #{}}, Metadata)}
     end;
 
 handler({get_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
     {ok, Username} = maps:find(From, OnlineMap),
     
     case maps:find(AlbumName, Metadata) of
-        {ok, {Users, _}=AlbumData} ->
-            case lists:member(Username, Users) of
-                true ->
-                    From ! {get_album_ok, AlbumData, self()};
+        {ok, {AlbumMetaData, UserMap}} ->
+            case maps:find(Username, UserMap) of
+                {ok, {true, Votetable}} ->
+                    From ! {get_album_ok, {AlbumMetaData, Votetable}, self()};
 
-                false ->
+                _ ->
                     From ! {get_album_no_permission, self()}
+            end,
+            State;
+    
+        _ ->
+            From ! {get_album_error, self()},
+            State
+    end;
+
+handler({put_album, AlbumName}, {_, OnlineMap, Metadata} = State, From) ->
+    {ok, Username} = maps:find(From, OnlineMap),
+
+    case maps:find(AlbumName, Metadata) of
+        {ok, {_, UserMap}=AlbumData} ->
+            case maps:find(Username, UserMap) of
+                true ->
+                    From ! {put_album_ok, AlbumData, self()};
+
+                _ ->
+                    From ! {put_album_no_permission, self()}
             end,
             State;
     

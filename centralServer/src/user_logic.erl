@@ -5,43 +5,43 @@
 
 % Authenticated
 
-auth_user_handler({Status, MainLoop}, Sock, MainLoop) when
+auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok;
     Status =:= get_album_no_permission;
     Status =:= get_album_error
 ->
     send_reply(atom_to_list(Status), Sock),
-    auth_user(Sock, MainLoop);
+    auth_user(Sock, MainLoop, UserName);
 
-auth_user_handler({get_album_ok, AlbumData, MainLoop}, Sock, MainLoop) ->
+auth_user_handler({get_album_ok, AlbumData, MainLoop}, Sock, MainLoop, UserName) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
     gen_tcp:send(Sock, atom_to_list(get_album_ok) ++ maps:to_list(AlbumData) ++ "\n"),
-    auth_user(Sock, MainLoop);
+    auth_user(Sock, MainLoop, UserName);
 
-auth_user_handler({Info, MainLoop}, Sock, MainLoop) ->
+auth_user_handler({Info, MainLoop}, Sock, MainLoop, UserName) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
     gen_tcp:send(Sock, atom_to_list(Info) ++ "\n"),
-    auth_user(Sock, MainLoop);
+    auth_user(Sock, MainLoop, UserName);
 
-auth_user_handler(_, Sock, MainLoop) ->
-    auth_user(Sock, MainLoop).
+auth_user_handler(_, Sock, MainLoop, UserName) ->
+    auth_user(Sock, MainLoop, UserName).
 
-auth_message_handler(album, {m1, #album{albumName = AlbumName}}, Sock, MainLoop) ->
+auth_message_handler(album, {m1, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{create_album, AlbumName}, self()},
-    auth_user(Sock, MainLoop).
+    auth_user(Sock, MainLoop, UserName).
 
-auth_user(Sock, MainLoop) ->
+auth_user(Sock, MainLoop, UserName) ->
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
             MainLoop ! {{log_out}, self()};
 
         {tcp, _, Msg} ->
             Message = message:decode_msg(Msg, 'Message'),
-            auth_message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop);
+            auth_message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop, UserName);
 
         Msg ->
-            auth_user_handler(Msg, Sock, MainLoop)
+            auth_user_handler(Msg, Sock, MainLoop, UserName)
     end.
 
 % Before Authentication
@@ -56,9 +56,9 @@ send_reply(Status, Sock) ->
     }),
     gen_tcp:send(Sock, Data).
 
-user_handler({login_ok, MainLoop}, Sock, MainLoop) ->
+user_handler({login_ok, UserName, MainLoop}, Sock, MainLoop) ->
     send_reply("login_ok", Sock),
-    auth_user(Sock, MainLoop);
+    auth_user(Sock, MainLoop, UserName);
 
 user_handler({Status, MainLoop}, Sock, MainLoop) when
     Status =:= login_error;
