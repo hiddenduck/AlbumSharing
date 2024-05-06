@@ -1,17 +1,6 @@
 -module(main_loop).
 -export([mainLoop/1]).
 
-% Album Metadata
-createAlbumMetaData() -> % replica data
-    {
-    %Files         map[string]FileInfo
-	#{},
-    %GroupUsers    map[string]GroupInfo
-    #{},
-    % VersionVector map[uint32]uint64
-    #{}
-    }.
-
 handler({log_out, UserName}, {UserMap, Metadata} = State) ->
     case maps:find(UserName, UserMap) of
         {ok, {online, Passwd}} ->
@@ -51,16 +40,18 @@ handler({create_album, Username, AlbumName}, {UserMap, Metadata} = State, From) 
     
         _ ->
             From ! {create_album_ok, self()},
-            {Files, Users, VV} = createAlbumMetaData(),
-            {UserMap, maps:put(AlbumName, {{Files, [Username | Users], VV}, #{}}, Metadata)}
+            {UserMap, maps:put(AlbumName, crdt:createAlbum(Username), Metadata)}
     end;
 
 handler({get_album, Username, AlbumName}, {_, Metadata} = State, From) -> 
     case maps:find(AlbumName, Metadata) of
         {ok, {AlbumMetaData, UserMap}} ->
             case maps:find(Username, UserMap) of
-                {ok, {true, Votetable}} ->
+                {ok, {false, Votetable}} ->
                     From ! {get_album_ok, {AlbumMetaData, Votetable}, self()};
+
+                {ok, {true, _}} ->
+                    From ! {get_album_already_in_session, self()};
 
                 _ ->
                     From ! {get_album_no_permission, self()}
@@ -72,17 +63,23 @@ handler({get_album, Username, AlbumName}, {_, Metadata} = State, From) ->
             State
     end;
 
-handler({put_album, UserName, AlbumName}, {_, Metadata} = State, From) ->
+handler({put_album, UserName, AlbumName, Changes}, {Users, Metadata} = State, From) ->
     case maps:find(AlbumName, Metadata) of
-        {ok, {_, UserMap}=AlbumData} ->
+        {ok, {_, UserMap}} ->
             case maps:find(UserName, UserMap) of
-                true ->
-                    From ! {put_album_ok, AlbumData, self()};
+                {ok, {true, _}} ->
+                    NewMetaData = crdt:updateMetaData(Changes, Metadata),
+                    From ! {put_album_ok, self()},
+                    {Users, NewMetaData};
+
+                {ok, {false, _}} ->
+                    From ! {put_album_not_in_session, self()},
+                    State;
 
                 _ ->
-                    From ! {put_album_no_permission, self()}
-            end,
-            State;
+                    From ! {put_album_no_permission, self()},
+                    State
+            end;
     
         _ ->
             From ! {get_album_error, self()},

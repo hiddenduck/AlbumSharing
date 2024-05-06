@@ -9,7 +9,11 @@ auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok;
     Status =:= get_album_no_permission;
-    Status =:= get_album_error
+    Status =:= get_album_error;
+    Status =:= get_album_already_in_session;
+    Status =:= put_album_ok;
+    Status =:= put_album_not_in_session;
+    Status =:= put_album_no_permission
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
