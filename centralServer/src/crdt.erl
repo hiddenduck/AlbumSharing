@@ -1,5 +1,5 @@
 -module(crdt).
--export([createAlbum/1, updateMetaData/2]).
+-export([createAlbum/1, updateMetaData/3]).
 
 createAlbum(UserName) ->
 
@@ -17,5 +17,14 @@ createAlbum(UserName) ->
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.
 
-updateMetaData({NewAlbumMetaData, Votetable}, Metadata) ->
+updateMetaData({{Files, GroupUsers, VersionVector}=NewAlbumMetaData, NewVotetable}, {AlbumMetaData, UsersInfo}, UserName) ->
     ok.
+
+updateVoteTable(NewVotetable, UsersInfo, UserName) ->
+    case maps:find(UserName, UsersInfo) of
+        {ok, {_, Votetable}} ->
+            atualizar;
+
+        _ ->
+            io:format("Error in updateVoteTable")
+    end.

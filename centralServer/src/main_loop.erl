@@ -43,7 +43,7 @@ handler({create_album, Username, AlbumName}, {UserMap, Metadata} = State, From) 
             {UserMap, maps:put(AlbumName, crdt:createAlbum(Username), Metadata)}
     end;
 
-handler({get_album, Username, AlbumName}, {_, Metadata} = State, From) -> 
+handler({get_album, Username, AlbumName}, {_, Metadata} = State, From) -> % TODO/Reminder atualizar estado deste user
     case maps:find(AlbumName, Metadata) of
         {ok, {AlbumMetaData, UserMap}} ->
             case maps:find(Username, UserMap) of
@@ -65,12 +65,12 @@ handler({get_album, Username, AlbumName}, {_, Metadata} = State, From) ->
 
 handler({put_album, UserName, AlbumName, Changes}, {Users, Metadata} = State, From) ->
     case maps:find(AlbumName, Metadata) of
-        {ok, {_, UserMap}} ->
+        {ok, {_, UserMap}=AlbumInfo} ->
             case maps:find(UserName, UserMap) of
                 {ok, {true, _}} ->
-                    NewMetaData = crdt:updateMetaData(Changes, Metadata),
+                    NewAlbumInfo = crdt:updateMetaData(Changes, AlbumInfo, UserName),
                     From ! {put_album_ok, self()},
-                    {Users, NewMetaData};
+                    {Users, maps:update(AlbumName, NewAlbumInfo, Metadata)};
 
                 {ok, {false, _}} ->
                     From ! {put_album_not_in_session, self()},
