@@ -16,10 +16,10 @@ createAlbum(UserName) ->
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.
 
-updateMetaData({{Files, GroupUsers, VersionVector}=NewAlbumMetaData, NewVotetable}, {{OldFiles, OldGroupUsers, OldVersionVector}=AlbumMetaData, UsersInfo}, UserName) ->
+updateMetaData({{Files, GroupUsers, VersionVector}, NewVotetable}, {{OldFiles, OldGroupUsers, OldVersionVector}, UsersInfo}, UserName) ->
     UsersInfo = updateVoteTable(NewVotetable, UsersInfo, UserName),
-    NewFiles = joinFileMaps(),
-    NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers)),
+    NewFiles = joinMaps(OldFiles, Files, fun(Info,PeerInfo) -> joinFileInfos(Info, PeerInfo) end),
+    NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), fun(Info,PeerInfo) -> joinGroupInfos(Info, PeerInfo) end),
     VV = causalContextUnion(OldVersionVector, maps:to_list(VersionVector)),
     {{NewFiles, NewGroupUsers, VV}, UsersInfo}.
 
@@ -32,12 +32,26 @@ updateVoteTable(NewVotetable, UsersInfo, UserName) ->
             UsersInfo
     end.
 
-joinFileMaps() ->
+%% In progress
+joinFileInfos(Info, PeerInfo) ->
     ok.
 
-%% In progress
-joinFirstMap() ->
+joinGroupInfos(Info, PeerInfo) ->
     ok.
+
+
+joinFirstMap([], _, NewerMap, _) ->
+    NewerMap;
+
+joinFirstMap([ {Name, Value} | MapTail], PeerMap, NewMap, JoinFunc) ->
+    case maps:find(Name, PeerMap) of
+        {ok, PeerValue} ->
+            NewerMap = JoinFunc(Value, PeerValue);
+
+        _ ->
+            NewerMap = maps:put(Name, Value, NewMap)
+    end,
+    joinFirstMap(MapTail, PeerMap, NewerMap, JoinFunc).
 
 joinSecondMap([], NewMap) ->
     NewMap;
@@ -53,8 +67,8 @@ joinSecondMap([ {Name, Value} | PeerMapTail], NewMap) ->
     joinSecondMap(PeerMapTail, NewerMap).
 
 
-joinMaps(Map, PeerMap) ->
-    NewMap = joinFirstMap(),
+joinMaps(Map, PeerMap, JoinFunc) ->
+    NewMap = joinFirstMap(Map, PeerMap, #{}, JoinFunc),
     NewerMap = joinSecondMap(PeerMap, NewMap),
     NewerMap.
 
