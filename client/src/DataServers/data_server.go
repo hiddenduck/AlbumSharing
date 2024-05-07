@@ -2,10 +2,11 @@ package dataservers
 
 import (
 	"crypto/sha256"
-	"errors"
+	"encoding/binary"
+	// "errors"
 )
 
-type Hash int32
+type Hash uint32
 
 type DataServer struct {
 	Hash    Hash
@@ -17,6 +18,23 @@ type DataServers struct {
 	Servers []DataServer
 	Size    int
 }
+
+// 0 <= index <= len(a)
+func (dataservers *DataServers) insert(ds DataServer) {
+
+    value := ds.Hash
+
+    a := &dataservers.Servers
+
+    _, index := dataservers.binarySearch(value)
+
+    if len(*a) == index { // nil or empty slice or after last element
+        *a = append(*a, ds)
+    }
+    *a = append((*a)[:index+1], (*a)[index:]...) // index < len(a)
+    (*a)[index] = ds
+}
+
 
 //this may return a value outside the list
 //if hash exists in the list returns l as previous position and r as the position of the element
@@ -65,12 +83,12 @@ func (dataServers *DataServers) AddServer(ip string, port string) error {
 	hash.Write([]byte(port))
 
 	dataServer := DataServer{
-		Hash:    Hash(hash.Sum(nil)),
+		Hash:    Hash(binary.BigEndian.Uint32(hash.Sum(nil))),
 		Address: ip,
 		Port:    port,
 	}
 
-	dataServers.Servers = append(dataServers.Servers, dataServer)
+	dataServers.insert(dataServer)
 
 	return nil
 }
