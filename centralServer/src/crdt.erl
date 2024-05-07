@@ -2,7 +2,7 @@
 -export([createAlbum/1, updateMetaData/3]).
 
 createAlbum(UserName) ->
-    %Files         map[string]FileInfo
+    %Files         map[string]{Votes, DotSet}
     Files = #{},
 
     %GroupUsers    map[string]map[{Id, Version}]bool
@@ -22,12 +22,15 @@ updateMetaData(
     UserName
 ) ->
     UsersInfo = updateVoteTable(NewVotetable, UsersInfo, UserName),
-    NewFiles = joinMaps(OldFiles, Files, fun(Info, PeerInfo) -> joinFileInfos(Info, PeerInfo) end),
-    NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), fun(
-        Info, PeerInfo
-    ) ->
-        joinGroupInfos(Info, PeerInfo)
-    end),
+    NewFiles = joinMaps(maps:to_list(OldFiles), maps:to_list(Files), {fun(Info, PeerInfo, FuncInfo) -> joinFileInfos(Info, PeerInfo, FuncInfo) end, {OldVersionVector, VersionVector}}),
+    NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), {
+        fun(
+            Info, PeerInfo, FuncInfo
+        ) ->
+            joinGroupInfos(Info, PeerInfo, FuncInfo)
+        end,
+        {OldVersionVector, VersionVector}
+    }),
     VV = causalContextUnion(OldVersionVector, maps:to_list(VersionVector)),
     {{NewFiles, NewGroupUsers, VV}, UsersInfo}.
 
@@ -40,46 +43,50 @@ updateVoteTable(NewVotetable, UsersInfo, UserName) ->
             UsersInfo
     end.
 
-%% In progress
-
-% return DotSet Like in GO, i.e, map[DotPair]bool
+% return DotSet in list format
 joinDotSet(VV, PeerVV, DotSet, PeerDotSet) ->
     % S & S'
     NewDotSet = lists:filter(fun({DotPair, _}) -> lists:member(DotPair, PeerDotSet) end, DotSet),
 
     AddIf = fun(VersionVector) ->
-                fun({{Id, Version}, _}=DotPair, Acc) ->
-                    case maps:find(Id, VersionVector) of
-                        {ok, Version2} ->
-                            case Version2 < Version of
-                                true ->
-                                    [DotPair | Acc];
-
-                                _ ->
-                                    Acc
-                            end;
-                    _ ->
-                        [DotPair | Acc]
-                    end
+        fun({{Id, Version}, _} = DotPairSet, Acc) ->
+            case maps:find(Id, VersionVector) of
+                {ok, Version2} ->
+                    case Version2 < Version of
+                        true ->
+                            [DotPairSet | Acc];
+                        _ ->
+                            Acc
+                    end;
+                _ ->
+                    [DotPairSet | Acc]
             end
+        end
     end,
 
     % S | C'
     NewDotSet1 = lists:foldl(AddIf(PeerVV), NewDotSet, DotSet),
 
     % S' | C
-    NewDotSet2 = lists:foldl(AddIf(VV), NewDotSet1, PeerDotSet),
+    lists:foldl(AddIf(VV), NewDotSet1, PeerDotSet).
 
-    % Convert to Map because of golang
-    maps:from_list(NewDotSet2).
+% Convert to Map because of golang
+%maps:from_list(NewDotSet2).
 
+joinVoteMaps(Votes, PeerVotes) ->
+    JoinVoteInfos = fun({Sum, Count}, {PeerSum, PeerCount}, _) ->
+        {max(Sum, PeerSum), max(Count, PeerCount)}
+    end,
 
+    joinMaps(Votes, PeerVotes, {JoinVoteInfos, ok}).
 
-joinFileInfos(Info, PeerInfo) ->
-    ok.
+joinFileInfos({Votes, DotSet}, {PeerVotes, PeerDotSet}, {VV, PeerVV}) ->
+    NewVotes = joinVoteMaps(Votes, PeerVotes),
+    NewDotSet = joinDotSet(VV, PeerVV, DotSet, PeerDotSet),
+    {NewVotes, NewDotSet}.
 
-joinGroupInfos(Info, PeerInfo) ->
-    joinDotSet()
+joinGroupInfos(Info, PeerInfo, {VV, PeerVV}) ->
+    joinDotSet(VV, PeerVV, Info, PeerInfo).
 
 joinFirstMap(Map, PeerMap, JoinFuncInfo) ->
     joinFirstMap(Map, PeerMap, #{}, JoinFuncInfo).
