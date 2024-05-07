@@ -35,8 +35,13 @@ message dotPair {
   uint64 version = 2;
 }
 
+message voteInfo {
+  uint64 sum   = 1;
+  uint64 count = 2;
+}
+
 message fileInfo {
-  map<uint32, VoteInfo> votes  = 1;
+  map<uint32, voteInfo> votes  = 1;
   repeated dotPair      dotSet = 2;
 }
 

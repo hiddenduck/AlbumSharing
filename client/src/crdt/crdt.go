@@ -14,8 +14,8 @@ type DotPair struct {
 type DotSet map[DotPair]bool
 
 type VoteInfo struct {
-	Sum   int
-	Count int
+	Sum   uint64
+	Count uint64
 }
 
 type VoteMap map[uint32]VoteInfo
