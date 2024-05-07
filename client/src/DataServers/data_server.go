@@ -2,11 +2,10 @@ package dataservers
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	// "errors"
 )
 
-type Hash [4]uint64
+type Hash [32]byte
 
 type DataServer struct {
 	Hash    Hash
@@ -21,16 +20,15 @@ type DataServers struct {
 
 func compare(hash_a Hash, hash_b Hash) int {
 
-	for index, integer := range hash_a {
+	for index := range hash_a {
 
-		if integer > hash_b[index] {
+		if hash_a[index] > hash_b[index] {
 			return 1
-		} else if integer < hash_b[index] {
+		} else if hash_a[index] < hash_b[index] {
 			return -1
-		} 
-
+		}
 	}
-    return 0
+	return 0
 }
 
 // 0 <= index <= len(a)
@@ -38,15 +36,23 @@ func (dataservers *DataServers) insert(ds DataServer) {
 
 	value := ds.Hash
 
-	a := &dataservers.Servers
-
 	_, index := dataservers.binarySearch(value)
 
-	if len(*a) == index { // nil or empty slice or after last element
-		*a = append(*a, ds)
+	if dataservers.Size == index { // nil or empty slice or after last element
+
+		dataservers.Servers = append(dataservers.Servers, ds)
+
+	} else {
+
+		// *a = append((*a)[:index+1], (*a)[index:]) // index < len(a)
+
+		dataservers.Servers = append(dataservers.Servers[:index+1], dataservers.Servers[index:]...)
+
+		dataservers.Servers[index] = ds
+
 	}
-	*a = append((*a)[:index+1], (*a)[index:]...) // index < len(a)
-	(*a)[index] = ds
+
+	dataservers.Size += 1
 }
 
 // this may return a value outside the list
@@ -55,13 +61,17 @@ func (dataservers *DataServers) binarySearch(hash Hash) (l int, r int) {
 
 	list := dataservers.Servers
 
-	var last = len(list) - 1
+	var last = dataservers.Size - 1
 
-	if list[0].Hash >= hash {
+	if last < 0 {
 		return -1, 0
 	}
 
-	if list[last].Hash < hash {
+	if compare(list[0].Hash, hash) >= 0 {
+		return -1, 0
+	}
+
+	if compare(list[last].Hash, hash) < 0 {
 		return last, last + 1
 	}
 
@@ -71,26 +81,30 @@ func (dataservers *DataServers) binarySearch(hash Hash) (l int, r int) {
 
 	for r-l > 1 {
 
-		val := list[m].Hash
-
 		m = (l + r) / 2
 
-		if val >= hash {
+		val := list[m].Hash
+
+		if compare(val, hash) >= 0 {
 			r = m
-		} else if val < hash {
+		} else if compare(val, hash) < 0 {
 			l = m
 		}
-
 	}
 
 	return
 }
 
+func InitDataServer() DataServers {
+	return DataServers{
+		Servers: make([]DataServer, 0),
+		Size:    0,
+	}
+}
+
 // TODO check if server exists in the list
 // kinda dont care is this is slow (will not be used alot so who cares)
 func (dataServers *DataServers) AddServer(ip string, port string) error {
-
-	uint64
 
 	hash := sha256.New()
 
@@ -98,7 +112,7 @@ func (dataServers *DataServers) AddServer(ip string, port string) error {
 	hash.Write([]byte(port))
 
 	dataServer := DataServer{
-		Hash:    Hash(binary.LittleEndian.Uint64(hash.Sum(nil))),
+		Hash:    Hash(hash.Sum(nil)),
 		Address: ip,
 		Port:    port,
 	}
@@ -106,4 +120,11 @@ func (dataServers *DataServers) AddServer(ip string, port string) error {
 	dataServers.insert(dataServer)
 
 	return nil
+}
+
+func (dataservers *DataServers) FindBucket(hash Hash) DataServer {
+
+	_, r := dataservers.binarySearch(hash)
+
+	return dataservers.Servers[r%dataservers.Size]
 }
