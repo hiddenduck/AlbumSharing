@@ -63,8 +63,8 @@ message sessionStart {
 }
 
 message quitMessage {
-  map<string, voteMap> map = 1;
-  repeated string peers    = 2;
+  crdt            crdt  = 1;
+  repeated string peers = 2;
 }
 
 message Message {
