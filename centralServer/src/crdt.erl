@@ -16,10 +16,18 @@ createAlbum(UserName) ->
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.
 
-updateMetaData({{Files, GroupUsers, VersionVector}, NewVotetable}, {{OldFiles, OldGroupUsers, OldVersionVector}, UsersInfo}, UserName) ->
+updateMetaData(
+    {{Files, GroupUsers, VersionVector}, NewVotetable},
+    {{OldFiles, OldGroupUsers, OldVersionVector}, UsersInfo},
+    UserName
+) ->
     UsersInfo = updateVoteTable(NewVotetable, UsersInfo, UserName),
-    NewFiles = joinMaps(OldFiles, Files, fun(Info,PeerInfo) -> joinFileInfos(Info, PeerInfo) end),
-    NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), fun(Info,PeerInfo) -> joinGroupInfos(Info, PeerInfo) end),
+    NewFiles = joinMaps(OldFiles, Files, fun(Info, PeerInfo) -> joinFileInfos(Info, PeerInfo) end),
+    NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), fun(
+        Info, PeerInfo
+    ) ->
+        joinGroupInfos(Info, PeerInfo)
+    end),
     VV = causalContextUnion(OldVersionVector, maps:to_list(VersionVector)),
     {{NewFiles, NewGroupUsers, VV}, UsersInfo}.
 
@@ -33,21 +41,47 @@ updateVoteTable(NewVotetable, UsersInfo, UserName) ->
     end.
 
 %% In progress
+
+joinDotSet(VV, PeerVV, DotSet, PeerDotSet) ->
+    % S & S'
+    NewDotSet = lists:filter(fun({DotPair, _}) -> lists:member(DotPair, PeerDotSet) end, DotSet),
+
+    AddIf = fun(VersionVector) ->
+                fun({{Id, Version}, _}, Acc) ->
+                    case maps:find(Id, VersionVector) of
+                        {ok, Version2} ->
+                            case Version2 < Version of
+                                true ->
+                                    [{Id, Version} | Acc];
+
+                                _ ->
+                                    Acc
+                            end;
+                    _ ->
+                        [{Id, Version} | Acc]
+                    end
+            end
+    end,
+
+    % S | C'
+    NewDotSet1 = lists:foldl(AddIf(PeerVV), NewDotSet, DotSet),
+
+    % S' | C
+    lists:foldl(AddIf(VV), NewDotSet1, PeerDotSet).
+
+
 joinFileInfos(Info, PeerInfo) ->
     ok.
 
 joinGroupInfos(Info, PeerInfo) ->
     ok.
 
-
 joinFirstMap([], _, NewerMap, _) ->
     NewerMap;
-
-joinFirstMap([ {Name, Value} | MapTail], PeerMap, NewMap, JoinFunc) ->
+joinFirstMap([{Name, Value} | MapTail], PeerMap, NewMap, JoinFunc) ->
     case maps:find(Name, PeerMap) of
         {ok, PeerValue} ->
             NewerMap = JoinFunc(Value, PeerValue);
-
         _ ->
             NewerMap = maps:put(Name, Value, NewMap)
     end,
@@ -55,17 +89,14 @@ joinFirstMap([ {Name, Value} | MapTail], PeerMap, NewMap, JoinFunc) ->
 
 joinSecondMap([], NewMap) ->
     NewMap;
-
-joinSecondMap([ {Name, Value} | PeerMapTail], NewMap) ->
+joinSecondMap([{Name, Value} | PeerMapTail], NewMap) ->
     case maps:find(Name, NewMap) of
         error ->
             NewerMap = maps:put(Name, Value, NewMap);
-
         _ ->
             NewerMap = NewMap
     end,
     joinSecondMap(PeerMapTail, NewerMap).
-
 
 joinMaps(Map, PeerMap, JoinFunc) ->
     NewMap = joinFirstMap(Map, PeerMap, #{}, JoinFunc),
@@ -74,15 +105,12 @@ joinMaps(Map, PeerMap, JoinFunc) ->
 
 causalContextUnion(VersionVector, []) ->
     VersionVector;
-
 causalContextUnion(VersionVector, [{ID, NewVersion} | VVTail]) ->
     case maps:find(ID, VersionVector) of
         {ok, Version} ->
             NewID = max(Version, NewVersion),
             NewVV = maps:update(ID, NewID, VersionVector);
-
         _ ->
             NewVV = maps:put(ID, NewVersion, VersionVector)
     end,
     causalContextUnion(NewVV, VVTail).
-
