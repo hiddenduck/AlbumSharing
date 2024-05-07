@@ -92,7 +92,7 @@ joinFirstMap(Map, PeerMap, JoinFuncInfo) ->
     joinFirstMap(Map, PeerMap, #{}, JoinFuncInfo).
 joinFirstMap([], _, NewerMap, _) ->
     NewerMap;
-joinFirstMap([{Name, Value} | MapTail], PeerMap, NewMap, {JoinFunc, Info}) ->
+joinFirstMap([{Name, Value} | MapTail], PeerMap, NewMap, {JoinFunc, Info}) -> % todo, ver isto do peermap acho que assume que é map mas esta como lista
     case maps:find(Name, PeerMap) of
         {ok, PeerValue} ->
             NewerMap = JoinFunc(Value, PeerValue, Info);
