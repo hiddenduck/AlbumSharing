@@ -83,7 +83,7 @@ func (dataServers *DataServers) AddServer(ip string, port string) error {
 	hash.Write([]byte(port))
 
 	dataServer := DataServer{
-		Hash:    Hash(binary.BigEndian.Uint32(hash.Sum(nil))),
+		Hash:    Hash(binary.LittleEndian.Uint32(hash.Sum(nil))),
 		Address: ip,
 		Port:    port,
 	}
