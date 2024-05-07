@@ -30,9 +30,29 @@ message peerInfo {
   string port = 3;
 }
 
+message dotPair {
+  uint32 id      = 1;
+  uint64 version = 2;
+}
+
+message fileInfo {
+  map<uint32, VoteInfo> votes  = 1;
+  repeated dotPair      dotSet = 2;
+}
+
+message groupInfo {
+  repeated dotPair      dotSet = 1;
+}
+
+message crdt {
+  map<uint32, uint64>    versionVector = 1;
+  map<string, fileInfo>  files         = 2;
+  map<string, groupInfo> groupUsers    = 3;
+}
+
 message sessionStart {
-  uint32 id                      = 1;
-  map<string, voteMap> map       = 2;
+  uint32          id             = 1;
+  crdt            crdt           = 2;
   repeated string peers          = 3;
   repeated peerInfo sessionPeers = 4;
 }
