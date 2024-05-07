@@ -42,23 +42,24 @@ updateVoteTable(NewVotetable, UsersInfo, UserName) ->
 
 %% In progress
 
+% return DotSet Like in GO, i.e, map[DotPair]bool
 joinDotSet(VV, PeerVV, DotSet, PeerDotSet) ->
     % S & S'
     NewDotSet = lists:filter(fun({DotPair, _}) -> lists:member(DotPair, PeerDotSet) end, DotSet),
 
     AddIf = fun(VersionVector) ->
-                fun({{Id, Version}, _}, Acc) ->
+                fun({{Id, Version}, _}=DotPair, Acc) ->
                     case maps:find(Id, VersionVector) of
                         {ok, Version2} ->
                             case Version2 < Version of
                                 true ->
-                                    [{Id, Version} | Acc];
+                                    [DotPair | Acc];
 
                                 _ ->
                                     Acc
                             end;
                     _ ->
-                        [{Id, Version} | Acc]
+                        [DotPair | Acc]
                     end
             end
     end,
@@ -67,21 +68,27 @@ joinDotSet(VV, PeerVV, DotSet, PeerDotSet) ->
     NewDotSet1 = lists:foldl(AddIf(PeerVV), NewDotSet, DotSet),
 
     % S' | C
-    lists:foldl(AddIf(VV), NewDotSet1, PeerDotSet).
+    NewDotSet2 = lists:foldl(AddIf(VV), NewDotSet1, PeerDotSet),
+
+    % Convert to Map because of golang
+    maps:from_list(NewDotSet2).
+
 
 
 joinFileInfos(Info, PeerInfo) ->
     ok.
 
 joinGroupInfos(Info, PeerInfo) ->
-    ok.
+    joinDotSet()
 
+joinFirstMap(Map, PeerMap, JoinFuncInfo) ->
+    joinFirstMap(Map, PeerMap, #{}, JoinFuncInfo).
 joinFirstMap([], _, NewerMap, _) ->
     NewerMap;
-joinFirstMap([{Name, Value} | MapTail], PeerMap, NewMap, JoinFunc) ->
+joinFirstMap([{Name, Value} | MapTail], PeerMap, NewMap, {JoinFunc, Info}) ->
     case maps:find(Name, PeerMap) of
         {ok, PeerValue} ->
-            NewerMap = JoinFunc(Value, PeerValue);
+            NewerMap = JoinFunc(Value, PeerValue, Info);
         _ ->
             NewerMap = maps:put(Name, Value, NewMap)
     end,
@@ -98,8 +105,8 @@ joinSecondMap([{Name, Value} | PeerMapTail], NewMap) ->
     end,
     joinSecondMap(PeerMapTail, NewerMap).
 
-joinMaps(Map, PeerMap, JoinFunc) ->
-    NewMap = joinFirstMap(Map, PeerMap, #{}, JoinFunc),
+joinMaps(Map, PeerMap, JoinFuncInfo) ->
+    NewMap = joinFirstMap(Map, PeerMap, JoinFuncInfo),
     NewerMap = joinSecondMap(PeerMap, NewMap),
     NewerMap.
 
