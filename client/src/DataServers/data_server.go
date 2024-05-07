@@ -18,22 +18,39 @@ type DataServers struct {
 	Size    int
 }
 
-func (dataServers *DataServers) binarySearch(hash Hash) {
+func (dataservers *DataServers) binarySearch(hash Hash) (l int, r int) {
 
-	l, r := 0, dataServers.Size
+    list := dataservers.Servers
 
-	for r != l {
+	var last = len(list) - 1
 
-		m := (l + r) / 2
+	if list[0].Hash >= hash {
+		return -1, 0
+	}
 
-        if dataServers.Servers[m].Hash > hash {
+    if list[last].Hash < hash {
+        return last, last + 1
+    }
 
-            r = m - 1
+	l, r = 0, last
 
-        }
+	var m int
+
+	for r-l > 1 {
+
+        val := list[m].Hash
+
+		m = (l + r) / 2
+
+		if val >= hash {
+			r = m
+		} else if val < hash {
+			l = m
+		}
 
 	}
 
+	return
 }
 
 // TODO check if server exists in the list
