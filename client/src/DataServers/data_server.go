@@ -18,6 +18,8 @@ type DataServers struct {
 	Size    int
 }
 
+//this may return a value outside the list
+//if hash exists in the list returns l as previous position and r as the position of the element
 func (dataservers *DataServers) binarySearch(hash Hash) (l int, r int) {
 
     list := dataservers.Servers
