@@ -12,7 +12,7 @@ import (
 
 func main() {
 
-    const N int = 10485940*512
+    const N int = 10485940
 
     h := sha256.New()
 

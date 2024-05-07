@@ -15,7 +15,7 @@ import (
 
 func producer(ch chan rxgo.Item) (nBytes int64, nChunks int64) {
 
-    const N int = 10485940/4
+    const N int = 10485940
     // const N int = 10737418240
 
 
@@ -27,9 +27,10 @@ func producer(ch chan rxgo.Item) (nBytes int64, nChunks int64) {
 		log.Fatalf("Error to read [file=%v]: %v", fileName, err.Error())
 	}
 	r := bufio.NewReader(f)
-	buf := make([]byte, N)
 
 	for {
+
+        buf := make([]byte, N)
 
         n, err := r.Read(buf)
         // fmt.Printf("n: %v\n", n)
@@ -47,7 +48,7 @@ func producer(ch chan rxgo.Item) (nBytes int64, nChunks int64) {
 		}
 
 		nChunks++
-		nBytes += int64(len(buf))
+		nBytes += int64(n)
 
 		// process buf
 		if err != nil && err != io.EOF {
@@ -56,13 +57,13 @@ func producer(ch chan rxgo.Item) (nBytes int64, nChunks int64) {
 
         // fmt.Printf("buf: %v\n", buf)
 
-        buff_copy := make([]byte, n)
+        // buff_copy := make([]byte, n)
 
-        copy(buff_copy, buf)
+        // copy(buff_copy, buf)
 
         // fmt.Printf("buff_copy: %v\n", buff_copy)
 
-        ch<-rxgo.Of(buff_copy)
+        ch<-rxgo.Of(buf)
 	}
     fmt.Printf("nChunks: %v\n", nChunks)
     fmt.Printf("nBytes: %v\n", nBytes)
