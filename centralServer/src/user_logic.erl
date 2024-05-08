@@ -5,8 +5,7 @@
 
 % In Session
 
-session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when 
-    Status =:= get_album_no_permission;
+session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     Status =:= put_album_ok;
     Status =:= put_album_not_in_session;
     Status =:= put_album_no_permission
@@ -37,8 +36,11 @@ send(Data, Sock) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
     gen_tcp:send(Sock, Data).
 
-auth_user_handler(get_album_already_in_session, Sock, MainLoop, UserName) ->
-    send_reply("get_album_already_in_session", Sock),
+auth_user_handler(Status, Sock, MainLoop, UserName) when
+    Status =:= get_album_no_permission;
+    Status =:= get_album_already_in_session
+->
+    send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
 
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
@@ -53,7 +55,7 @@ auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
 
-auth_user_handler({get_album_ok, {Id, Crdt, SessionPeers, Votetable}, MainLoop}, Sock, MainLoop, UserName) ->
+auth_user_handler({get_album_ok, {Id, Crdt, SessionPeers, Votetable}, SessionLoop}, Sock, _, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 5,
         msg =
@@ -65,7 +67,7 @@ auth_user_handler({get_album_ok, {Id, Crdt, SessionPeers, Votetable}, MainLoop},
             }}
     }),
     send(Data, Sock),
-    session_user(Sock, MainLoop, UserName);
+    session_user(Sock, SessionLoop, UserName);
 
 auth_user_handler(_, Sock, MainLoop, UserName) ->
     auth_user(Sock, MainLoop, UserName).

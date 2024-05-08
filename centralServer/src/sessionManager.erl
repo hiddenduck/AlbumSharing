@@ -1,5 +1,5 @@
 -module(sessionManager).
--export([start/2, create_album/2]).
+-export([start/3, create_album/2]).
 
 create_album(AlbumName, UserName) ->
     case file:read_file_info(AlbumName) of
@@ -18,14 +18,14 @@ create_album(AlbumName, UserName) ->
             end
     end.
 
-% {albumMetaData, map(userName)->{isInSession, voteTable}}
-start(AlbumName, UserName) ->
+% {albumMetaData, [IdPool], map(userName)->{sessionID, voteTable}} sessionID = -1 -> not in session
+start(AlbumName, UserName, MainLoop) ->
     case file:read_file(AlbumName) of
         {ok, AlbumBin} ->
             {AlbumMetaData, UserMap} = erlang:binary_to_term(AlbumBin),
             case maps:find(UserName, UserMap) of
                 {ok, _} ->
-                    {ok, spawn(fun() -> loop({AlbumMetaData, UserMap}) end)};
+                    {ok, spawn(fun() -> loop({AlbumMetaData, {[],0}, UserMap, MainLoop}) end)};
                 _ ->
                     get_album_no_permission
             end;
@@ -33,5 +33,36 @@ start(AlbumName, UserName) ->
             get_album_error
     end.
 
-loop(Album) ->
-    ok.
+prepare_replica_state(UserName, AlbumMetaData, {IdPool, IdCounter}, UserMap) ->
+    case IdPool of
+        [] ->
+            Id = IdCounter,
+            NewIdInfo = {[], IdCounter+1};
+
+        [Id] ->
+            NewIdInfo = {[], IdCounter};
+
+        [Id | T] ->
+            NewIdInfo = {[T], IdCounter}
+    end,
+    
+    {{Id, }, NewIdInfo}.
+
+handler({join, Username, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop}, MainLoop) ->
+    case maps:find(Username, UserMap) of
+        {ok, {-1, _}} ->
+            {{Id, Crdt, SessionPeers, Votetable}, NewIdInfo} = prepare_replica_state(Username, AlbumMetaData, IdInfo, UserMap),
+            Client ! {get_album_ok, {Id, Crdt, SessionPeers, Votetable}, self()};
+
+        {ok, _} ->
+            Client ! get_album_already_in_session;
+
+        _ ->
+            Client ! get_album_no_permission
+    end.
+
+loop(State) ->
+    receive
+        {Msg, From} ->
+            loop(handler(Msg, State, From))
+    end.

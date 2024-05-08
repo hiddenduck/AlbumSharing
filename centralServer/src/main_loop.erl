@@ -45,11 +45,11 @@ handler({create_album, Username, AlbumName}, State, From) ->
 handler({get_album, Username, AlbumName}, {Users, AlbumMap} = State, From) ->
     case maps:find(AlbumName, AlbumMap) of
         {ok, Pid} ->
-            Pid ! {join, From, self()},
+            Pid ! {join, Username, From, self()},
             State;
 
         _ ->
-            case sessionManager:start(AlbumName, Username) of
+            case sessionManager:start(AlbumName, Username, self()) of
                 {ok, Pid} ->
                     Pid ! {join, From, self()},
                     {Users, maps:put(AlbumName, Pid, AlbumMap)};
