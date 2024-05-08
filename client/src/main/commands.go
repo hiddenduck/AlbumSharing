@@ -2,8 +2,30 @@ package main
 
 import (
 	"fmt"
+	"main/crdt"
 	"strconv"
 )
+
+type ClientState struct {
+	Replica *crdt.Replica
+	VoteMap *map[string]bool
+}
+
+func CreateClientState(clientId uint32) ClientState {
+	replica := crdt.CreateReplica(clientId)
+	voteMap := make(map[string]bool)
+	return ClientState{&replica, &voteMap}
+}
+
+func ExecuteCommand(list []string, commandMap map[string]interface{}, state ClientState) {
+	function, ok := commandMap[list[0]]
+
+	if ok {
+		function.(func([]string, ClientState))(list[1:], state)
+	} else {
+		fmt.Printf("\"%v\"; not a valid command!\n", list[0])
+	}
+}
 
 func addUser(msg []string, state ClientState) {
 	state.Replica.AddUser(msg[0])

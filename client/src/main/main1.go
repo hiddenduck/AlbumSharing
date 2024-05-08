@@ -4,21 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	chat "main/connection_management"
-	"main/crdt"
 	"os"
 	"strings"
 )
-
-type ClientState struct {
-	Replica *crdt.Replica
-	VoteMap *map[string]bool
-}
-
-func CreateClientState(clientId uint32) ClientState {
-	replica := crdt.CreateReplica(clientId)
-	voteMap := make(map[string]bool)
-	return ClientState{&replica, &voteMap}
-}
 
 func main() {
 
@@ -55,15 +43,7 @@ func main() {
 
 		if input[0] == '/' {
 
-			list := strings.Split(input[1:], " ")
-
-			function, ok := commandMap[list[0]]
-
-			if ok {
-				function.(func([]string, ClientState))(list[1:], state)
-			} else {
-				fmt.Printf("\"%v\"; not a valid command!\n", list[0])
-			}
+			ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
 
 			continue
 		}
@@ -74,7 +54,7 @@ func main() {
 			continue
 		}
 
-		fmt.Println(input)
+		//fmt.Println(input)
 		connector.Send_to_Peers([]byte(input))
 	}
 }

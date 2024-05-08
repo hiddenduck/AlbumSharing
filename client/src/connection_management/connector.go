@@ -83,7 +83,7 @@ func (connectorInfo ConnectorInfo) Listen_to_Peers(messageHandlers map[string]in
 		function, ok := messageHandlers[msg[1]]
 
 		if ok {
-			function.(func([]string))(msg[2:])
+			function.(func(string))(msg[2])
 		} else {
 			fmt.Printf("\"%v\"; not a valid type of message!\n", msg[1])
 		}

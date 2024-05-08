@@ -23,7 +23,7 @@ func main() {
 
 	connector.Connect_to_Peers()
 
-	go connector.Listen_to_Peers()
+	go connector.Listen_to_Peers(CreateMessageHandlers())
 
 	var commandMap map[string]interface{} = CreateCommandsMap()
 
@@ -43,15 +43,7 @@ func main() {
 
 		if input[0] == '/' {
 
-			list := strings.Split(input[1:], " ")
-
-			function, ok := commandMap[list[0]]
-
-			if ok {
-				function.(func([]string, ClientState))(list[1:], state)
-			} else {
-				fmt.Printf("\"%v\"; not a valid command!\n", list[0])
-			}
+			ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
 
 			continue
 		}
@@ -62,7 +54,7 @@ func main() {
 			continue
 		}
 
-		fmt.Println(input)
+		//fmt.Println(input)
 		connector.Send_to_Peers([]byte(input))
 	}
 }
