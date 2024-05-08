@@ -31,8 +31,12 @@ auth_user_handler({Info, MainLoop}, Sock, MainLoop, UserName) ->
 auth_user_handler(_, Sock, MainLoop, UserName) ->
     auth_user(Sock, MainLoop, UserName).
 
-auth_message_handler(album, {m1, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
+auth_message_handler(create, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{create_album, UserName, AlbumName}, self()},
+    auth_user(Sock, MainLoop, UserName);
+
+auth_message_handler(get, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
+    MainLoop ! {{get_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName).
 
 auth_user(Sock, MainLoop, UserName) ->

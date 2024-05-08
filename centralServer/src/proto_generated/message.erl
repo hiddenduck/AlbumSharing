@@ -358,7 +358,7 @@ encode_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3}, Bin, TrU
 encode_msg_sessionStart(Msg, TrUserData) -> encode_msg_sessionStart(Msg, <<>>, TrUserData).
 
 
-encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPeers = F4}, Bin, TrUserData) ->
+encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
             true ->
                 begin
@@ -377,16 +377,10 @@ encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPee
                     end
                 end
          end,
-    B3 = begin
-             TrF3 = id(F3, TrUserData),
-             if TrF3 == [] -> B2;
-                true -> e_field_sessionStart_peers(TrF3, B2, TrUserData)
-             end
-         end,
     begin
-        TrF4 = id(F4, TrUserData),
-        if TrF4 == [] -> B3;
-           true -> e_field_sessionStart_sessionPeers(TrF4, B3, TrUserData)
+        TrF3 = id(F3, TrUserData),
+        if TrF3 == [] -> B2;
+           true -> e_field_sessionStart_sessionPeers(TrF3, B2, TrUserData)
         end
     end.
 
@@ -516,19 +510,13 @@ e_mfield_sessionStart_crdt(Msg, Bin, TrUserData) ->
     Bin2 = e_varint(byte_size(SubBin), Bin),
     <<Bin2/binary, SubBin/binary>>.
 
-e_field_sessionStart_peers([Elem | Rest], Bin, TrUserData) ->
-    Bin2 = <<Bin/binary, 26>>,
-    Bin3 = e_type_string(id(Elem, TrUserData), Bin2, TrUserData),
-    e_field_sessionStart_peers(Rest, Bin3, TrUserData);
-e_field_sessionStart_peers([], Bin, _TrUserData) -> Bin.
-
 e_mfield_sessionStart_sessionPeers(Msg, Bin, TrUserData) ->
     SubBin = encode_msg_peerInfo(Msg, <<>>, TrUserData),
     Bin2 = e_varint(byte_size(SubBin), Bin),
     <<Bin2/binary, SubBin/binary>>.
 
 e_field_sessionStart_sessionPeers([Elem | Rest], Bin, TrUserData) ->
-    Bin2 = <<Bin/binary, 34>>,
+    Bin2 = <<Bin/binary, 26>>,
     Bin3 = e_mfield_sessionStart_sessionPeers(id(Elem, TrUserData), Bin2, TrUserData),
     e_field_sessionStart_sessionPeers(Rest, Bin3, TrUserData);
 e_field_sessionStart_sessionPeers([], Bin, _TrUserData) -> Bin.
@@ -1324,41 +1312,39 @@ skip_32_crdt(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> 
 
 skip_64_crdt(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_sessionStart(Bin, TrUserData) -> dfp_read_field_def_sessionStart(Bin, 0, 0, 0, id(0, TrUserData), id(undefined, TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_sessionStart(Bin, TrUserData) -> dfp_read_field_def_sessionStart(Bin, 0, 0, 0, id(0, TrUserData), id(undefined, TrUserData), id([], TrUserData), TrUserData).
 
-dfp_read_field_def_sessionStart(<<8, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_id(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_peers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<34, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_sessionPeers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, peers = lists_reverse(R1, TrUserData), sessionPeers = lists_reverse(R2, TrUserData)};
-dfp_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dg_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+dfp_read_field_def_sessionStart(<<8, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_sessionStart_id(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_sessionStart(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_sessionStart_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_sessionStart(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_sessionStart_sessionPeers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = lists_reverse(R1, TrUserData)};
+dfp_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 32 - 7 -> dg_read_field_def_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dg_read_field_def_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+dg_read_field_def_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        8 -> d_field_sessionStart_id(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        18 -> d_field_sessionStart_crdt(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        26 -> d_field_sessionStart_peers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        34 -> d_field_sessionStart_sessionPeers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        8 -> d_field_sessionStart_id(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        18 -> d_field_sessionStart_crdt(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        26 -> d_field_sessionStart_sessionPeers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                1 -> skip_64_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                2 -> skip_length_delimited_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                3 -> skip_group_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                5 -> skip_32_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData)
+                0 -> skip_varint_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                1 -> skip_64_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                2 -> skip_length_delimited_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                3 -> skip_group_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                5 -> skip_32_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData)
             end
     end;
-dg_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, peers = lists_reverse(R1, TrUserData), sessionPeers = lists_reverse(R2, TrUserData)}.
+dg_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = lists_reverse(R1, TrUserData)}.
 
-d_field_sessionStart_id(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_id(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_id(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, F@_4, TrUserData) ->
+d_field_sessionStart_id(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_sessionStart_id(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_sessionStart_id(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, TrUserData) ->
     {NewFValue, RestF} = {id((X bsl N + Acc) band 4294967295, TrUserData), Rest},
-    dfp_read_field_def_sessionStart(RestF, 0, 0, F, NewFValue, F@_2, F@_3, F@_4, TrUserData).
+    dfp_read_field_def_sessionStart(RestF, 0, 0, F, NewFValue, F@_2, F@_3, TrUserData).
 
-d_field_sessionStart_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3, F@_4, TrUserData) ->
+d_field_sessionStart_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_sessionStart_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_sessionStart_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_crdt(Bs, TrUserData), TrUserData), Rest2} end,
     dfp_read_field_def_sessionStart(RestF,
                                     0,
@@ -1369,35 +1355,29 @@ d_field_sessionStart_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3
                                        true -> merge_msg_crdt(Prev, NewFValue, TrUserData)
                                     end,
                                     F@_3,
-                                    F@_4,
                                     TrUserData).
 
-d_field_sessionStart_peers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_peers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_peers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, F@_4, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, cons(NewFValue, Prev, TrUserData), F@_4, TrUserData).
-
-d_field_sessionStart_sessionPeers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_sessionPeers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_sessionPeers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, Prev, TrUserData) ->
+d_field_sessionStart_sessionPeers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_sessionStart_sessionPeers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_sessionStart_sessionPeers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_peerInfo(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, F@_3, cons(NewFValue, Prev, TrUserData), TrUserData).
+    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, cons(NewFValue, Prev, TrUserData), TrUserData).
 
-skip_varint_sessionStart(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> skip_varint_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-skip_varint_sessionStart(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_varint_sessionStart(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_sessionStart(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-skip_length_delimited_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> skip_length_delimited_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-skip_length_delimited_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+skip_length_delimited_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_sessionStart(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+    dfp_read_field_def_sessionStart(Rest2, 0, 0, F, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_sessionStart(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+skip_group_sessionStart(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_sessionStart(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData).
+    dfp_read_field_def_sessionStart(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_sessionStart(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_32_sessionStart(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_sessionStart(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_64_sessionStart(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
 decode_msg_quitMessage(Bin, TrUserData) -> dfp_read_field_def_quitMessage(Bin, 0, 0, 0, id(undefined, TrUserData), id([], TrUserData), TrUserData).
 
@@ -2087,7 +2067,7 @@ merge_msg_crdt(#crdt{versionVector = PFversionVector, files = PFfiles, groupUser
               end}.
 
 -compile({nowarn_unused_function,merge_msg_sessionStart/3}).
-merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, peers = PFpeers, sessionPeers = PFsessionPeers}, #sessionStart{id = NFid, crdt = NFcrdt, peers = NFpeers, sessionPeers = NFsessionPeers}, TrUserData) ->
+merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, sessionPeers = PFsessionPeers}, #sessionStart{id = NFid, crdt = NFcrdt, sessionPeers = NFsessionPeers}, TrUserData) ->
     #sessionStart{id =
                       if NFid =:= undefined -> PFid;
                          true -> NFid
@@ -2096,11 +2076,6 @@ merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, peers = PFpeers, 
                       if PFcrdt /= undefined, NFcrdt /= undefined -> merge_msg_crdt(PFcrdt, NFcrdt, TrUserData);
                          PFcrdt == undefined -> NFcrdt;
                          NFcrdt == undefined -> PFcrdt
-                      end,
-                  peers =
-                      if PFpeers /= undefined, NFpeers /= undefined -> 'erlang_++'(PFpeers, NFpeers, TrUserData);
-                         PFpeers == undefined -> NFpeers;
-                         NFpeers == undefined -> PFpeers
                       end,
                   sessionPeers =
                       if PFsessionPeers /= undefined, NFsessionPeers /= undefined -> 'erlang_++'(PFsessionPeers, NFsessionPeers, TrUserData);
@@ -2333,7 +2308,7 @@ v_submsg_sessionStart(Msg, Path, TrUserData) -> v_msg_sessionStart(Msg, Path, Tr
 
 -compile({nowarn_unused_function,v_msg_sessionStart/3}).
 -dialyzer({nowarn_function,v_msg_sessionStart/3}).
-v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPeers = F4}, Path, TrUserData) ->
+v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_uint32(F1, [id | Path], TrUserData)
     end,
@@ -2341,14 +2316,9 @@ v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPeers = 
        true -> v_submsg_crdt(F2, [crdt | Path], TrUserData)
     end,
     if is_list(F3) ->
-           _ = [v_type_string(Elem, [peers | Path], TrUserData) || Elem <- F3],
+           _ = [v_submsg_peerInfo(Elem, [sessionPeers | Path], TrUserData) || Elem <- F3],
            ok;
-       true -> mk_type_error({invalid_list_of, string}, F3, [peers | Path])
-    end,
-    if is_list(F4) ->
-           _ = [v_submsg_peerInfo(Elem, [sessionPeers | Path], TrUserData) || Elem <- F4],
-           ok;
-       true -> mk_type_error({invalid_list_of, {msg, peerInfo}}, F4, [sessionPeers | Path])
+       true -> mk_type_error({invalid_list_of, {msg, peerInfo}}, F3, [sessionPeers | Path])
     end,
     ok;
 v_msg_sessionStart(X, Path, _TrUserData) -> mk_type_error({expected_msg, sessionStart}, X, Path).
@@ -2657,8 +2627,7 @@ get_msg_defs() ->
      {{msg, sessionStart},
       [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
        #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
-       #field{name = peers, fnum = 3, rnum = 4, type = string, occurrence = repeated, opts = []},
-       #field{name = sessionPeers, fnum = 4, rnum = 5, type = {msg, peerInfo}, occurrence = repeated, opts = []}]},
+       #field{name = sessionPeers, fnum = 3, rnum = 4, type = {msg, peerInfo}, occurrence = repeated, opts = []}]},
      {{msg, quitMessage}, [#field{name = crdt, fnum = 1, rnum = 2, type = {msg, crdt}, occurrence = optional, opts = []}, #field{name = peers, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []}]},
      {{msg, 'Message'},
       [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'Type'}, occurrence = optional, opts = []},
@@ -2718,8 +2687,7 @@ find_msg_def(crdt) ->
 find_msg_def(sessionStart) ->
     [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
      #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
-     #field{name = peers, fnum = 3, rnum = 4, type = string, occurrence = repeated, opts = []},
-     #field{name = sessionPeers, fnum = 4, rnum = 5, type = {msg, peerInfo}, occurrence = repeated, opts = []}];
+     #field{name = sessionPeers, fnum = 3, rnum = 4, type = {msg, peerInfo}, occurrence = repeated, opts = []}];
 find_msg_def(quitMessage) -> [#field{name = crdt, fnum = 1, rnum = 2, type = {msg, crdt}, occurrence = optional, opts = []}, #field{name = peers, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []}];
 find_msg_def('Message') ->
     [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'Type'}, occurrence = optional, opts = []},
