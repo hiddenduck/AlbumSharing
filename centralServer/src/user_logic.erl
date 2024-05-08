@@ -5,6 +5,10 @@
 
 % Authenticated
 
+send(Data, Sock) ->
+    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
+    gen_tcp:send(Sock, Data).
+
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok;
@@ -18,14 +22,18 @@ auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
 
-auth_user_handler({get_album_ok, AlbumData, MainLoop}, Sock, MainLoop, UserName) ->
-    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-    gen_tcp:send(Sock, atom_to_list(get_album_ok) ++ maps:to_list(AlbumData) ++ "\n"),
-    auth_user(Sock, MainLoop, UserName);
-
-auth_user_handler({Info, MainLoop}, Sock, MainLoop, UserName) ->
-    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-    gen_tcp:send(Sock, atom_to_list(Info) ++ "\n"),
+auth_user_handler({get_album_ok, {Id, Crdt, SessionPeers, Votetable}, MainLoop}, Sock, MainLoop, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 5,
+        msg =
+            {m3, #sessionStart{
+                id = Id,
+                crdt = Crdt,
+                sessionPeers = SessionPeers,
+                voteTable = Votetable
+            }}
+    }),
+    send(Data, Sock),
     auth_user(Sock, MainLoop, UserName);
 
 auth_user_handler(_, Sock, MainLoop, UserName) ->
@@ -39,8 +47,8 @@ auth_message_handler(get, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, U
     MainLoop ! {{get_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
 
-auth_message_handler(quit, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
-    MainLoop ! {{get_album, UserName, AlbumName}, self()},
+auth_message_handler(quit, {m4, #quitMessage{albumName = AlbumName, crdt = Crdt, voteTable = Votetable}}, Sock, MainLoop, UserName) ->
+    MainLoop ! {{put_album, UserName, AlbumName, {Crdt, Votetable}}, self()},
     auth_user(Sock, MainLoop, UserName).
 
 auth_user(Sock, MainLoop, UserName) ->

@@ -61,8 +61,9 @@ message sessionStart {
 }
 
 message quitMessage {
-  crdt            crdt  = 1;
-  repeated string peers = 2;
+  string          albumName   = 1;
+  crdt            crdt        = 2;
+  map<string, bool> voteTable = 3;
 }
 
 message Message {

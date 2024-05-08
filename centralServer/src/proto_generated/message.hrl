@@ -107,8 +107,9 @@
 -ifndef('QUITMESSAGE_PB_H').
 -define('QUITMESSAGE_PB_H', true).
 -record(quitMessage,
-        {crdt = undefined       :: message:crdt() | undefined, % = 1, optional
-         peers = []             :: [unicode:chardata()] | undefined % = 2, repeated
+        {albumName = []         :: unicode:chardata() | undefined, % = 1, optional
+         crdt = undefined       :: message:crdt() | undefined, % = 2, optional
+         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 3
         }).
 -endif.
 
