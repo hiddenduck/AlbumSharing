@@ -6,12 +6,15 @@
 % In Session
 
 session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
-    Status =:= put_album_ok;
     Status =:= put_album_not_in_session;
     Status =:= put_album_no_permission
 ->
     send_reply(atom_to_list(Status), Sock),
-    session_user(Sock, SessionLoop, UserName).
+    session_user(Sock, SessionLoop, UserName);
+
+session_user_handler({put_album_ok, MainLoop, SessionLoop}, Sock, SessionLoop, UserName) ->
+    send_reply("put_album_ok", Sock),
+    auth_user(Sock, MainLoop, UserName).
 
 session_message_handler(quit, {m4, #quitMessage{crdt = Crdt, voteTable = Votetable}}, Sock, SessionLoop, UserName) ->
     SessionLoop ! {{put_album, UserName, {Crdt, Votetable}}, self()},
@@ -20,7 +23,8 @@ session_message_handler(quit, {m4, #quitMessage{crdt = Crdt, voteTable = Votetab
 session_user(Sock, SessionLoop, UserName) ->
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
-            SessionLoop ! {log_out, UserName};
+            io:format("~p disconnected without saving!~n", [UserName]),
+            error;
 
         {tcp, _, Msg} ->
             Message = message:decode_msg(Msg, 'Message'),
@@ -47,10 +51,7 @@ auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok;
     Status =:= get_album_no_permission;
-    Status =:= get_album_error;
-    Status =:= put_album_ok;
-    Status =:= put_album_not_in_session;
-    Status =:= put_album_no_permission
+    Status =:= get_album_error
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
@@ -78,6 +79,11 @@ auth_message_handler(create, {m2, #album{albumName = AlbumName}}, Sock, MainLoop
 
 auth_message_handler(get, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{get_album, UserName, AlbumName}, self()},
+    auth_user(Sock, MainLoop, UserName);
+
+auth_message_handler(
+    _, _, Sock, MainLoop, UserName
+) ->
     auth_user(Sock, MainLoop, UserName).
 
 auth_user(Sock, MainLoop, UserName) ->

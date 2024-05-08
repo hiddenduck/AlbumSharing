@@ -58,14 +58,13 @@ message crdt {
 message sessionStart {
   uint32          id             = 1;
   crdt            crdt           = 2;
-  repeated peerInfo sessionPeers = 3;
+  map<string, peerInfo> sessionPeers = 3;
   map<string, bool> voteTable    = 4;
 }
 
 message quitMessage {
-  string          albumName   = 1;
-  crdt            crdt        = 2;
-  map<string, bool> voteTable = 3;
+  crdt            crdt        = 1;
+  map<string, bool> voteTable = 2;
 }
 
 message Message {

@@ -99,7 +99,7 @@
 -record(sessionStart,
         {id = 0                 :: non_neg_integer() | undefined, % = 1, optional, 32 bits
          crdt = undefined       :: message:crdt() | undefined, % = 2, optional
-         sessionPeers = []      :: [message:peerInfo()] | undefined, % = 3, repeated
+         sessionPeers = []      :: [{unicode:chardata(), message:peerInfo()}] | undefined, % = 3
          voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 4
         }).
 -endif.
@@ -107,9 +107,8 @@
 -ifndef('QUITMESSAGE_PB_H').
 -define('QUITMESSAGE_PB_H', true).
 -record(quitMessage,
-        {albumName = []         :: unicode:chardata() | undefined, % = 1, optional
-         crdt = undefined       :: message:crdt() | undefined, % = 2, optional
-         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 3
+        {crdt = undefined       :: message:crdt() | undefined, % = 1, optional
+         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 2
         }).
 -endif.
 

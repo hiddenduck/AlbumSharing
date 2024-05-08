@@ -77,6 +77,20 @@ handler(
         _ ->
             Client ! get_album_no_permission,
             State
+    end;
+
+handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, UserMap, MainLoop}=State, Client) ->
+    case maps:find(UserName, UserMap) of
+        {ok, {Id, _}} ->
+            
+
+        {ok, {-1, _}} ->
+            Client ! {put_album_not_in_session, self()},
+            State;
+        
+        _ ->
+            Client ! {put_album_no_permission, self()};
+            State
     end.
 
 loop(State) ->
