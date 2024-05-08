@@ -14,7 +14,7 @@ createState() ->
         % All Users
         #{}, % Users -> {isOnline, Password}
         
-        % Album Room, String(album name) -> {albumMetaData, map(userName)->{isInSession, voteTable}}
+        % Album Room, String(album name) -> Pid, mapping the album name to the current session
         #{}
     }.
 

@@ -3,30 +3,76 @@
 -define(ACTIVE_TIMES, 10).
 -include("proto_generated/message.hrl").
 
-% Authenticated
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%% In Session %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
+    Status =:= put_album_not_in_session;
+    Status =:= put_album_no_permission
+->
+    send_reply(atom_to_list(Status), Sock),
+    session_user(Sock, SessionLoop, UserName);
+
+session_user_handler({put_album_ok, MainLoop, SessionLoop}, Sock, SessionLoop, UserName) ->
+    send_reply("put_album_ok", Sock),
+    auth_user(Sock, MainLoop, UserName).
+
+session_message_handler(quit, {m4, #quitMessage{crdt = Crdt, voteTable = Votetable}}, Sock, SessionLoop, UserName) ->
+    SessionLoop ! {{put_album, UserName, {Crdt, Votetable}}, self()},
+    session_user(Sock, SessionLoop, UserName).
+
+session_user(Sock, SessionLoop, UserName) ->
+    receive
+        {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
+            io:format("~p disconnected without saving!~n", [UserName]),
+            error;
+
+        {tcp, _, Msg} ->
+            Message = message:decode_msg(Msg, 'Message'),
+            session_message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, SessionLoop, UserName);
+
+        Msg ->
+            session_user_handler(Msg, Sock, SessionLoop, UserName)
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%% Authenticated %%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+send(Data, Sock) ->
+    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
+    gen_tcp:send(Sock, Data).
+
+auth_user_handler(Status, Sock, MainLoop, UserName) when
+    Status =:= get_album_no_permission;
+    Status =:= get_album_already_in_session
+->
+    send_reply(atom_to_list(Status), Sock),
+    auth_user(Sock, MainLoop, UserName);
 
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok;
     Status =:= get_album_no_permission;
-    Status =:= get_album_error;
-    Status =:= get_album_already_in_session;
-    Status =:= put_album_ok;
-    Status =:= put_album_not_in_session;
-    Status =:= put_album_no_permission
+    Status =:= get_album_error
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
 
-auth_user_handler({get_album_ok, AlbumData, MainLoop}, Sock, MainLoop, UserName) ->
-    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-    gen_tcp:send(Sock, atom_to_list(get_album_ok) ++ maps:to_list(AlbumData) ++ "\n"),
-    auth_user(Sock, MainLoop, UserName);
-
-auth_user_handler({Info, MainLoop}, Sock, MainLoop, UserName) ->
-    inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-    gen_tcp:send(Sock, atom_to_list(Info) ++ "\n"),
-    auth_user(Sock, MainLoop, UserName);
+auth_user_handler({get_album_ok, {Id, Crdt, SessionPeers, Votetable}, SessionLoop}, Sock, _, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 5,
+        msg =
+            {m3, #sessionStart{
+                id = Id,
+                crdt = Crdt,
+                sessionPeers = SessionPeers,
+                voteTable = Votetable
+            }}
+    }),
+    send(Data, Sock),
+    session_user(Sock, SessionLoop, UserName);
 
 auth_user_handler(_, Sock, MainLoop, UserName) ->
     auth_user(Sock, MainLoop, UserName).
@@ -39,8 +85,9 @@ auth_message_handler(get, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, U
     MainLoop ! {{get_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
 
-auth_message_handler(quit, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
-    MainLoop ! {{get_album, UserName, AlbumName}, self()},
+auth_message_handler(
+    _, _, Sock, MainLoop, UserName
+) ->
     auth_user(Sock, MainLoop, UserName).
 
 auth_user(Sock, MainLoop, UserName) ->
@@ -56,7 +103,10 @@ auth_user(Sock, MainLoop, UserName) ->
             auth_user_handler(Msg, Sock, MainLoop, UserName)
     end.
 
-% Before Authentication
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Not Authenticated %%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 send_reply(Status, Sock) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
     Data = message:encode_msg(#'Message'{
