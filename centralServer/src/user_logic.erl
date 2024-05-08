@@ -13,8 +13,8 @@ session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     send_reply(atom_to_list(Status), Sock),
     session_user(Sock, SessionLoop, UserName).
 
-session_message_handler(quit, {m4, #quitMessage{albumName = AlbumName, crdt = Crdt, voteTable = Votetable}}, Sock, SessionLoop, UserName) ->
-    SessionLoop ! {{put_album, UserName, AlbumName, {Crdt, Votetable}}, self()},
+session_message_handler(quit, {m4, #quitMessage{crdt = Crdt, voteTable = Votetable}}, Sock, SessionLoop, UserName) ->
+    SessionLoop ! {{put_album, UserName, {Crdt, Votetable}}, self()},
     session_user(Sock, SessionLoop, UserName).
 
 session_user(Sock, SessionLoop, UserName) ->

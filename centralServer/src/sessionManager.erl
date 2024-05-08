@@ -1,6 +1,8 @@
 -module(sessionManager).
 -export([start/3, create_album/2]).
 
+% self-reminder, destruir CRDT no final da sessão e construir no inicio
+
 create_album(AlbumName, UserName) ->
     case file:read_file_info(AlbumName) of
         {ok, _} ->
@@ -25,7 +27,7 @@ start(AlbumName, UserName, MainLoop) ->
             {AlbumMetaData, UserMap} = erlang:binary_to_term(AlbumBin),
             case maps:find(UserName, UserMap) of
                 {ok, _} ->
-                    {ok, spawn(fun() -> loop({AlbumMetaData, {[],0}, UserMap, MainLoop}) end)};
+                    {ok, spawn(fun() -> loop({AlbumMetaData, {[], 0}, UserMap, MainLoop}) end)};
                 _ ->
                     get_album_no_permission
             end;
@@ -33,32 +35,48 @@ start(AlbumName, UserName, MainLoop) ->
             get_album_error
     end.
 
-prepare_replica_state(UserName, AlbumMetaData, {IdPool, IdCounter}, UserMap) ->
+prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap) ->
     case IdPool of
         [] ->
             Id = IdCounter,
-            NewIdInfo = {[], IdCounter+1};
-
+            NewIdInfo = {[], IdCounter + 1};
         [Id] ->
             NewIdInfo = {[], IdCounter};
-
         [Id | T] ->
             NewIdInfo = {[T], IdCounter}
     end,
-    
-    {{Id, }, NewIdInfo}.
+    % falta ip,port
+    SessionPeers = maps:filtermap(
+        maps:filtermap(
+            fun
+                (_, {CurrId, _}) when CurrId =/= -1 ->
+                    {ok, {true, CurrId}};
+                (_, _) ->
+                    false
+            end,
+            UserMap
+        ),
+        UserMap
+    ),
+    {_, Votetable} = maps:get(UserName, UserMap),
+    {{Id, SessionPeers, Votetable}, NewIdInfo}.
 
-handler({join, Username, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop}, MainLoop) ->
+handler(
+    {join, Username, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop} = State, MainLoop
+) ->
     case maps:find(Username, UserMap) of
         {ok, {-1, _}} ->
-            {{Id, Crdt, SessionPeers, Votetable}, NewIdInfo} = prepare_replica_state(Username, AlbumMetaData, IdInfo, UserMap),
-            Client ! {get_album_ok, {Id, Crdt, SessionPeers, Votetable}, self()};
-
+            {{Id, SessionPeers, Votetable}, NewIdInfo} = prepare_replica_state(
+                Username, IdInfo, UserMap
+            ),
+            Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, Votetable}, self()},
+            {AlbumMetaData, NewIdInfo, UserMap, MainLoop};
         {ok, _} ->
-            Client ! get_album_already_in_session;
-
+            Client ! get_album_already_in_session,
+            State;
         _ ->
-            Client ! get_album_no_permission
+            Client ! get_album_no_permission,
+            State
     end.
 
 loop(State) ->
