@@ -4,36 +4,41 @@ import (
 	"bufio"
 	"fmt"
 	chat "main/connection_management"
+	"main/crdt"
 	"os"
 	"strings"
 )
 
-func myprint(l []string) {
-	for range l {
-		fmt.Println("foo")
-	}
+type ClientState struct {
+	Replica *crdt.Replica
+	VoteMap map[string]bool
+}
+
+func CreateClientState(clientId uint32) ClientState {
+	replica := crdt.CreateReplica(clientId)
+	return ClientState{&replica, make(map[string]bool)}
 }
 
 func main() {
 
-    is_in_Album := true
+	is_in_Album := true
 
-    connector := chat.Make_ConnectorInfo()
+	connector := chat.Make_ConnectorInfo()
 
-    connector.SetIdentity("PEER1")
+	connector.SetIdentity("PEER1")
 
-    connector.BindSocket("1111")
+	connector.BindSocket("1111")
 
-    connector.Add_Peer("PEER2", "Emanueldo Gonçalves Faria 2", "localhost", "2222")
-    connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
+	connector.Add_Peer("PEER2", "Emanueldo Gonçalves Faria 2", "localhost", "2222")
+	connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
 
-    connector.Connect_to_Peers()
+	connector.Connect_to_Peers()
 
-    go connector.Listen_to_Peers()
+	go connector.Listen_to_Peers(CreateMessageHandlers())
 
-	var commandMap map[string]interface{} = map[string]interface{}{
-		"print": myprint,
-	}
+	var commandMap map[string]interface{} = CreateCommandsMap()
+
+	state := CreateClientState(0)
 
 	for {
 
@@ -54,7 +59,7 @@ func main() {
 			function, ok := commandMap[list[0]]
 
 			if ok {
-				function.(func([]string))(list[1:])
+				function.(func([]string, ClientState))(list[1:], state)
 			} else {
 				fmt.Printf("\"%v\"; not a valid command!\n", list[0])
 			}
@@ -68,7 +73,7 @@ func main() {
 			continue
 		}
 
-        fmt.Println(input)
-        connector.Send_to_Peers([]byte(input))
+		fmt.Println(input)
+		connector.Send_to_Peers([]byte(input))
 	}
 }

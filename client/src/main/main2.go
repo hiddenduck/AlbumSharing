@@ -8,28 +8,22 @@ import (
 	"strings"
 )
 
-func myprint(l []string) {
-	for range l {
-		fmt.Println("foo")
-	}
-}
-
 func main() {
 
-    is_in_Album := true
+	is_in_Album := true
 
-    connector := chat.Make_ConnectorInfo()
+	connector := chat.Make_ConnectorInfo()
 
-    connector.SetIdentity("PEER2")
+	connector.SetIdentity("PEER2")
 
-    connector.BindSocket("2222")
+	connector.BindSocket("2222")
 
-    connector.Add_Peer("PEER1", "Emanueldo Gonçalves Faria 1", "localhost", "1111")
-    connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
+	connector.Add_Peer("PEER1", "Emanueldo Gonçalves Faria 1", "localhost", "1111")
+	connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
 
-    connector.Connect_to_Peers()
+	connector.Connect_to_Peers()
 
-    go connector.Listen_to_Peers()
+	go connector.Listen_to_Peers()
 
 	var commandMap map[string]interface{} = map[string]interface{}{
 		"print": myprint,
@@ -68,7 +62,7 @@ func main() {
 			continue
 		}
 
-        fmt.Println(input)
-        connector.Send_to_Peers([]byte(input))
+		fmt.Println(input)
+		connector.Send_to_Peers([]byte(input))
 	}
 }
