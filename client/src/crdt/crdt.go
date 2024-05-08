@@ -43,7 +43,7 @@ func (replica *Replica) RemoveUser(userName string) (ok bool) {
 	return
 }
 
-func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable map[string]bool) (fileExists bool, canVote bool) {
+func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable map[string]bool) (fileExists bool, cantVote bool) {
 	fileInfo, fileExists := replica.Files[fileName]
 	cantVote = voteTable[fileName]
 
