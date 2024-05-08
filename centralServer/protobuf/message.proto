@@ -9,6 +9,12 @@ message album {
   string albumName = 1;
 }
 
+message get_album {
+  string albumName = 1;
+  string ip        = 2;
+  int64  port      = 3;
+}
+
 message reply_message {
   string status = 1;
 }
@@ -73,6 +79,7 @@ message Message {
     sessionStart        m3 = 4;
     quitMessage         m4 = 5;
     reply_message       m5 = 6;
+    get_album           m6 = 7;
   }
 }
 
@@ -81,7 +88,7 @@ enum Type {
   login    = 1; // registerLoginFormat
   logout   = 2; // <None>
   create   = 3; // album
-  get      = 4; // album
+  get      = 4; // get_album
   send     = 5; // sessionStart
   quit     = 6; // quitMessage
   reply    = 7; // reply

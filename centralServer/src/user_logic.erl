@@ -3,7 +3,9 @@
 -define(ACTIVE_TIMES, 10).
 -include("proto_generated/message.hrl").
 
-% In Session
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%% In Session %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     Status =:= put_album_not_in_session;
@@ -34,7 +36,9 @@ session_user(Sock, SessionLoop, UserName) ->
             session_user_handler(Msg, Sock, SessionLoop, UserName)
     end.
 
-% Authenticated
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%% Authenticated %%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 send(Data, Sock) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
@@ -99,7 +103,10 @@ auth_user(Sock, MainLoop, UserName) ->
             auth_user_handler(Msg, Sock, MainLoop, UserName)
     end.
 
-% Before Authentication
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Not Authenticated %%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 send_reply(Status, Sock) ->
     inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
     Data = message:encode_msg(#'Message'{

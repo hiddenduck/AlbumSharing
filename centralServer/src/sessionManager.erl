@@ -20,7 +20,7 @@ create_album(AlbumName, UserName) ->
             end
     end.
 
-% {albumMetaData, [IdPool], map(userName)->{sessionID, voteTable}} sessionID = -1 -> not in session
+% {albumMetaData, [IdPool], map(userName)->{{sessionID, Info}, voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, PID}
 start(AlbumName, UserName, MainLoop) ->
     case file:read_file(AlbumName) of
         {ok, AlbumBin} ->
@@ -35,7 +35,7 @@ start(AlbumName, UserName, MainLoop) ->
             get_album_error
     end.
 
-prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap) ->
+prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
     case IdPool of
         [] ->
             Id = IdCounter,
@@ -45,32 +45,30 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap) ->
         [Id | T] ->
             NewIdInfo = {[T], IdCounter}
     end,
-    % falta ip,port
+    
     SessionPeers = maps:filtermap(
-        maps:filtermap(
-            fun
-                (_, {CurrId, _}) when CurrId =/= -1 ->
-                    {ok, {true, CurrId}};
-                (_, _) ->
-                    false
-            end,
-            UserMap
-        ),
+        fun
+            (_, {{CurrId, {IP, Port, _}}, _}) when CurrId =/= -1 ->
+                {ok, {true, {CurrId, IP, Port}}};
+            (_, _) ->
+                false
+        end,
         UserMap
     ),
     {_, Votetable} = maps:get(UserName, UserMap),
-    {{Id, SessionPeers, Votetable}, NewIdInfo}.
+    NewUserMap = maps:update(UserName, {{Id, {Ip, PORT, PID}}, Votetable}),
+    {{Id, SessionPeers, PeersToWarn, Votetable}, NewIdInfo, NewUserMap}.
 
 handler(
     {join, Username, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop} = State, MainLoop
 ) ->
     case maps:find(Username, UserMap) of
         {ok, {-1, _}} ->
-            {{Id, SessionPeers, Votetable}, NewIdInfo} = prepare_replica_state(
+            {{Id, SessionPeers, Votetable}, NewIdInfo, NewUserMap} = prepare_replica_state(
                 Username, IdInfo, UserMap
             ),
             Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, Votetable}, self()},
-            {AlbumMetaData, NewIdInfo, UserMap, MainLoop};
+            {AlbumMetaData, NewIdInfo, NewUserMap, MainLoop};
         {ok, _} ->
             Client ! get_album_already_in_session,
             State;

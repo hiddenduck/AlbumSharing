@@ -58,29 +58,6 @@ handler({get_album, Username, AlbumName}, {Users, AlbumMap} = State, From) ->
                     From ! {ErrorMsg, self()},
                     State
             end
-    end;
-
-handler({put_album, UserName, AlbumName, Changes}, {Users, Metadata} = State, From) ->
-    case maps:find(AlbumName, Metadata) of
-        {ok, {_, UserMap}=AlbumInfo} ->
-            case maps:find(UserName, UserMap) of
-                {ok, {true, _}} ->
-                    NewAlbumInfo = crdt:updateMetaData(Changes, AlbumInfo, UserName),
-                    From ! {put_album_ok, self()},
-                    {Users, maps:update(AlbumName, NewAlbumInfo, Metadata)};
-
-                {ok, {false, _}} ->
-                    From ! {put_album_not_in_session, self()},
-                    State;
-
-                _ ->
-                    From ! {put_album_no_permission, self()},
-                    State
-            end;
-    
-        _ ->
-            From ! {get_album_error, self()},
-            State
     end.
 
 mainLoop(State) ->
