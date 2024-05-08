@@ -11,12 +11,13 @@ import (
 
 type ClientState struct {
 	Replica *crdt.Replica
-	VoteMap map[string]bool
+	VoteMap *map[string]bool
 }
 
 func CreateClientState(clientId uint32) ClientState {
 	replica := crdt.CreateReplica(clientId)
-	return ClientState{&replica, make(map[string]bool)}
+	voteMap := make(map[string]bool)
+	return ClientState{&replica, &voteMap}
 }
 
 func main() {

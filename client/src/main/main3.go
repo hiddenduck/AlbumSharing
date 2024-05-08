@@ -25,9 +25,9 @@ func main() {
 
 	go connector.Listen_to_Peers()
 
-	var commandMap map[string]interface{} = map[string]interface{}{
-		"print": myprint,
-	}
+	var commandMap map[string]interface{} = CreateCommandsMap()
+
+	state := CreateClientState(2)
 
 	for {
 
@@ -48,7 +48,7 @@ func main() {
 			function, ok := commandMap[list[0]]
 
 			if ok {
-				function.(func([]string))(list[1:])
+				function.(func([]string, ClientState))(list[1:], state)
 			} else {
 				fmt.Printf("\"%v\"; not a valid command!\n", list[0])
 			}

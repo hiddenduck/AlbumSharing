@@ -1,11 +1,32 @@
 package crdt
 
-func (replica *Replica) AddFile(fileName string) bool {
+func joinInfos(voteInfo VoteInfo, peerVoteInfo VoteInfo) VoteInfo {
+	voteInfo.Sum = max(voteInfo.Sum, peerVoteInfo.Sum)
+	voteInfo.Count = max(voteInfo.Count, peerVoteInfo.Count)
+	return voteInfo
+}
+
+func incrementVote(voteInfo VoteInfo, classification uint64) VoteInfo {
+	voteInfo.Sum += classification
+	voteInfo.Count++
+	return voteInfo
+}
+
+func (fileInfo FileInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerFileInfo FileInfo) FileInfo {
+	return FileInfo{fileInfo.FileHash, joinVoteMaps(fileInfo.Votes, peerFileInfo.Votes),
+		joinDotSet(versionVector, peerVersionVector, fileInfo.DotSet, peerFileInfo.DotSet)}
+}
+
+func (groupInfo GroupInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerGroupInfo GroupInfo) GroupInfo {
+	return GroupInfo{joinDotSet(versionVector, peerVersionVector, groupInfo.DotSet, peerGroupInfo.DotSet)}
+}
+
+func (replica *Replica) AddFile(fileName string, fileHash string) bool {
 
 	_, ok := replica.Files[fileName]
 	if !ok {
 		replica.VersionVector[replica.CurrentID]++
-		replica.Files[fileName] = FileInfo{make(map[uint32]VoteInfo), make(DotSet)}
+		replica.Files[fileName] = FileInfo{fileHash, make(map[uint32]VoteInfo), make(DotSet)}
 		replica.Files[fileName].DotSet[DotPair{replica.CurrentID, replica.VersionVector[replica.CurrentID]}] = true
 	}
 
@@ -43,15 +64,16 @@ func (replica *Replica) RemoveUser(userName string) (ok bool) {
 	return
 }
 
-func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable map[string]bool) (fileExists bool, cantVote bool) {
+func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable *map[string]bool) (fileExists bool, cantVote bool) {
 	fileInfo, fileExists := replica.Files[fileName]
-	cantVote = voteTable[fileName]
+	cantVote = (*voteTable)[fileName]
 
 	if !fileExists || cantVote {
 		return
 	}
 
 	fileInfo.Votes[replica.CurrentID] = incrementVote(fileInfo.Votes[replica.CurrentID], classification)
+	(*voteTable)[fileName] = true
 
 	return
 }
