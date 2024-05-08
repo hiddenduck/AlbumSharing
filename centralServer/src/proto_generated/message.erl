@@ -93,6 +93,7 @@
 -record('map<string,fileInfo>',{key, value}).
 -record('map<string,groupInfo>',{key, value}).
 -record('map<uint32,voteValue>',{key, value}).
+-record('map<string,bool>',{key, value}).
 -record('map<uint32,voteInfo>',{key, value}).
 -if(?OTP_RELEASE >= 24).
 -dialyzer({no_underspecs, encode_msg/1}).
@@ -358,7 +359,7 @@ encode_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3}, Bin, TrU
 encode_msg_sessionStart(Msg, TrUserData) -> encode_msg_sessionStart(Msg, <<>>, TrUserData).
 
 
-encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPeers = F4}, Bin, TrUserData) ->
+encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, voteTable = F4}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
             true ->
                 begin
@@ -380,13 +381,13 @@ encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPee
     B3 = begin
              TrF3 = id(F3, TrUserData),
              if TrF3 == [] -> B2;
-                true -> e_field_sessionStart_peers(TrF3, B2, TrUserData)
+                true -> e_field_sessionStart_sessionPeers(TrF3, B2, TrUserData)
              end
          end,
     begin
         TrF4 = id(F4, TrUserData),
         if TrF4 == [] -> B3;
-           true -> e_field_sessionStart_sessionPeers(TrF4, B3, TrUserData)
+           true -> e_field_sessionStart_voteTable(TrF4, B3, TrUserData)
         end
     end.
 
@@ -516,22 +517,27 @@ e_mfield_sessionStart_crdt(Msg, Bin, TrUserData) ->
     Bin2 = e_varint(byte_size(SubBin), Bin),
     <<Bin2/binary, SubBin/binary>>.
 
-e_field_sessionStart_peers([Elem | Rest], Bin, TrUserData) ->
-    Bin2 = <<Bin/binary, 26>>,
-    Bin3 = e_type_string(id(Elem, TrUserData), Bin2, TrUserData),
-    e_field_sessionStart_peers(Rest, Bin3, TrUserData);
-e_field_sessionStart_peers([], Bin, _TrUserData) -> Bin.
-
 e_mfield_sessionStart_sessionPeers(Msg, Bin, TrUserData) ->
     SubBin = encode_msg_peerInfo(Msg, <<>>, TrUserData),
     Bin2 = e_varint(byte_size(SubBin), Bin),
     <<Bin2/binary, SubBin/binary>>.
 
 e_field_sessionStart_sessionPeers([Elem | Rest], Bin, TrUserData) ->
-    Bin2 = <<Bin/binary, 34>>,
+    Bin2 = <<Bin/binary, 26>>,
     Bin3 = e_mfield_sessionStart_sessionPeers(id(Elem, TrUserData), Bin2, TrUserData),
     e_field_sessionStart_sessionPeers(Rest, Bin3, TrUserData);
 e_field_sessionStart_sessionPeers([], Bin, _TrUserData) -> Bin.
+
+e_mfield_sessionStart_voteTable(Msg, Bin, TrUserData) ->
+    SubBin = 'encode_msg_map<string,bool>'(Msg, <<>>, TrUserData),
+    Bin2 = e_varint(byte_size(SubBin), Bin),
+    <<Bin2/binary, SubBin/binary>>.
+
+e_field_sessionStart_voteTable([Elem | Rest], Bin, TrUserData) ->
+    Bin2 = <<Bin/binary, 34>>,
+    Bin3 = e_mfield_sessionStart_voteTable('tr_encode_sessionStart.voteTable[x]'(Elem, TrUserData), Bin2, TrUserData),
+    e_field_sessionStart_voteTable(Rest, Bin3, TrUserData);
+e_field_sessionStart_voteTable([], Bin, _TrUserData) -> Bin.
 
 e_mfield_quitMessage_crdt(Msg, Bin, TrUserData) ->
     SubBin = encode_msg_crdt(Msg, <<>>, TrUserData),
@@ -585,6 +591,10 @@ e_mfield_Message_m5(Msg, Bin, TrUserData) ->
     B1 = begin TrF1 = id(F1, TrUserData), e_varint(TrF1, <<Bin/binary, 8>>, TrUserData) end,
     begin TrF2 = id(F2, TrUserData), 'e_mfield_map<uint32,voteValue>_value'(TrF2, <<B1/binary, 18>>, TrUserData) end.
 
+'encode_msg_map<string,bool>'(#'map<string,bool>'{key = F1, value = F2}, Bin, TrUserData) ->
+    B1 = begin TrF1 = id(F1, TrUserData), e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData) end,
+    begin TrF2 = id(F2, TrUserData), e_type_bool(TrF2, <<B1/binary, 16>>, TrUserData) end.
+
 'encode_msg_map<uint32,voteInfo>'(#'map<uint32,voteInfo>'{key = F1, value = F2}, Bin, TrUserData) ->
     B1 = begin TrF1 = id(F1, TrUserData), e_varint(TrF1, <<Bin/binary, 8>>, TrUserData) end,
     begin TrF2 = id(F2, TrUserData), 'e_mfield_map<uint32,voteInfo>_value'(TrF2, <<B1/binary, 18>>, TrUserData) end.
@@ -636,6 +646,7 @@ e_type_int64(Value, Bin, _TrUserData) ->
     e_varint(N, Bin).
 
 -compile({nowarn_unused_function,e_type_bool/3}).
+-dialyzer({nowarn_function,e_type_bool/3}).
 e_type_bool(true, Bin, _TrUserData) -> <<Bin/binary, 1>>;
 e_type_bool(false, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 e_type_bool(1, Bin, _TrUserData) -> <<Bin/binary, 1>>;
@@ -1324,13 +1335,13 @@ skip_32_crdt(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> 
 
 skip_64_crdt(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_sessionStart(Bin, TrUserData) -> dfp_read_field_def_sessionStart(Bin, 0, 0, 0, id(0, TrUserData), id(undefined, TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_sessionStart(Bin, TrUserData) -> dfp_read_field_def_sessionStart(Bin, 0, 0, 0, id(0, TrUserData), id(undefined, TrUserData), id([], TrUserData), 'tr_decode_init_default_sessionStart.voteTable'([], TrUserData), TrUserData).
 
 dfp_read_field_def_sessionStart(<<8, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_id(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
 dfp_read_field_def_sessionStart(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_peers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<34, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_sessionPeers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, peers = lists_reverse(R1, TrUserData), sessionPeers = lists_reverse(R2, TrUserData)};
+dfp_read_field_def_sessionStart(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_sessionPeers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_sessionStart(<<34, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_voteTable(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = lists_reverse(R1, TrUserData), voteTable = 'tr_decode_repeated_finalize_sessionStart.voteTable'(R2, TrUserData)};
 dfp_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dg_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
 dg_read_field_def_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 32 - 7 -> dg_read_field_def_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
@@ -1339,8 +1350,8 @@ dg_read_field_def_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2,
     case Key of
         8 -> d_field_sessionStart_id(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
         18 -> d_field_sessionStart_crdt(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        26 -> d_field_sessionStart_peers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        34 -> d_field_sessionStart_sessionPeers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        26 -> d_field_sessionStart_sessionPeers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        34 -> d_field_sessionStart_voteTable(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
         _ ->
             case Key band 7 of
                 0 -> skip_varint_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
@@ -1350,7 +1361,7 @@ dg_read_field_def_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2,
                 5 -> skip_32_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData)
             end
     end;
-dg_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, peers = lists_reverse(R1, TrUserData), sessionPeers = lists_reverse(R2, TrUserData)}.
+dg_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) -> #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = lists_reverse(R1, TrUserData), voteTable = 'tr_decode_repeated_finalize_sessionStart.voteTable'(R2, TrUserData)}.
 
 d_field_sessionStart_id(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_id(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
 d_field_sessionStart_id(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, F@_4, TrUserData) ->
@@ -1372,15 +1383,15 @@ d_field_sessionStart_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3
                                     F@_4,
                                     TrUserData).
 
-d_field_sessionStart_peers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_peers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_peers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, F@_4, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+d_field_sessionStart_sessionPeers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_sessionPeers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_sessionStart_sessionPeers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, F@_4, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_peerInfo(Bs, TrUserData), TrUserData), Rest2} end,
     dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, cons(NewFValue, Prev, TrUserData), F@_4, TrUserData).
 
-d_field_sessionStart_sessionPeers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_sessionPeers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_sessionPeers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_peerInfo(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, F@_3, cons(NewFValue, Prev, TrUserData), TrUserData).
+d_field_sessionStart_voteTable(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_voteTable(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_sessionStart_voteTable(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id('decode_msg_map<string,bool>'(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, F@_3, 'tr_decode_repeated_add_elem_sessionStart.voteTable'(NewFValue, Prev, TrUserData), TrUserData).
 
 skip_varint_sessionStart(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> skip_varint_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
 skip_varint_sessionStart(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
@@ -1815,6 +1826,57 @@ skip_64_Message(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp
 
 'skip_64_map<uint32,voteValue>'(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'dfp_read_field_def_map<uint32,voteValue>'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
+'decode_msg_map<string,bool>'(Bin, TrUserData) -> 'dfp_read_field_def_map<string,bool>'(Bin, 0, 0, 0, id([], TrUserData), id(false, TrUserData), TrUserData).
+
+'dfp_read_field_def_map<string,bool>'(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'd_field_map<string,bool>_key'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+'dfp_read_field_def_map<string,bool>'(<<16, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'd_field_map<string,bool>_value'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+'dfp_read_field_def_map<string,bool>'(<<>>, 0, 0, _, F@_1, F@_2, _) -> #'map<string,bool>'{key = F@_1, value = F@_2};
+'dfp_read_field_def_map<string,bool>'(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'dg_read_field_def_map<string,bool>'(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+'dg_read_field_def_map<string,bool>'(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> 'dg_read_field_def_map<string,bool>'(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+'dg_read_field_def_map<string,bool>'(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+        10 -> 'd_field_map<string,bool>_key'(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        16 -> 'd_field_map<string,bool>_value'(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        _ ->
+            case Key band 7 of
+                0 -> 'skip_varint_map<string,bool>'(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                1 -> 'skip_64_map<string,bool>'(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                2 -> 'skip_length_delimited_map<string,bool>'(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                3 -> 'skip_group_map<string,bool>'(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                5 -> 'skip_32_map<string,bool>'(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
+            end
+    end;
+'dg_read_field_def_map<string,bool>'(<<>>, 0, 0, _, F@_1, F@_2, _) -> #'map<string,bool>'{key = F@_1, value = F@_2}.
+
+'d_field_map<string,bool>_key'(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> 'd_field_map<string,bool>_key'(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+'d_field_map<string,bool>_key'(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    'dfp_read_field_def_map<string,bool>'(RestF, 0, 0, F, NewFValue, F@_2, TrUserData).
+
+'d_field_map<string,bool>_value'(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> 'd_field_map<string,bool>_value'(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+'d_field_map<string,bool>_value'(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, TrUserData) ->
+    {NewFValue, RestF} = {id(X bsl N + Acc =/= 0, TrUserData), Rest},
+    'dfp_read_field_def_map<string,bool>'(RestF, 0, 0, F, F@_1, NewFValue, TrUserData).
+
+'skip_varint_map<string,bool>'(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'skip_varint_map<string,bool>'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+'skip_varint_map<string,bool>'(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'dfp_read_field_def_map<string,bool>'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+'skip_length_delimited_map<string,bool>'(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> 'skip_length_delimited_map<string,bool>'(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+'skip_length_delimited_map<string,bool>'(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
+    Length = X bsl N + Acc,
+    <<_:Length/binary, Rest2/binary>> = Rest,
+    'dfp_read_field_def_map<string,bool>'(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
+
+'skip_group_map<string,bool>'(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
+    {_, Rest} = read_group(Bin, FNum),
+    'dfp_read_field_def_map<string,bool>'(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
+
+'skip_32_map<string,bool>'(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'dfp_read_field_def_map<string,bool>'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+'skip_64_map<string,bool>'(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'dfp_read_field_def_map<string,bool>'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
 'decode_msg_map<uint32,voteInfo>'(Bin, TrUserData) -> 'dfp_read_field_def_map<uint32,voteInfo>'(Bin, 0, 0, 0, id(0, TrUserData), id(undefined, TrUserData), TrUserData).
 
 'dfp_read_field_def_map<uint32,voteInfo>'(<<8, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> 'd_field_map<uint32,voteInfo>_key'(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
@@ -2087,7 +2149,7 @@ merge_msg_crdt(#crdt{versionVector = PFversionVector, files = PFfiles, groupUser
               end}.
 
 -compile({nowarn_unused_function,merge_msg_sessionStart/3}).
-merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, peers = PFpeers, sessionPeers = PFsessionPeers}, #sessionStart{id = NFid, crdt = NFcrdt, peers = NFpeers, sessionPeers = NFsessionPeers}, TrUserData) ->
+merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, sessionPeers = PFsessionPeers, voteTable = PFvoteTable}, #sessionStart{id = NFid, crdt = NFcrdt, sessionPeers = NFsessionPeers, voteTable = NFvoteTable}, TrUserData) ->
     #sessionStart{id =
                       if NFid =:= undefined -> PFid;
                          true -> NFid
@@ -2097,15 +2159,15 @@ merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, peers = PFpeers, 
                          PFcrdt == undefined -> NFcrdt;
                          NFcrdt == undefined -> PFcrdt
                       end,
-                  peers =
-                      if PFpeers /= undefined, NFpeers /= undefined -> 'erlang_++'(PFpeers, NFpeers, TrUserData);
-                         PFpeers == undefined -> NFpeers;
-                         NFpeers == undefined -> PFpeers
-                      end,
                   sessionPeers =
                       if PFsessionPeers /= undefined, NFsessionPeers /= undefined -> 'erlang_++'(PFsessionPeers, NFsessionPeers, TrUserData);
                          PFsessionPeers == undefined -> NFsessionPeers;
                          NFsessionPeers == undefined -> PFsessionPeers
+                      end,
+                  voteTable =
+                      if PFvoteTable /= undefined, NFvoteTable /= undefined -> 'tr_merge_sessionStart.voteTable'(PFvoteTable, NFvoteTable, TrUserData);
+                         PFvoteTable == undefined -> NFvoteTable;
+                         NFvoteTable == undefined -> PFvoteTable
                       end}.
 
 -compile({nowarn_unused_function,merge_msg_quitMessage/3}).
@@ -2333,7 +2395,7 @@ v_submsg_sessionStart(Msg, Path, TrUserData) -> v_msg_sessionStart(Msg, Path, Tr
 
 -compile({nowarn_unused_function,v_msg_sessionStart/3}).
 -dialyzer({nowarn_function,v_msg_sessionStart/3}).
-v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPeers = F4}, Path, TrUserData) ->
+v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, voteTable = F4}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_uint32(F1, [id | Path], TrUserData)
     end,
@@ -2341,15 +2403,11 @@ v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, peers = F3, sessionPeers = 
        true -> v_submsg_crdt(F2, [crdt | Path], TrUserData)
     end,
     if is_list(F3) ->
-           _ = [v_type_string(Elem, [peers | Path], TrUserData) || Elem <- F3],
+           _ = [v_submsg_peerInfo(Elem, [sessionPeers | Path], TrUserData) || Elem <- F3],
            ok;
-       true -> mk_type_error({invalid_list_of, string}, F3, [peers | Path])
+       true -> mk_type_error({invalid_list_of, {msg, peerInfo}}, F3, [sessionPeers | Path])
     end,
-    if is_list(F4) ->
-           _ = [v_submsg_peerInfo(Elem, [sessionPeers | Path], TrUserData) || Elem <- F4],
-           ok;
-       true -> mk_type_error({invalid_list_of, {msg, peerInfo}}, F4, [sessionPeers | Path])
-    end,
+    'v_map<string,bool>'(F4, [voteTable | Path], TrUserData),
     ok;
 v_msg_sessionStart(X, Path, _TrUserData) -> mk_type_error({expected_msg, sessionStart}, X, Path).
 
@@ -2420,6 +2478,14 @@ v_type_uint64(N, _Path, _TrUserData) when is_integer(N), 0 =< N, N =< 1844674407
 v_type_uint64(N, Path, _TrUserData) when is_integer(N) -> mk_type_error({value_out_of_range, uint64, unsigned, 64}, N, Path);
 v_type_uint64(X, Path, _TrUserData) -> mk_type_error({bad_integer, uint64, unsigned, 64}, X, Path).
 
+-compile({nowarn_unused_function,v_type_bool/3}).
+-dialyzer({nowarn_function,v_type_bool/3}).
+v_type_bool(false, _Path, _TrUserData) -> ok;
+v_type_bool(true, _Path, _TrUserData) -> ok;
+v_type_bool(0, _Path, _TrUserData) -> ok;
+v_type_bool(1, _Path, _TrUserData) -> ok;
+v_type_bool(X, Path, _TrUserData) -> mk_type_error(bad_boolean_value, X, Path).
+
 -compile({nowarn_unused_function,v_type_string/3}).
 -dialyzer({nowarn_function,v_type_string/3}).
 v_type_string(S, Path, _TrUserData) when is_list(S); is_binary(S) ->
@@ -2482,6 +2548,19 @@ v_type_string(X, Path, _TrUserData) -> mk_type_error(bad_unicode_string, X, Path
      || X <- KVs],
     ok;
 'v_map<uint32,voteValue>'(X, Path, _TrUserData) -> mk_type_error(invalid_list_of_key_value_tuples, X, Path).
+
+-compile({nowarn_unused_function,'v_map<string,bool>'/3}).
+-dialyzer({nowarn_function,'v_map<string,bool>'/3}).
+'v_map<string,bool>'(KVs, Path, TrUserData) when is_list(KVs) ->
+    [case X of
+         {Key, Value} ->
+             v_type_string(Key, [key | Path], TrUserData),
+             v_type_bool(Value, [value | Path], TrUserData);
+         _ -> mk_type_error(invalid_key_value_tuple, X, Path)
+     end
+     || X <- KVs],
+    ok;
+'v_map<string,bool>'(X, Path, _TrUserData) -> mk_type_error(invalid_list_of_key_value_tuples, X, Path).
 
 -compile({nowarn_unused_function,'v_map<uint32,voteInfo>'/3}).
 -dialyzer({nowarn_function,'v_map<uint32,voteInfo>'/3}).
@@ -2579,11 +2658,26 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 -compile({inline,'tr_decode_repeated_add_elem_fileInfo.votes'/3}).
 'tr_decode_repeated_add_elem_fileInfo.votes'(Elem, L, _) -> mt_add_item_r_verify_value(Elem, L).
 
+-compile({inline,'tr_encode_sessionStart.voteTable[x]'/2}).
+'tr_encode_sessionStart.voteTable[x]'(X, _) -> mt_maptuple_to_pseudomsg_r(X, 'map<string,bool>').
+
 -compile({inline,'tr_encode_voteMap.map[x]'/2}).
 'tr_encode_voteMap.map[x]'(X, _) -> mt_maptuple_to_pseudomsg_r(X, 'map<uint32,voteValue>').
 
 -compile({inline,'tr_encode_fileInfo.votes[x]'/2}).
 'tr_encode_fileInfo.votes[x]'(X, _) -> mt_maptuple_to_pseudomsg_r(X, 'map<uint32,voteInfo>').
+
+-compile({inline,'tr_decode_init_default_sessionStart.voteTable'/2}).
+'tr_decode_init_default_sessionStart.voteTable'(_, _) -> mt_empty_map_r().
+
+-compile({inline,'tr_merge_sessionStart.voteTable'/3}).
+'tr_merge_sessionStart.voteTable'(X1, X2, _) -> mt_merge_maptuples_r(X1, X2).
+
+-compile({inline,'tr_decode_repeated_finalize_sessionStart.voteTable'/2}).
+'tr_decode_repeated_finalize_sessionStart.voteTable'(L, _) -> mt_finalize_items_r(L).
+
+-compile({inline,'tr_decode_repeated_add_elem_sessionStart.voteTable'/3}).
+'tr_decode_repeated_add_elem_sessionStart.voteTable'(Elem, L, _) -> mt_add_item_r(Elem, L).
 
 -compile({inline,'tr_decode_init_default_crdt.versionVector'/2}).
 'tr_decode_init_default_crdt.versionVector'(_, _) -> mt_empty_map_r().
@@ -2657,8 +2751,8 @@ get_msg_defs() ->
      {{msg, sessionStart},
       [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
        #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
-       #field{name = peers, fnum = 3, rnum = 4, type = string, occurrence = repeated, opts = []},
-       #field{name = sessionPeers, fnum = 4, rnum = 5, type = {msg, peerInfo}, occurrence = repeated, opts = []}]},
+       #field{name = sessionPeers, fnum = 3, rnum = 4, type = {msg, peerInfo}, occurrence = repeated, opts = []},
+       #field{name = voteTable, fnum = 4, rnum = 5, type = {map, string, bool}, occurrence = repeated, opts = []}]},
      {{msg, quitMessage}, [#field{name = crdt, fnum = 1, rnum = 2, type = {msg, crdt}, occurrence = optional, opts = []}, #field{name = peers, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []}]},
      {{msg, 'Message'},
       [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'Type'}, occurrence = optional, opts = []},
@@ -2718,8 +2812,8 @@ find_msg_def(crdt) ->
 find_msg_def(sessionStart) ->
     [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
      #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
-     #field{name = peers, fnum = 3, rnum = 4, type = string, occurrence = repeated, opts = []},
-     #field{name = sessionPeers, fnum = 4, rnum = 5, type = {msg, peerInfo}, occurrence = repeated, opts = []}];
+     #field{name = sessionPeers, fnum = 3, rnum = 4, type = {msg, peerInfo}, occurrence = repeated, opts = []},
+     #field{name = voteTable, fnum = 4, rnum = 5, type = {map, string, bool}, occurrence = repeated, opts = []}];
 find_msg_def(quitMessage) -> [#field{name = crdt, fnum = 1, rnum = 2, type = {msg, crdt}, occurrence = optional, opts = []}, #field{name = peers, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []}];
 find_msg_def('Message') ->
     [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'Type'}, occurrence = optional, opts = []},

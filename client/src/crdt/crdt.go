@@ -45,9 +45,9 @@ func (replica *Replica) RemoveUser(userName string) (ok bool) {
 
 func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable map[string]bool) (fileExists bool, canVote bool) {
 	fileInfo, fileExists := replica.Files[fileName]
-	canVote = voteTable[fileName]
+	cantVote = voteTable[fileName]
 
-	if !fileExists || !canVote {
+	if !fileExists || cantVote {
 		return
 	}
 

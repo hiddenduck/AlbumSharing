@@ -56,8 +56,8 @@ message crdt {
 message sessionStart {
   uint32          id             = 1;
   crdt            crdt           = 2;
-  repeated string peers          = 3;
-  repeated peerInfo sessionPeers = 4;
+  repeated peerInfo sessionPeers = 3;
+  map<string, bool> voteTable    = 4;
 }
 
 message quitMessage {
