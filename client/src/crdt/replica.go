@@ -1,6 +1,9 @@
 package crdt
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Nil struct{}
 
@@ -65,7 +68,7 @@ func CreateReplica(id uint32) Replica {
 
 func (replica *Replica) ListFiles() {
 	for fileName := range replica.Files {
-		fmt.Println(fileName)
+		fmt.Println(strings.Split(fileName, ":")[0])
 	}
 }
 
