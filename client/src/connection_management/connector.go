@@ -27,20 +27,20 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 	return
 }
 
-func (connectorInfo ConnectorInfo) Add_Peer(id uint32, name string, ip string, port string) {
+func (connectorInfo ConnectorInfo) Add_Peer(id string, name string, ip string, port string) {
 
     clientInfo := ClientInfo{
         Ip_Addres: ip,
         Port: port,
-        Id: string(id),
+        Id: id,
     }
 
 	connectorInfo.PeerMap[name] = clientInfo
 }
 
 //NOTE: isto tem que ser feito antes do bind e dos connects
-func (connectorInfo ConnectorInfo) SetIdentity(self_id uint32) {
-    connectorInfo.RouterSocket.SetIdentity(string(self_id))
+func (connectorInfo ConnectorInfo) SetIdentity(self_id string) {
+    connectorInfo.RouterSocket.SetIdentity(self_id)
 }
 
 func (connectorInfo ConnectorInfo) BindSocket( port string) {
@@ -60,15 +60,19 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers() {
 
 func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
 
-	for _, clientInfo := range connectorInfo.PeerMap {
+    for _, clientInfo := range connectorInfo.PeerMap {
 
         id := clientInfo.Id
 
         connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
-        connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
+        connectorInfo.RouterSocket.Send("control", zmq.SNDMORE)
         connectorInfo.RouterSocket.SendBytes(msg, 0)
     }
 
+}
+
+func (ConnectorInfo ConnectorInfo) SetFilter(filter string){
+    ConnectorInfo.RouterSocket.SetSubscribe(filter)
 }
 
 func (connectorInfo ConnectorInfo) Listen_to_Peers() {
@@ -79,4 +83,3 @@ func (connectorInfo ConnectorInfo) Listen_to_Peers() {
         }
 	}
 }
-
