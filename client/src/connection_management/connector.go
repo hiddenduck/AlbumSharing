@@ -14,6 +14,19 @@ type ClientInfo struct {
 type ConnectorInfo struct {
 	PeerMap      map[string]ClientInfo
 	RouterSocket *zmq.Socket
+	MessageHandlers map[string]interface{}
+}
+
+func myprint(msg []string) {
+	for i, x := range msg {
+		fmt.Printf("frame %v: %v\n", i, x)
+	}
+}
+
+func createMessageHandlers() map[string]interface{} {
+	return map[string]interface{}{
+		"print": myprint,
+	}
 }
 
 func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
@@ -24,6 +37,7 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 
 	connectorInfo.PeerMap = make(map[string]ClientInfo)
 	connectorInfo.RouterSocket = routerSocket
+	connectorInfo.MessageHandlers = createMessageHandlers()
 	return
 }
 
@@ -65,7 +79,7 @@ func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
         id := clientInfo.Id
 
         connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
-        connectorInfo.RouterSocket.Send("control", zmq.SNDMORE)
+        connectorInfo.RouterSocket.Send("print", zmq.SNDMORE)
         connectorInfo.RouterSocket.SendBytes(msg, 0)
     }
 
@@ -78,8 +92,13 @@ func (ConnectorInfo ConnectorInfo) SetFilter(filter string){
 func (connectorInfo ConnectorInfo) Listen_to_Peers() {
 	for {
 		msg, _ := connectorInfo.RouterSocket.RecvMessage(0)
-        for i, x := range msg {
-            fmt.Printf("frame %v: %v\n", i, x)
-        }
+
+		function, ok := connectorInfo.MessageHandlers[msg[1]]
+
+		if ok {
+			function.(func([]string))(msg)
+		} else {
+			fmt.Printf("\"%v\"; not a valid type of message!\n", msg[1])
+		}
 	}
 }
