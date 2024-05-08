@@ -99,7 +99,8 @@
 -record(sessionStart,
         {id = 0                 :: non_neg_integer() | undefined, % = 1, optional, 32 bits
          crdt = undefined       :: message:crdt() | undefined, % = 2, optional
-         sessionPeers = []      :: [message:peerInfo()] | undefined % = 3, repeated
+         sessionPeers = []      :: [message:peerInfo()] | undefined, % = 3, repeated
+         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 4
         }).
 -endif.
 
