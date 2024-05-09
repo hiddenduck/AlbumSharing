@@ -34,6 +34,11 @@ message peerInfo {
   string port = 3;
 }
 
+message newPeer {
+  string name = 1;
+  peerInfo peerInfo = 2;
+}
+
 message dotPair {
   uint32 id      = 1;
   uint64 version = 2;
@@ -80,6 +85,7 @@ message Message {
     quitMessage         m4 = 5;
     reply_message       m5 = 6;
     get_album           m6 = 7;
+    newPeer             m7 = 8;
   }
 }
 
@@ -92,4 +98,5 @@ enum Type {
   send     = 5; // sessionStart
   quit     = 6; // quitMessage
   reply    = 7; // reply
+  new_peer = 8; // newPeer
 }

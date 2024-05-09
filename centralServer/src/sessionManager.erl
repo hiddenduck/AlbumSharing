@@ -20,7 +20,7 @@ create_album(AlbumName, UserName) ->
             end
     end.
 
-% {albumMetaData, [IdPool], map(userName)->{{sessionID, Info}, voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, PID}
+% {albumMetaData, {IdPool, IdCounter}, map(userName)->{{sessionID, Info}, voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, PID}
 start(AlbumName, UserName, MainLoop) ->
     case file:read_file(AlbumName) of
         {ok, AlbumBin} ->
@@ -45,7 +45,6 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
         [Id | T] ->
             NewIdInfo = {[T], IdCounter}
     end,
-
     SessionPeers = maps:filtermap(
         fun
             (_, {{CurrId, {IP, Port, Pid}}, _}) when CurrId =/= -1 ->

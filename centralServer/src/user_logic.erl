@@ -14,6 +14,22 @@ session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     send_reply(atom_to_list(Status), Sock),
     session_user(Sock, SessionLoop, UserName);
 
+session_user_handler({new_peer, {Ip, PORT, UserName, Id}, SessionLoop}, Sock, SessionLoop, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 8,
+        msg =
+            {m7, #new_peer{
+                name = UserName,
+                peerInfo = #peerInfo{
+                    id = Id,
+                    ip = Ip,
+                    port = PORT
+                }
+            }}
+    }),
+    send(Data, Sock),
+    session_user(Sock, SessionLoop, UserName);
+
 session_user_handler({put_album_ok, MainLoop, SessionLoop}, Sock, SessionLoop, UserName) ->
     send_reply("put_album_ok", Sock),
     auth_user(Sock, MainLoop, UserName).
