@@ -16,6 +16,13 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @return Stream.
      */
     private Flowable<String> openFileToStream(DownloadMessage request) {
+        String filePath = String.valueOf(request.getHashKey());
+
+        if (new java.io.File(filePath).exists()) {
+            System.out.println("Error in opening file");
+            return Flowable.error(new FileNotFoundException("File not found: " + filePath));
+        }
+
         // Flowable using does 3 things:
         // 1: request a resource (BufferedReader)
         // 2: read lines from that resource
@@ -50,13 +57,10 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 .flatMap(message -> {
                     try (BufferedWriter writer = new BufferedWriter(new FileWriter(String.valueOf(message.getHashKey())))) {
                         writer.write(message.getData().toStringUtf8() + "\n");
-						// Flush the buffer to write data immediately (Perhaps redundant but it's good practice)
 						writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {
-                        // Log the error
-						logger.error("Error occurred during upload: " + e.getMessage());
-						// Notify client about the error
+                        System.out.println("Error in upload");
 						return Flowable.error(new RuntimeException("Failed to upload file."));
                     }
                 });

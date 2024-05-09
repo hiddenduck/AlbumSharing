@@ -45,10 +45,11 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
         [Id | T] ->
             NewIdInfo = {[T], IdCounter}
     end,
-    
+
     SessionPeers = maps:filtermap(
         fun
-            (_, {{CurrId, {IP, Port, _}}, _}) when CurrId =/= -1 ->
+            (_, {{CurrId, {IP, Port, Pid}}, _}) when CurrId =/= -1 ->
+                Pid ! {new_peer, {Ip, PORT, UserName, Id}, self()},
                 {ok, {true, {CurrId, IP, Port}}};
             (_, _) ->
                 false
@@ -57,15 +58,15 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
     ),
     {_, Votetable} = maps:get(UserName, UserMap),
     NewUserMap = maps:update(UserName, {{Id, {Ip, PORT, PID}}, Votetable}),
-    {{Id, SessionPeers, PeersToWarn, Votetable}, NewIdInfo, NewUserMap}.
+    {{Id, SessionPeers, Votetable}, NewIdInfo, NewUserMap}.
 
 handler(
-    {join, Username, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop} = State, MainLoop
+    {join, Username, Ip, Port, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop} = State, MainLoop
 ) ->
     case maps:find(Username, UserMap) of
         {ok, {-1, _}} ->
             {{Id, SessionPeers, Votetable}, NewIdInfo, NewUserMap} = prepare_replica_state(
-                Username, IdInfo, UserMap
+                Username, IdInfo, UserMap, Ip, Port, Client
             ),
             Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, Votetable}, self()},
             {AlbumMetaData, NewIdInfo, NewUserMap, MainLoop};
@@ -75,8 +76,10 @@ handler(
         _ ->
             Client ! get_album_no_permission,
             State
-    end;
+    end.
 
+
+-ifdef(comment).
 handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, UserMap, MainLoop}=State, Client) ->
     case maps:find(UserName, UserMap) of
         {ok, {Id, _}} ->
@@ -90,6 +93,7 @@ handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, UserMa
             Client ! {put_album_no_permission, self()};
             State
     end.
+-endif().
 
 loop(State) ->
     receive
