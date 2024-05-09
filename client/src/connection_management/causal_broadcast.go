@@ -5,6 +5,9 @@ import (
 	pb "main/connection_management/cbCastProtobuf"
 	"math/rand"
 	"sync"
+	"time"
+
+	// "time"
 
 	zmq "github.com/pebbe/zmq4"
 	proto "google.golang.org/protobuf/proto"
@@ -240,6 +243,8 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port 
 		// Wait for next request from client
 		socket.Recv(0) //NOTE: ignoring messages, only here to block until someone wants it
 
+        // time.Sleep(20*time.Second)
+
 		//using protobuf, maybe uneccessary
 		data := pb.CbCastMessage{
 			Src:          causalBroadcastInfo.self,
@@ -304,6 +309,8 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 		fmt.Printf("Sent request\n")
 
 		bytes, _ := requestSocket.RecvBytes(0)
+
+        time.Sleep(10*time.Second)
 
 		msg := pb.CbCastMessage{}
 

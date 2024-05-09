@@ -73,22 +73,22 @@ func (connectorInfo ConnectorInfo) sender(s int, id string, msg []byte) {
 
 func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
 
-	var s int
+	// var s int
 
 	for _, clientInfo := range connectorInfo.PeerMap {
 
 		id := clientInfo.Id
+		//
+		// fmt.Printf("Sending message to: %v\n", id)
+		// 
+		// fmt.Printf("define sleep amount\n")
+		// fmt.Scan(&s)
+		//
+        // go connectorInfo.sender(s, id, msg)
 
-		fmt.Printf("Sending message to: %v\n", id)
-
-		fmt.Printf("define sleep amount\n")
-		fmt.Scan(&s)
-
-        go connectorInfo.sender(s, id, msg)
-
-		// connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
-		// connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
-		// connectorInfo.RouterSocket.SendBytes(msg, 0)
+		connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
+		connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
+		connectorInfo.RouterSocket.SendBytes(msg, 0)
 	}
 
 }
