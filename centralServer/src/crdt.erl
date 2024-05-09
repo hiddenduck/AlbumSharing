@@ -11,7 +11,7 @@ createAlbum(UserName) ->
     % VersionVector map[uint32]uint64
     VersionVector = #{},
 
-    % Central Server logic - InSession + Votetable, map(userName)->{isInSession, voteTable}
+    % Central Server logic - Votetable, map(userName)->{voteTable}
     UsersInfo = #{},
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.

@@ -20,14 +20,15 @@ create_album(AlbumName, UserName) ->
             end
     end.
 
-% {albumMetaData, {IdPool, IdCounter}, map(userName)->{{sessionID, Info}, voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, PID}
+% {albumMetaData, {IdPool, IdCounter}, #{String} -> Info}, map(userName)->{voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, ID, PID}
 start(AlbumName, UserName, MainLoop) ->
     case file:read_file(AlbumName) of
         {ok, AlbumBin} ->
             {AlbumMetaData, UserMap} = erlang:binary_to_term(AlbumBin),
             case maps:find(UserName, UserMap) of
                 {ok, _} ->
-                    {ok, spawn(fun() -> loop({AlbumMetaData, {[], 0}, UserMap, MainLoop}) end)};
+                    {ok,
+                        spawn(fun() -> loop({AlbumMetaData, {[], 0}, #{}, UserMap, MainLoop}) end)};
                 _ ->
                     get_album_no_permission
             end;
@@ -35,7 +36,7 @@ start(AlbumName, UserName, MainLoop) ->
             get_album_error
     end.
 
-prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
+prepare_replica_state(UserName, {IdPool, IdCounter}, SessionUsers, UserMap, Ip, PORT) ->
     case IdPool of
         [] ->
             Id = IdCounter,
@@ -45,41 +46,42 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
         [Id | T] ->
             NewIdInfo = {[T], IdCounter}
     end,
-    SessionPeers = maps:filtermap(
+    SessionPeers = maps:map(
         fun
-            (_, {{CurrId, {IP, Port, Pid}}, _}) when CurrId =/= -1 ->
-                Pid ! {new_peer, {Ip, PORT, UserName, Id}, self()},
-                {ok, {true, {CurrId, IP, Port}}};
-            (_, _) ->
-                false
+            (_, {IP, Port, _, Pid}) ->
+                Pid ! {new_peer, {Ip, PORT, UserName}, self()},
+                {IP, Port}
         end,
-        UserMap
+        SessionUsers
     ),
-    {_, Votetable} = maps:get(UserName, UserMap),
-    NewUserMap = maps:update(UserName, {{Id, {Ip, PORT, PID}}, Votetable}),
-    {{Id, SessionPeers, Votetable}, NewIdInfo, NewUserMap}.
+    VoteTable = maps:get(UserName, UserMap),
+    {{Id, SessionPeers, VoteTable}, NewIdInfo}.
 
 handler(
-    {join, Username, Ip, Port, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop} = State, MainLoop
+    {join, Username, Ip, Port, Client, MainLoop},
+    {{_, GroupUsers, _}=AlbumMetaData, IdInfo, SessionUsers, UserMap, MainLoop} = State,
+    MainLoop
 ) ->
-    case maps:find(Username, UserMap) of
-        {ok, {-1, _}} ->
-            {{Id, SessionPeers, Votetable}, NewIdInfo, NewUserMap} = prepare_replica_state(
-                Username, IdInfo, UserMap, Ip, Port, Client
-            ),
-            Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, Votetable}, self()},
-            {AlbumMetaData, NewIdInfo, NewUserMap, MainLoop};
+    case maps:find(Username, SessionUsers) of
         {ok, _} ->
             Client ! get_album_already_in_session,
             State;
         _ ->
-            Client ! get_album_no_permission,
-            State
-    end.
+            case maps:find(Username, GroupUsers) of
+                {ok, _} ->
+                    {{Id, SessionPeers, VoteTable}, NewIdInfo} = prepare_replica_state(
+                        Username, IdInfo, SessionUsers, UserMap, Ip, Port
+                    ),
+                    Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, VoteTable}, self()},
+                    {AlbumMetaData, NewIdInfo, maps:put(UserName, {Ip, Port, Id, Client}, SessionUsers), UserMap, MainLoop};
 
+                _ ->
+                    Client ! get_album_no_permission,
+                    State
+            end
+    end;
 
--ifdef(comment).
-handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, UserMap, MainLoop}=State, Client) ->
+handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, SessionUsers, UserMap, MainLoop}=State, Client) ->
     case maps:find(UserName, UserMap) of
         {ok, {Id, _}} ->
             
@@ -92,7 +94,6 @@ handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, UserMa
             Client ! {put_album_no_permission, self()};
             State
     end.
--endif().
 
 loop(State) ->
     receive

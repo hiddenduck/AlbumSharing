@@ -57,9 +57,8 @@
 -ifndef('PEERINFO_PB_H').
 -define('PEERINFO_PB_H', true).
 -record(peerInfo,
-        {id = 0                 :: non_neg_integer() | undefined, % = 1, optional, 32 bits
-         ip = []                :: unicode:chardata() | undefined, % = 2, optional
-         port = []              :: unicode:chardata() | undefined % = 3, optional
+        {ip = []                :: unicode:chardata() | undefined, % = 1, optional
+         port = []              :: unicode:chardata() | undefined % = 2, optional
         }).
 -endif.
 
@@ -67,7 +66,8 @@
 -define('NEWPEER_PB_H', true).
 -record(newPeer,
         {name = []              :: unicode:chardata() | undefined, % = 1, optional
-         peerInfo = undefined   :: message:peerInfo() | undefined % = 2, optional
+         ip = []                :: unicode:chardata() | undefined, % = 2, optional
+         port = []              :: unicode:chardata() | undefined % = 3, optional
         }).
 -endif.
 

@@ -29,14 +29,14 @@ message voteMap {
 }
 
 message peerInfo {
-  uint32 id   = 1;
-  string ip   = 2;
-  string port = 3;
+  string ip   = 1;
+  string port = 2;
 }
 
 message newPeer {
   string name = 1;
-  peerInfo peerInfo = 2;
+  string ip   = 2;
+  string port = 3;
 }
 
 message dotPair {

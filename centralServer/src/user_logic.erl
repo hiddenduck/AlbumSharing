@@ -14,17 +14,14 @@ session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     send_reply(atom_to_list(Status), Sock),
     session_user(Sock, SessionLoop, UserName);
 
-session_user_handler({new_peer, {Ip, PORT, UserName, Id}, SessionLoop}, Sock, SessionLoop, UserName) ->
+session_user_handler({new_peer, {Ip, PORT, UserName}, SessionLoop}, Sock, SessionLoop, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 8,
         msg =
-            {m7, #new_peer{
+            {m7, #newPeer{
                 name = UserName,
-                peerInfo = #peerInfo{
-                    id = Id,
-                    ip = Ip,
-                    port = PORT
-                }
+                ip   = Ip,
+                port = PORT
             }}
     }),
     send(Data, Sock),
@@ -76,13 +73,17 @@ auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
 
-auth_user_handler({get_album_ok, {Id, Crdt, SessionPeers, Votetable}, SessionLoop}, Sock, _, UserName) ->
+auth_user_handler({get_album_ok, {Id, {Files, GroupUsers, VV}=_Crdt, SessionPeers, Votetable}, SessionLoop}, Sock, _, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 5,
         msg =
             {m3, #sessionStart{
                 id = Id,
-                crdt = Crdt,
+                crdt = #crdt{
+                    versionVector = VV,
+                    files = Files,
+                    groupUsers = GroupUsers
+                },
                 sessionPeers = SessionPeers,
                 voteTable = Votetable
             }}
