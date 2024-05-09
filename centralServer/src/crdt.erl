@@ -1,5 +1,5 @@
 -module(crdt).
--export([createAlbum/1, updateMetaData/3, refreshUserMap/1]).
+-export([createAlbum/1, updateMetaData/2, refreshUserMap/1]).
 
 createAlbum(UserName) ->
     %Files         map[string]{Votes, DotSet}
@@ -30,11 +30,9 @@ refreshUserMap({{_, GroupUsers, _}=Metadata, UsersInfo}) ->
 
 
 updateMetaData(
-    {{Files, GroupUsers, VersionVector}, NewVotetable},
-    {{OldFiles, OldGroupUsers, OldVersionVector}, UsersInfo},
-    UserName
+    {Files, GroupUsers, VersionVector},
+    {OldFiles, OldGroupUsers, OldVersionVector}
 ) ->
-    UsersInfo = updateVoteTable(NewVotetable, UsersInfo, UserName),
     NewFiles = joinMaps(maps:to_list(OldFiles), maps:to_list(Files), {fun(Info, PeerInfo, FuncInfo) -> joinFileInfos(Info, PeerInfo, FuncInfo) end, {OldVersionVector, VersionVector}}),
     NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), {
         fun(
@@ -45,16 +43,7 @@ updateMetaData(
         {OldVersionVector, VersionVector}
     }),
     VV = causalContextUnion(OldVersionVector, maps:to_list(VersionVector)),
-    {{NewFiles, NewGroupUsers, VV}, UsersInfo}.
-
-updateVoteTable(NewVotetable, UsersInfo, UserName) ->
-    case maps:find(UserName, UsersInfo) of
-        {ok, _} ->
-            maps:update(UserName, NewVotetable, UsersInfo);
-        _ ->
-            io:format("Error in updateVoteTable"),
-            UsersInfo
-    end.
+    {NewFiles, NewGroupUsers, VV}.
 
 % return DotSet in list format
 joinDotSet(VV, PeerVV, DotSet, PeerDotSet) ->

@@ -72,7 +72,7 @@ handler(
                         Username, IdInfo, SessionUsers, Ip, Port
                     ),
                     Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, VoteTable}, self()},
-                    {AlbumMetaData, NewIdInfo, maps:put(UserName, {Ip, Port, Id, Client}, SessionUsers), UserMap, MainLoop};
+                    {AlbumMetaData, NewIdInfo, maps:put(Username, {Ip, Port, Id, Client}, SessionUsers), UserMap, MainLoop};
 
                 _ ->
                     Client ! get_album_no_permission,
@@ -80,17 +80,17 @@ handler(
             end
     end;
 
-handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, SessionUsers, UserMap, MainLoop}=State, Client) ->
+handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, {IdPool, IdCounter}, SessionUsers, UserMap, MainLoop}=State, Client) ->
     case maps:find(UserName, UserMap) of
-        {ok, {Id, _}} ->
-            
-
-        {ok, {-1, _}} ->
-            Client ! {put_album_not_in_session, self()},
-            State;
+        {ok, _} ->
+            NewAlbumMetaData = crdt:updateMetaData(Crdt, AlbumMetaData),
+            NewUserMap = maps:update(UserName, Votetable, UserMap),
+            {_, _, Id, _} = maps:get(UserName, SessionUsers),
+            NewSessionUsers = maps:remove(UserName, SessionUsers),
+            {NewAlbumMetaData, {[Id | IdPool], IdCounter}, NewSessionUsers, NewUserMap, MainLoop};
         
         _ ->
-            Client ! {put_album_no_permission, self()};
+            Client ! {put_album_no_permission, self()},
             State
     end.
 
