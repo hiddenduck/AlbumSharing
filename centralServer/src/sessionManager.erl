@@ -36,7 +36,7 @@ start(AlbumName, UserName, MainLoop) ->
             get_album_error
     end.
 
-prepare_replica_state(UserName, {IdPool, IdCounter}, SessionUsers, UserMap, Ip, PORT) ->
+prepare_replica_state(UserName, {IdPool, IdCounter}, SessionUsers, Ip, PORT) ->
     case IdPool of
         [] ->
             Id = IdCounter,
@@ -54,12 +54,11 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, SessionUsers, UserMap, Ip, 
         end,
         SessionUsers
     ),
-    VoteTable = maps:get(UserName, UserMap),
-    {{Id, SessionPeers, VoteTable}, NewIdInfo}.
+    {{Id, SessionPeers}, NewIdInfo}.
 
 handler(
     {join, Username, Ip, Port, Client, MainLoop},
-    {{_, GroupUsers, _}=AlbumMetaData, IdInfo, SessionUsers, UserMap, MainLoop} = State,
+    {AlbumMetaData, IdInfo, SessionUsers, UserMap, MainLoop} = State,
     MainLoop
 ) ->
     case maps:find(Username, SessionUsers) of
@@ -67,10 +66,10 @@ handler(
             Client ! get_album_already_in_session,
             State;
         _ ->
-            case maps:find(Username, GroupUsers) of
-                {ok, _} ->
-                    {{Id, SessionPeers, VoteTable}, NewIdInfo} = prepare_replica_state(
-                        Username, IdInfo, SessionUsers, UserMap, Ip, Port
+            case maps:find(Username, UserMap) of
+                {ok, VoteTable} ->
+                    {{Id, SessionPeers}, NewIdInfo} = prepare_replica_state(
+                        Username, IdInfo, SessionUsers, Ip, Port
                     ),
                     Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, VoteTable}, self()},
                     {AlbumMetaData, NewIdInfo, maps:put(UserName, {Ip, Port, Id, Client}, SessionUsers), UserMap, MainLoop};

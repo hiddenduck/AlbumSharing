@@ -1,5 +1,5 @@
 -module(crdt).
--export([createAlbum/1, updateMetaData/3]).
+-export([createAlbum/1, updateMetaData/3, refreshUserMap/1]).
 
 createAlbum(UserName) ->
     %Files         map[string]{Votes, DotSet}
@@ -12,9 +12,22 @@ createAlbum(UserName) ->
     VersionVector = #{},
 
     % Central Server logic - Votetable, map(userName)->{voteTable}
-    UsersInfo = #{},
+    UsersInfo = maps:put(UserName, #{}, #{}),
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.
+
+refreshUserMap({{_, GroupUsers, _}=Metadata, UsersInfo}) ->
+    NewUsersInfo = maps:map(fun(Name, _) ->
+            case maps:find(Name, UsersInfo) of
+                {ok, VoteTable} ->
+                    VoteTable;
+
+                _ ->
+                    #{}
+            end
+        end, GroupUsers),
+    {Metadata, NewUsersInfo}.
+
 
 updateMetaData(
     {{Files, GroupUsers, VersionVector}, NewVotetable},
