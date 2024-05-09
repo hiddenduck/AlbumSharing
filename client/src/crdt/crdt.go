@@ -13,7 +13,7 @@ func incrementVote(voteInfo VoteInfo, classification uint64) VoteInfo {
 }
 
 func (fileInfo FileInfo) joinInfo(peerVersionVector VersionVector) (FileInfo, bool) {
-	DotSet := joinDotSet(nil, peerVersionVector, fileInfo.DotSet, nil)
+	DotSet, _ := joinDotSet(nil, peerVersionVector, fileInfo.DotSet, nil)
 	if len(DotSet) == 0 {
 		return FileInfo{}, false
 	} else {
@@ -22,16 +22,18 @@ func (fileInfo FileInfo) joinInfo(peerVersionVector VersionVector) (FileInfo, bo
 }
 
 func (fileInfo FileInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerFileInfo FileInfo) (FileInfo, bool) {
-	DotSet := joinDotSet(versionVector, peerVersionVector, fileInfo.DotSet, peerFileInfo.DotSet)
+	DotSet, keepFileHash := joinDotSet(versionVector, peerVersionVector, fileInfo.DotSet, peerFileInfo.DotSet)
 	if len(DotSet) == 0 {
 		return FileInfo{}, false
-	} else {
+	} else if keepFileHash {
 		return FileInfo{fileInfo.FileHash, joinVoteMaps(fileInfo.Votes, peerFileInfo.Votes), DotSet}, true
+	} else {
+		return FileInfo{peerFileInfo.FileHash, joinVoteMaps(fileInfo.Votes, peerFileInfo.Votes), DotSet}, true
 	}
 }
 
 func (groupInfo GroupInfo) joinInfo(peerVersionVector VersionVector) (GroupInfo, bool) {
-	DotSet := joinDotSet(nil, peerVersionVector, groupInfo.DotSet, nil)
+	DotSet, _ := joinDotSet(nil, peerVersionVector, groupInfo.DotSet, nil)
 	if len(DotSet) == 0 {
 		return GroupInfo{}, false
 	} else {
@@ -40,7 +42,7 @@ func (groupInfo GroupInfo) joinInfo(peerVersionVector VersionVector) (GroupInfo,
 }
 
 func (groupInfo GroupInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerGroupInfo GroupInfo) (GroupInfo, bool) {
-	DotSet := joinDotSet(versionVector, peerVersionVector, groupInfo.DotSet, peerGroupInfo.DotSet)
+	DotSet, _ := joinDotSet(versionVector, peerVersionVector, groupInfo.DotSet, peerGroupInfo.DotSet)
 	if len(DotSet) == 0 {
 		return GroupInfo{}, false
 	} else {
@@ -119,12 +121,19 @@ func (replica *Replica) causalContextUnion(versionVector map[uint32]uint64) {
 }
 
 func joinDotSet(causalContext VersionVector, peerCausalContext VersionVector,
-	dotSet DotSet, peerDotSet DotSet) DotSet {
+	dotSet DotSet, peerDotSet DotSet) (DotSet, bool) {
 	newDotSet := make(DotSet)
+
+	minId := ^uint32(0) //maxint
+	keepCurrentValues := true
 
 	// s & s'
 	if peerDotSet != nil {
 		for dotPair := range dotSet {
+
+			if dotPair.Id < minId {
+				minId = dotPair.Id
+			}
 
 			if peerDotSet[dotPair] {
 				newDotSet[dotPair] = true
@@ -134,6 +143,7 @@ func joinDotSet(causalContext VersionVector, peerCausalContext VersionVector,
 
 	// s | c'
 	for dotPair := range dotSet {
+
 		version, ok := peerCausalContext[dotPair.Id]
 
 		if !ok || version < dotPair.Version {
@@ -142,17 +152,22 @@ func joinDotSet(causalContext VersionVector, peerCausalContext VersionVector,
 	}
 
 	// s' | c
-	if peerDotSet != nil {
-		for dotPair := range peerDotSet {
-			version, ok := causalContext[dotPair.Id]
+	for dotPair := range peerDotSet {
 
-			if !ok || version < dotPair.Version {
-				newDotSet[dotPair] = true
-			}
+		if keepCurrentValues && dotPair.Id < minId {
+			minId = dotPair.Id
+			keepCurrentValues = false
+		}
+
+		version, ok := causalContext[dotPair.Id]
+
+		if !ok || version < dotPair.Version {
+			newDotSet[dotPair] = true
 		}
 	}
 
-	return newDotSet
+	//fmt.Printf("\"%v\", %v", minId, keepCurrentValues)
+	return newDotSet, keepCurrentValues
 }
 
 func joinVoteMaps(voteMap VoteMap, peerVoteMap VoteMap) VoteMap {

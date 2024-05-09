@@ -35,6 +35,8 @@ func main() {
 
 	state := createClientState(1)
 
+	state.Replica.AddFile("lmao", "hash1")
+
 	go HeartBeat(state)
 
 	go PeerListen(CreateMessageHandlers(), state)
