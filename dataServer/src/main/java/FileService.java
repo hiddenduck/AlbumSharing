@@ -3,12 +3,35 @@ import file.DownloadMessage;
 import file.FileMessage;
 import file.Rx3FileGrpc;
 import file.UploadMessage;
+import file.joinMessage;
 import io.reactivex.rxjava3.core.*;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
 import java.io.*;
+import java.net.Socket;
+import java.nio.ByteBuffer;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
+
+    public FileService(int port, String central_Ip, int central_port) throws IOException {
+        try(Socket s = new Socket(central_Ip, central_port)){
+            // Send join Msg to Central Server
+            var joinMsg = joinMessage.newBuilder().setIp("localhost").setPort(port).build();
+            var outputStream = s.getOutputStream();
+            outputStream.write(joinMsg.toByteArray());
+            outputStream.flush();
+
+            // Wait join response
+            var inputStream = s.getInputStream();
+            byte[] prefix = new byte[4];
+            inputStream.read(prefix);
+            int messageSize = ByteBuffer.wrap(prefix).getInt();
+            byte[] messageBytes = new byte[messageSize];
+            inputStream.read(messageBytes);
+
+
+        }
+    }
 
 	/**
      * Opens the file and create the stream.
