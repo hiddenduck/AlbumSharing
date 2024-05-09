@@ -16,17 +16,21 @@ func myprint(l []string) {
 
 func main() {
 
-    is_in_Album := true
+	is_in_Album := true
 
-    causalBroadcastInfo := chat.InitCausalBroadCast(1)
+	causalBroadcastInfo := chat.InitCausalBroadCast(2)
 
-    go causalBroadcastInfo.Start_versionVector_server("2222")
+	go causalBroadcastInfo.Start_versionVector_server("2223")
 
-    causalBroadcastInfo.ConnectorInfo.Add_Peer(1, "1", "localhost", "1111")
+	causalBroadcastInfo.ConnectorInfo.BindSocket("2222")
 
-    causalBroadcastInfo.ConnectorInfo.Connect_to_Peers()
+	causalBroadcastInfo.ConnectorInfo.SetIdentity("Peer2")
 
-    go causalBroadcastInfo.CausalReceive(false)
+	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer1", "1", "localhost", "1111")
+
+	causalBroadcastInfo.ConnectorInfo.Connect_to_Peers()
+
+	go causalBroadcastInfo.CausalReceive(false, "1112")
 
 	var commandMap map[string]interface{} = map[string]interface{}{
 		"print": myprint,
@@ -65,7 +69,7 @@ func main() {
 			continue
 		}
 
-        fmt.Println(input)
-        causalBroadcastInfo.CausalBroadcast([]byte(input))
+		fmt.Println(input)
+		causalBroadcastInfo.CausalBroadcast([]byte(input))
 	}
 }

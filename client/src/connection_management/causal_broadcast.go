@@ -90,26 +90,27 @@ func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []b
 		bytes := parts[2]
 		//NOTE this os hacky, three parts will always be sent, id, delimiter, data
 
-		fmt.Printf("Received message (loop) from socket with bytes: %v\n", bytes)
+		// fmt.Printf("Received message (loop) from socket with bytes: %v\n", bytes)
 
 		msg := pb.CbCastMessage{}
 
 		causalBroadcastInfo.mutex.Lock()
+        defer causalBroadcastInfo.mutex.Unlock()
 
-		fmt.Printf("i done did the lock\n")
+		// fmt.Printf("i done did the lock\n")
 
 		hasVersionVector := causalBroadcastInfo.hasVersionVector
 
-		fmt.Printf("hasVersionVector: %v\n", hasVersionVector)
+		// fmt.Printf("hasVersionVector: %v\n", hasVersionVector)
 
-		defer causalBroadcastInfo.mutex.Unlock()
+        causalBroadcastInfo.mutex.Unlock()
 
 		proto.Unmarshal(bytes, &msg)
 
 		buffer[&msg] = struct{}{}
 
 		if hasVersionVector {
-			fmt.Printf("broke\n")
+			// fmt.Printf("broke\n")
 			break
 		}
 
@@ -177,7 +178,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 		bytes := parts[2]
 		//NOTE this os hacky, three parts will always be sent, id, delimiter, data
 
-		fmt.Printf("Received message from socket with bytes: %v\n", bytes)
+		// fmt.Printf("Received message from socket with bytes: %v\n", bytes)
 
 		msg := pb.CbCastMessage{}
 
@@ -230,7 +231,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port 
 		//using protobuf, maybe uneccessary
 		data := pb.CbCastMessage{
 			Src:          causalBroadcastInfo.self,
-			ChangedNodes: causalBroadcastInfo.changedNodes,
+			ChangedNodes: causalBroadcastInfo.versionVector,
 			Data:         make([]byte, 0),
 		}
 
@@ -351,7 +352,13 @@ func InitCausalBroadCast(self uint32) (causalBroadcastInfo CausalBroadcastInfo) 
 
 func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
+    causalBroadcastInfo.mutex.Lock()
+    fmt.Printf("Locked\n")
     causalBroadcastInfo.changedNodes[causalBroadcastInfo.self]++
+
+    causalBroadcastInfo.versionVector[causalBroadcastInfo.self]++
+    causalBroadcastInfo.mutex.Unlock()
+    fmt.Printf("unLocked\n")
 
     changedNodes := causalBroadcastInfo.changedNodes
 
