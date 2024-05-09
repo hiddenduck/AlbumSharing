@@ -20,17 +20,18 @@ func main() {
 
 	causalBroadcastInfo := chat.InitCausalBroadCast(2)
 
-	go causalBroadcastInfo.Start_versionVector_server("2223")
+	go causalBroadcastInfo.Start_versionVector_server("2220")
 
 	causalBroadcastInfo.ConnectorInfo.BindSocket("2222")
 
 	causalBroadcastInfo.ConnectorInfo.SetIdentity("Peer2")
 
-	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer1", "1", "localhost", "1111")
+	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer1", "1", "localhost", "1111", "1110")
+	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer3", "3", "localhost", "3333", "3330")
 
 	causalBroadcastInfo.ConnectorInfo.Connect_to_Peers()
 
-	go causalBroadcastInfo.CausalReceive(false, "1112")
+	go causalBroadcastInfo.CausalReceive(false)
 
 	var commandMap map[string]interface{} = map[string]interface{}{
 		"print": myprint,

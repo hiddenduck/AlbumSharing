@@ -27,7 +27,6 @@ func main() {
     causalBroadcastInfo.ConnectorInfo.SetIdentity("Peer1")
 
     causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer2", "2", "localhost", "2222", "2220")
-    causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer3", "3", "localhost", "3333", "3330")
 
     causalBroadcastInfo.ConnectorInfo.Connect_to_Peers()
 

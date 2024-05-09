@@ -5,11 +5,11 @@ DIR=/home/utilizador/Documents/Mestrado_1_ano/2_semestre/PSD/projeto/client/src/
 tmux kill-pane -a -t 0
 tmux setw remain-on-exit on
 
-CMD="go run main1.go"
+CMD="go run main1_one_peer.go"
 PANE_ID=$(tmux split-window -d -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
 
-CMD="go run main2.go"
-PANE_ID=$(tmux split-window -d -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
+CMD="go run main2_one_peer.go"
+tmux split-window -t $PANE_ID -d -h -P -F "#{pane_id}" -c $DIR "$CMD"
 
 # CMD="go run main.go 3333 client"
 # PANE_ID=$(tmux split-window -d -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
@@ -17,7 +17,7 @@ PANE_ID=$(tmux split-window -d -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
 # CMD="go run main.go 4444 client"
 # PANE_ID=$(tmux split-window -d -h -P -F "#{pane_id}" -l 10 -c $DIR "$CMD")
 
-tmux select-layout tiled
+# tmux select-layout tiled
 
 # enviroment variables
 # $curr_file             : current file path

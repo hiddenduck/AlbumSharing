@@ -50,6 +50,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) update_versionVector(changedNode
 		if !ok {
 			causalBroadcastInfo.versionVector[node] = version
 		}
+
 	}
 }
 
@@ -61,8 +62,10 @@ func (causalBroadcastInfo *CausalBroadcastInfo) update_state(changedNodes *map[u
 		}
 	}
 
-	causalBroadcastInfo.changedNodes[src] = causalBroadcastInfo.versionVector[src]
+    causalBroadcastInfo.mutex.Lock()
+    defer causalBroadcastInfo.mutex.Unlock()
 	causalBroadcastInfo.versionVector[src] += 1
+    causalBroadcastInfo.changedNodes[src] = causalBroadcastInfo.versionVector[src]
 }
 
 func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data []byte) {
@@ -171,7 +174,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 	for {
 
-		fmt.Printf("waiting on receive\n")
+		// fmt.Printf("waiting on receive\n")
 
 		parts, _ := connector.RouterSocket.RecvMessageBytes(0)
 
@@ -183,6 +186,8 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 		msg := pb.CbCastMessage{}
 
 		proto.Unmarshal(bytes, &msg)
+
+		fmt.Printf("My previous versionVector is: %v\n", causalBroadcastInfo.versionVector)
 
 		src, changedNodes, data := unpack_msg(&msg)
 
@@ -210,10 +215,9 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
 
-		fmt.Printf("My versionVector is: %v\n", causalBroadcastInfo.versionVector)
+		// fmt.Printf("My updated versionVector is: %v\n", causalBroadcastInfo.versionVector)
 
 	}
-
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port string) {
@@ -237,14 +241,14 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port 
 
 		bytes, _ := proto.Marshal(&data)
 
-		fmt.Printf("Received request with bytes: %v\n", bytes)
+		fmt.Printf("Received request, sending VV: %v\n", data.ChangedNodes)
 
 		// Send reply back to client
 		socket.SendBytes(bytes, 0)
 	}
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) connect_to_random_peer(port string, requestSocket *zmq.Socket) {
+func (causalBroadcastInfo *CausalBroadcastInfo) connect_to_random_peer(requestSocket *zmq.Socket) {
 
 	peers := causalBroadcastInfo.ConnectorInfo.PeerMap
 
@@ -260,13 +264,13 @@ func (causalBroadcastInfo *CausalBroadcastInfo) connect_to_random_peer(port stri
 
 	peer := peers[key]
 
-	requestSocket.Connect("tcp://" + peer.Ip_Addres + ":" + port)
+	requestSocket.Connect("tcp://" + peer.Ip_Addres + ":" + peer.VVServerPort)
 
 	fmt.Printf("Connected to peer: %v\n", peer)
 
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool, port string) {
+func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 
 	ch := make(chan []byte, 1024) //buffered channel for 1024 messages
 
@@ -281,7 +285,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool, por
 
 		requestSocket, _ := context.NewSocket(zmq.REQ)
 
-		causalBroadcastInfo.connect_to_random_peer(port, requestSocket)
+		causalBroadcastInfo.connect_to_random_peer(requestSocket)
 
 		fmt.Printf("buffering all messages\n")
 
@@ -350,15 +354,22 @@ func InitCausalBroadCast(self uint32) (causalBroadcastInfo CausalBroadcastInfo) 
 	return
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
+func (causalBroadcastInfo *CausalBroadcastInfo) incrementVV()  {
 
     causalBroadcastInfo.mutex.Lock()
-    fmt.Printf("Locked\n")
-    causalBroadcastInfo.changedNodes[causalBroadcastInfo.self]++
 
+    // fmt.Printf("Locked\n")
+    defer causalBroadcastInfo.mutex.Unlock()
+
+    causalBroadcastInfo.changedNodes[causalBroadcastInfo.self]++
     causalBroadcastInfo.versionVector[causalBroadcastInfo.self]++
-    causalBroadcastInfo.mutex.Unlock()
-    fmt.Printf("unLocked\n")
+}
+
+func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
+
+    causalBroadcastInfo.incrementVV()
+
+    // fmt.Printf("unLocked\n")
 
     changedNodes := causalBroadcastInfo.changedNodes
 
@@ -370,5 +381,6 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
 	bytes, _ := proto.Marshal(&data)
 
+    fmt.Printf("Sending changedNodes: %v\n", changedNodes)
 	causalBroadcastInfo.ConnectorInfo.Send_to_Peers(bytes)
 }

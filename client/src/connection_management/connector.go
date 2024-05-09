@@ -2,13 +2,16 @@ package connectionmanagement
 
 import (
 	"fmt"
+	"time"
+
 	zmq "github.com/pebbe/zmq4"
 )
 
 type ClientInfo struct {
-	Ip_Addres string
-	Port      string
-	Id        string
+	Ip_Addres    string
+	Port         string
+	Id           string
+	VVServerPort string
 }
 
 type ConnectorInfo struct {
@@ -27,23 +30,24 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 	return
 }
 
-func (connectorInfo ConnectorInfo) Add_Peer(id string, name string, ip string, port string) {
+func (connectorInfo ConnectorInfo) Add_Peer(id string, name string, ip string, port string, VVport string) {
 
-    clientInfo := ClientInfo{
-        Ip_Addres: ip,
-        Port: port,
-        Id: id,
-    }
+	clientInfo := ClientInfo{
+		Ip_Addres:    ip,
+		Port:         port,
+		Id:           id,
+		VVServerPort: VVport,
+	}
 
 	connectorInfo.PeerMap[name] = clientInfo
 }
 
-//NOTE: isto tem que ser feito antes do bind e dos connects
+// NOTE: isto tem que ser feito antes do bind e dos connects
 func (connectorInfo ConnectorInfo) SetIdentity(self_id string) {
-    connectorInfo.RouterSocket.SetIdentity(self_id)
+	connectorInfo.RouterSocket.SetIdentity(self_id)
 }
 
-func (connectorInfo ConnectorInfo) BindSocket( port string) {
+func (connectorInfo ConnectorInfo) BindSocket(port string) {
 	connectorInfo.RouterSocket.Bind("tcp://*:" + port)
 }
 
@@ -58,25 +62,42 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers() {
 	}
 }
 
+func (connectorInfo ConnectorInfo) sender(s int, id string, msg []byte) {
+
+    time.Sleep(time.Duration(s*int(time.Millisecond)))
+
+	connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
+	connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
+	connectorInfo.RouterSocket.SendBytes(msg, 0)
+}
+
 func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
+
+	var s int
 
 	for _, clientInfo := range connectorInfo.PeerMap {
 
-        id := clientInfo.Id
+		id := clientInfo.Id
 
-        connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
-        connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
-        connectorInfo.RouterSocket.SendBytes(msg, 0)
-    }
+		fmt.Printf("Sending message to: %v\n", id)
+
+		fmt.Printf("define sleep amount\n")
+		fmt.Scan(&s)
+
+        go connectorInfo.sender(s, id, msg)
+
+		// connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
+		// connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
+		// connectorInfo.RouterSocket.SendBytes(msg, 0)
+	}
 
 }
 
 func (connectorInfo ConnectorInfo) Listen_to_Peers() {
 	for {
 		msg, _ := connectorInfo.RouterSocket.RecvMessage(0)
-        for i, x := range msg {
-            fmt.Printf("frame %v: %v\n", i, x)
-        }
+		for i, x := range msg {
+			fmt.Printf("frame %v: %v\n", i, x)
+		}
 	}
 }
-
