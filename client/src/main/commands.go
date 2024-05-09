@@ -9,6 +9,10 @@ func ExecuteCommand(list []string, commandMap map[string]interface{}, state Clie
 	function, ok := commandMap[list[0]]
 
 	if ok {
+		//TODO não necessariamente fazer o lock aqui, é só para não me esquecer de fazer em todos os comandos
+		//Não mata ninguém deixar aqui, só deixa comandos tipo salas mais lentos
+		state.Mutex.Lock()
+		defer state.Mutex.Unlock()
 		function.(func([]string, ClientState))(list[1:], state)
 	} else {
 		fmt.Printf("\"%v\"; not a valid command!\n", list[0])
@@ -69,6 +73,7 @@ func listReplica(msg []string, state ClientState) {
 }
 
 func downloadFile(msg []string, state ClientState) {
+	//TODO download do ficheiro
 	fmt.Printf("Undefined command.")
 }
 
