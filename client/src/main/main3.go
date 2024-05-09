@@ -4,11 +4,17 @@ import (
 	"bufio"
 	"fmt"
 	chat "main/connection_management"
+	"main/crdt"
 	"os"
 	"strings"
+	"sync"
 )
 
 func createClientState(clientId uint32) ClientState {
+
+	replica := crdt.CreateReplica(clientId)
+	voteMap := make(map[string]bool)
+
 	connector := chat.Make_ConnectorInfo()
 
 	connector.SetIdentity("PEER3")
@@ -20,8 +26,7 @@ func createClientState(clientId uint32) ClientState {
 
 	connector.Connect_to_Peers()
 
-	go connector.Listen_to_Peers(CreateMessageHandlers())
-
+	return ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector, Mutex: &sync.Mutex{}}
 }
 
 func main() {
