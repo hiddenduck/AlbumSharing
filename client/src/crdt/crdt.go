@@ -12,13 +12,40 @@ func incrementVote(voteInfo VoteInfo, classification uint64) VoteInfo {
 	return voteInfo
 }
 
-func (fileInfo FileInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerFileInfo FileInfo) FileInfo {
-	return FileInfo{fileInfo.FileHash, joinVoteMaps(fileInfo.Votes, peerFileInfo.Votes),
-		joinDotSet(versionVector, peerVersionVector, fileInfo.DotSet, peerFileInfo.DotSet)}
+func (fileInfo FileInfo) joinInfo(peerVersionVector VersionVector) (FileInfo, bool) {
+	DotSet := joinDotSet(nil, peerVersionVector, fileInfo.DotSet, nil)
+	if len(DotSet) == 0 {
+		return FileInfo{}, false
+	} else {
+		return FileInfo{fileInfo.FileHash, fileInfo.Votes, DotSet}, true
+	}
 }
 
-func (groupInfo GroupInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerGroupInfo GroupInfo) GroupInfo {
-	return GroupInfo{joinDotSet(versionVector, peerVersionVector, groupInfo.DotSet, peerGroupInfo.DotSet)}
+func (fileInfo FileInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerFileInfo FileInfo) (FileInfo, bool) {
+	DotSet := joinDotSet(versionVector, peerVersionVector, fileInfo.DotSet, peerFileInfo.DotSet)
+	if len(DotSet) == 0 {
+		return FileInfo{}, false
+	} else {
+		return FileInfo{fileInfo.FileHash, joinVoteMaps(fileInfo.Votes, peerFileInfo.Votes), DotSet}, true
+	}
+}
+
+func (groupInfo GroupInfo) joinInfo(peerVersionVector VersionVector) (GroupInfo, bool) {
+	DotSet := joinDotSet(nil, peerVersionVector, groupInfo.DotSet, nil)
+	if len(DotSet) == 0 {
+		return GroupInfo{}, false
+	} else {
+		return GroupInfo{DotSet}, true
+	}
+}
+
+func (groupInfo GroupInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerGroupInfo GroupInfo) (GroupInfo, bool) {
+	DotSet := joinDotSet(versionVector, peerVersionVector, groupInfo.DotSet, peerGroupInfo.DotSet)
+	if len(DotSet) == 0 {
+		return GroupInfo{}, false
+	} else {
+		return GroupInfo{DotSet}, true
+	}
 }
 
 func (replica *Replica) AddFile(fileName string, fileHash string) bool {
@@ -96,10 +123,12 @@ func joinDotSet(causalContext VersionVector, peerCausalContext VersionVector,
 	newDotSet := make(DotSet)
 
 	// s & s'
-	for dotPair := range dotSet {
+	if peerDotSet != nil {
+		for dotPair := range dotSet {
 
-		if peerDotSet[dotPair] {
-			newDotSet[dotPair] = true
+			if peerDotSet[dotPair] {
+				newDotSet[dotPair] = true
+			}
 		}
 	}
 
@@ -113,11 +142,13 @@ func joinDotSet(causalContext VersionVector, peerCausalContext VersionVector,
 	}
 
 	// s' | c
-	for dotPair := range peerDotSet {
-		version, ok := causalContext[dotPair.Id]
+	if peerDotSet != nil {
+		for dotPair := range peerDotSet {
+			version, ok := causalContext[dotPair.Id]
 
-		if !ok || version < dotPair.Version {
-			newDotSet[dotPair] = true
+			if !ok || version < dotPair.Version {
+				newDotSet[dotPair] = true
+			}
 		}
 	}
 
@@ -156,15 +187,20 @@ func (replica *Replica) joinGroupMaps(peerReplica Replica) {
 
 	infoMap := replica.GroupUsers
 	peerInfoMap := peerReplica.GroupUsers
+	var newInfo GroupInfo
 
 	for user := range infoMap {
 		info := infoMap[user]
 		peerInfo, ok := peerInfoMap[user]
 
 		if ok {
-			newInfoMap[user] = info.joinInfos(replica.VersionVector, peerReplica.VersionVector, peerInfo)
+			newInfo, ok = info.joinInfos(replica.VersionVector, peerReplica.VersionVector, peerInfo)
 		} else {
-			newInfoMap[user] = info
+			newInfo, ok = info.joinInfo(peerReplica.VersionVector)
+		}
+
+		if ok {
+			newInfoMap[user] = newInfo
 		}
 	}
 
@@ -173,7 +209,10 @@ func (replica *Replica) joinGroupMaps(peerReplica Replica) {
 		_, exist := newInfoMap[user]
 
 		if !exist {
-			newInfoMap[user] = peerInfoMap[user]
+			newInfo, ok := peerInfoMap[user].joinInfo(replica.VersionVector)
+			if ok {
+				newInfoMap[user] = newInfo
+			}
 		}
 	}
 
@@ -186,24 +225,32 @@ func (replica *Replica) joinFileMaps(peerReplica Replica) {
 
 	infoMap := replica.Files
 	peerInfoMap := peerReplica.Files
+	var newInfo FileInfo
 
-	for hash := range infoMap {
-		info := infoMap[hash]
-		peerInfo, ok := peerInfoMap[hash]
+	for user := range infoMap {
+		info := infoMap[user]
+		peerInfo, ok := peerInfoMap[user]
 
 		if ok {
-			newInfoMap[hash] = info.joinInfos(replica.VersionVector, peerReplica.VersionVector, peerInfo)
+			newInfo, ok = info.joinInfos(replica.VersionVector, peerReplica.VersionVector, peerInfo)
 		} else {
-			newInfoMap[hash] = info
+			newInfo, ok = info.joinInfo(peerReplica.VersionVector)
+		}
+
+		if ok {
+			newInfoMap[user] = newInfo
 		}
 	}
 
-	for hash := range peerInfoMap {
+	for user := range peerInfoMap {
 
-		_, exist := newInfoMap[hash]
+		_, exist := newInfoMap[user]
 
 		if !exist {
-			newInfoMap[hash] = peerInfoMap[hash]
+			newInfo, ok := peerInfoMap[user].joinInfo(replica.VersionVector)
+			if ok {
+				newInfoMap[user] = newInfo
+			}
 		}
 	}
 

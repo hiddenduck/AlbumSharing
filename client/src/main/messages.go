@@ -91,7 +91,7 @@ func createCrdtMessage(state ClientState) *pb.Crdt {
 			crdtVotes[id] = &pb.VoteInfo{Sum: fileInfo.Votes[id].Sum, Count: fileInfo.Votes[id].Count}
 		}
 
-		crdtDotSet := make([]*pb.DotPair, 1)
+		crdtDotSet := make([]*pb.DotPair, 0)
 		for dotPair := range fileInfo.DotSet {
 			crdtDotSet = append(crdtDotSet, &pb.DotPair{Id: dotPair.Id, Version: dotPair.Version})
 		}
@@ -107,7 +107,7 @@ func createCrdtMessage(state ClientState) *pb.Crdt {
 	for username := range state.Replica.GroupUsers {
 		groupInfo := state.Replica.GroupUsers[username]
 
-		crdtDotSet := make([]*pb.DotPair, 1)
+		crdtDotSet := make([]*pb.DotPair, 0)
 		for dotPair := range groupInfo.DotSet {
 			crdtDotSet = append(crdtDotSet, &pb.DotPair{Id: dotPair.Id, Version: dotPair.Version})
 		}
