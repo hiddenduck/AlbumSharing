@@ -57,13 +57,13 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         var uploadResult = request
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(String.valueOf(message.getHashKey())))) {
+                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(message.getHashKey().toStringUtf8()))) {
                         writer.write(message.getData().toStringUtf8() + "\n");
 						writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {
-                        System.out.println("Error in upload");
-						return Flowable.error(new RuntimeException("Failed to upload file."));
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
                     }
                 });
 
