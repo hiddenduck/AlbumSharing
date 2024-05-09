@@ -132,17 +132,25 @@ func (causalBroadcastInfo *CausalBroadcastInfo) test_buffer_messages(ch chan []b
 
 	flag_delivered_message := true
 
+    fmt.Printf("Testing buffered messages\n")
+
 	for flag_delivered_message {
 
 		flag_delivered_message = false
 
 		for buffered_msg := range buffer {
 
+            fmt.Printf("Testing (my versionVector) %v\n", causalBroadcastInfo.versionVector)
+
 			src, changedNodes, data := unpack_msg(buffered_msg)
+
+            fmt.Printf("Testing (changedNodes) %v\n", changedNodes)
 
 			if test_msg(src, &self_versionVector, &changedNodes) {
 
 				causalBroadcastInfo.update_state(&changedNodes, src)
+
+                fmt.Printf("Delivered a buffered message\n")
 
 				select {
 				case ch <- data:
@@ -213,9 +221,9 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		}
 
-		causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
+		// causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
 
-		// fmt.Printf("My updated versionVector is: %v\n", causalBroadcastInfo.versionVector)
+		fmt.Printf("My updated versionVector is: %v\n", causalBroadcastInfo.versionVector)
 
 	}
 }
