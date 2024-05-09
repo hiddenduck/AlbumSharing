@@ -78,26 +78,28 @@ func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
 	for _, clientInfo := range connectorInfo.PeerMap {
 
 		id := clientInfo.Id
-		//
-		// fmt.Printf("Sending message to: %v\n", id)
-		// 
-		// fmt.Printf("define sleep amount\n")
-		// fmt.Scan(&s)
-		//
-        // go connectorInfo.sender(s, id, msg)
 
 		connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
-		connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
+		connectorInfo.RouterSocket.Send(msgType, zmq.SNDMORE)
 		connectorInfo.RouterSocket.SendBytes(msg, 0)
 	}
 
 }
 
-func (connectorInfo ConnectorInfo) Listen_to_Peers() {
+func (ConnectorInfo ConnectorInfo) SetFilter(filter string) {
+	ConnectorInfo.RouterSocket.SetSubscribe(filter)
+}
+
+func (connectorInfo ConnectorInfo) Listen_to_Peers(messageHandlers map[string]interface{}) {
 	for {
 		msg, _ := connectorInfo.RouterSocket.RecvMessage(0)
-		for i, x := range msg {
-			fmt.Printf("frame %v: %v\n", i, x)
+
+		function, ok := messageHandlers[msg[1]]
+
+		if ok {
+			function.(func(string))(msg[2])
+		} else {
+			fmt.Printf("\"%v\"; not a valid type of message!\n", msg[1])
 		}
 	}
 }

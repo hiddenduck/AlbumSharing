@@ -96,8 +96,11 @@ func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []b
 
 		bytes := parts[2]
 		//NOTE this os hacky, three parts will always be sent, id, delimiter, data
+<<<<<<< HEAD
 
 		// fmt.Printf("Received message (loop) from socket with bytes: %v\n", bytes)
+=======
+>>>>>>> origin/crdt-message-threads
 
 		msg := pb.CbCastMessage{}
 
@@ -189,8 +192,11 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		bytes := parts[2]
 		//NOTE this os hacky, three parts will always be sent, id, delimiter, data
+<<<<<<< HEAD
 
 		// fmt.Printf("Received message from socket with bytes: %v\n", bytes)
+=======
+>>>>>>> origin/crdt-message-threads
 
 		msg := pb.CbCastMessage{}
 
@@ -391,6 +397,10 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
 	bytes, _ := proto.Marshal(&data)
 
+<<<<<<< HEAD
 	fmt.Printf("Sending changedNodes: %v\n", changedNodes)
 	causalBroadcastInfo.ConnectorInfo.Send_to_Peers(bytes)
+=======
+	causalBroadcastInfo.connectorInfo.Send_to_Peers("control", bytes)
+>>>>>>> origin/crdt-message-threads
 }

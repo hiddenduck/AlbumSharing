@@ -8,10 +8,20 @@ import (
 	"strings"
 )
 
-func myprint(l []string) {
-	for range l {
-		fmt.Println("foo")
-	}
+func createClientState(clientId uint32) ClientState {
+	connector := chat.Make_ConnectorInfo()
+
+	connector.SetIdentity("PEER3")
+
+	connector.BindSocket("3333")
+
+	connector.Add_Peer("PEER1", "Emanueldo Gonçalves Faria 1", "localhost", "1111")
+	connector.Add_Peer("PEER2", "Emanueldo Gonçalves Faria 2", "localhost", "2222")
+
+	connector.Connect_to_Peers()
+
+	go connector.Listen_to_Peers(CreateMessageHandlers())
+
 }
 
 func main() {
@@ -33,9 +43,7 @@ func main() {
 
 	go causalBroadcastInfo.CausalReceive(false)
 
-	var commandMap map[string]interface{} = map[string]interface{}{
-		"print": myprint,
-	}
+	commandMap := CreateCommandsMap()
 
 	for {
 
@@ -51,15 +59,7 @@ func main() {
 
 		if input[0] == '/' {
 
-			list := strings.Split(input[1:], " ")
-
-			function, ok := commandMap[list[0]]
-
-			if ok {
-				function.(func([]string))(list[1:])
-			} else {
-				fmt.Printf("\"%v\"; not a valid command!\n", list[0])
-			}
+			ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
 
 			continue
 		}

@@ -54,21 +54,61 @@
         }).
 -endif.
 
+-ifndef('DOTPAIR_PB_H').
+-define('DOTPAIR_PB_H', true).
+-record(dotPair,
+        {id = 0                 :: non_neg_integer() | undefined, % = 1, optional, 32 bits
+         version = 0            :: non_neg_integer() | undefined % = 2, optional, 64 bits
+        }).
+-endif.
+
+-ifndef('VOTEINFO_PB_H').
+-define('VOTEINFO_PB_H', true).
+-record(voteInfo,
+        {sum = 0                :: non_neg_integer() | undefined, % = 1, optional, 64 bits
+         count = 0              :: non_neg_integer() | undefined % = 2, optional, 64 bits
+        }).
+-endif.
+
+-ifndef('FILEINFO_PB_H').
+-define('FILEINFO_PB_H', true).
+-record(fileInfo,
+        {votes = []             :: [{non_neg_integer(), message:voteInfo()}] | undefined, % = 1
+         dotSet = []            :: [message:dotPair()] | undefined % = 2, repeated
+        }).
+-endif.
+
+-ifndef('GROUPINFO_PB_H').
+-define('GROUPINFO_PB_H', true).
+-record(groupInfo,
+        {dotSet = []            :: [message:dotPair()] | undefined % = 1, repeated
+        }).
+-endif.
+
+-ifndef('CRDT_PB_H').
+-define('CRDT_PB_H', true).
+-record(crdt,
+        {versionVector = []     :: [{non_neg_integer(), non_neg_integer()}] | undefined, % = 1
+         files = []             :: [{unicode:chardata(), message:fileInfo()}] | undefined, % = 2
+         groupUsers = []        :: [{unicode:chardata(), message:groupInfo()}] | undefined % = 3
+        }).
+-endif.
+
 -ifndef('SESSIONSTART_PB_H').
 -define('SESSIONSTART_PB_H', true).
 -record(sessionStart,
         {id = 0                 :: non_neg_integer() | undefined, % = 1, optional, 32 bits
-         map = []               :: [{unicode:chardata(), message:voteMap()}] | undefined, % = 2
-         peers = []             :: [unicode:chardata()] | undefined, % = 3, repeated
-         sessionPeers = []      :: [message:peerInfo()] | undefined % = 4, repeated
+         crdt = undefined       :: message:crdt() | undefined, % = 2, optional
+         sessionPeers = []      :: [{unicode:chardata(), message:peerInfo()}] | undefined, % = 3
+         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 4
         }).
 -endif.
 
 -ifndef('QUITMESSAGE_PB_H').
 -define('QUITMESSAGE_PB_H', true).
 -record(quitMessage,
-        {map = []               :: [{unicode:chardata(), message:voteMap()}] | undefined, % = 1
-         peers = []             :: [unicode:chardata()] | undefined % = 2, repeated
+        {crdt = undefined       :: message:crdt() | undefined, % = 1, optional
+         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 2
         }).
 -endif.
 

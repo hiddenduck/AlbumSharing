@@ -4,21 +4,21 @@ import (
 	"bufio"
 	"fmt"
 	chat "main/connection_management"
+<<<<<<< HEAD
 	"os"
 	"strings"
 )
 
-func myprint(l []string) {
-	for range l {
-		fmt.Println("foo")
-	}
-}
+func createClientState(clientId uint32) ClientState {
+	//receive replica, votemap and clientId from central_server
+	replica := crdt.CreateReplica(clientId)
+	voteMap := make(map[string]bool)
 
 func main() {
 
 	is_in_Album := true
 
-	causalBroadcastInfo := chat.InitCausalBroadCast(2)
+	connector.Connect_to_Peers()
 
 	go causalBroadcastInfo.Start_versionVector_server("2220")
 
@@ -33,9 +33,7 @@ func main() {
 
 	go causalBroadcastInfo.CausalReceive(false)
 
-	var commandMap map[string]interface{} = map[string]interface{}{
-		"print": myprint,
-	}
+	commandMap := CreateCommandsMap()
 
 	for {
 
@@ -51,15 +49,7 @@ func main() {
 
 		if input[0] == '/' {
 
-			list := strings.Split(input[1:], " ")
-
-			function, ok := commandMap[list[0]]
-
-			if ok {
-				function.(func([]string))(list[1:])
-			} else {
-				fmt.Printf("\"%v\"; not a valid command!\n", list[0])
-			}
+			ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
 
 			continue
 		}
@@ -70,7 +60,7 @@ func main() {
 			continue
 		}
 
-		fmt.Println(input)
-		causalBroadcastInfo.CausalBroadcast([]byte(input))
+		//fmt.Println(input)
+		state.Connector.Send_to_Peers("chat", []byte(input))
 	}
 }

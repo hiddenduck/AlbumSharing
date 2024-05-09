@@ -1,70 +1,33 @@
 package crdt
 
-import "fmt"
-
-type Nil struct{}
-
-type VersionVector map[uint32]uint64
-
-type DotPair struct {
-	Id      uint32
-	Version uint64
-}
-
-type DotSet map[DotPair]bool
-
-type VoteInfo struct {
-	Sum   uint64
-	Count uint64
-}
-
-type VoteMap map[uint32]VoteInfo
-
 func joinInfos(voteInfo VoteInfo, peerVoteInfo VoteInfo) VoteInfo {
 	voteInfo.Sum = max(voteInfo.Sum, peerVoteInfo.Sum)
 	voteInfo.Count = max(voteInfo.Count, peerVoteInfo.Count)
 	return voteInfo
 }
 
-func incrementVote(voteInfo VoteInfo, classification int) VoteInfo {
+func incrementVote(voteInfo VoteInfo, classification uint64) VoteInfo {
 	voteInfo.Sum += classification
 	voteInfo.Count++
 	return voteInfo
 }
 
-type FileInfo struct {
-	Votes  VoteMap
-	DotSet DotSet
-}
-
 func (fileInfo FileInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerFileInfo FileInfo) FileInfo {
-	return FileInfo{joinVoteMaps(fileInfo.Votes, peerFileInfo.Votes),
+	return FileInfo{fileInfo.FileHash, joinVoteMaps(fileInfo.Votes, peerFileInfo.Votes),
 		joinDotSet(versionVector, peerVersionVector, fileInfo.DotSet, peerFileInfo.DotSet)}
-}
-
-type GroupInfo struct {
-	DotSet DotSet
 }
 
 func (groupInfo GroupInfo) joinInfos(versionVector VersionVector, peerVersionVector VersionVector, peerGroupInfo GroupInfo) GroupInfo {
 	return GroupInfo{joinDotSet(versionVector, peerVersionVector, groupInfo.DotSet, peerGroupInfo.DotSet)}
 }
 
-type Replica struct {
-	//ORSet<File> + votação como valor, o que implica que o join vai ter em conta
-	//ORSet<Username>
-	Files         map[string]FileInfo
-	GroupUsers    map[string]GroupInfo
-	VersionVector VersionVector
-}
-
-func (replica *Replica) AddFile(fileName string, currentID uint32) bool {
+func (replica *Replica) AddFile(fileName string, fileHash string) bool {
 
 	_, ok := replica.Files[fileName]
 	if !ok {
-		replica.VersionVector[currentID]++
-		replica.Files[fileName] = FileInfo{make(map[uint32]VoteInfo), make(DotSet)}
-		replica.Files[fileName].DotSet[DotPair{currentID, replica.VersionVector[currentID]}] = true
+		replica.VersionVector[replica.CurrentID]++
+		replica.Files[fileName] = FileInfo{fileHash, make(map[uint32]VoteInfo), make(DotSet)}
+		replica.Files[fileName].DotSet[DotPair{replica.CurrentID, replica.VersionVector[replica.CurrentID]}] = true
 	}
 
 	return !ok
@@ -80,19 +43,13 @@ func (replica *Replica) RemoveFile(fileName string) (ok bool) {
 	return
 }
 
-func (replica *Replica) ListFiles() {
-	for fileName := range replica.Files {
-		fmt.Println(fileName)
-	}
-}
-
-func (replica *Replica) AddUser(userName string, currentID uint32) bool {
+func (replica *Replica) AddUser(userName string) bool {
 
 	_, ok := replica.GroupUsers[userName]
 	if !ok {
-		replica.VersionVector[currentID]++
+		replica.VersionVector[replica.CurrentID]++
 		replica.GroupUsers[userName] = GroupInfo{make(DotSet)}
-		replica.GroupUsers[userName].DotSet[DotPair{currentID, replica.VersionVector[currentID]}] = true
+		replica.GroupUsers[userName].DotSet[DotPair{replica.CurrentID, replica.VersionVector[replica.CurrentID]}] = true
 	}
 
 	return !ok
@@ -107,15 +64,16 @@ func (replica *Replica) RemoveUser(userName string) (ok bool) {
 	return
 }
 
-func (replica *Replica) AddUserClassification(fileName string, classification int, currentID uint32, voteTable map[string]bool) (fileExists bool, canVote bool) {
+func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable *map[string]bool) (fileExists bool, cantVote bool) {
 	fileInfo, fileExists := replica.Files[fileName]
-	canVote = voteTable[fileName]
+	cantVote = (*voteTable)[fileName]
 
-	if !fileExists || !canVote {
+	if !fileExists || cantVote {
 		return
 	}
 
-	fileInfo.Votes[currentID] = incrementVote(fileInfo.Votes[currentID], classification)
+	fileInfo.Votes[replica.CurrentID] = incrementVote(fileInfo.Votes[replica.CurrentID], classification)
+	(*voteTable)[fileName] = true
 
 	return
 }
