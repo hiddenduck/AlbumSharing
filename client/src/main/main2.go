@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	chat "main/connection_management"
-<<<<<<< HEAD
+	"main/crdt"
 	"os"
 	"strings"
+	"sync"
 )
 
 func createClientState(clientId uint32) ClientState {
@@ -14,24 +15,29 @@ func createClientState(clientId uint32) ClientState {
 	replica := crdt.CreateReplica(clientId)
 	voteMap := make(map[string]bool)
 
+	connector := chat.Make_ConnectorInfo()
+
+	connector.SetIdentity("PEER2")
+
+	connector.BindSocket("2222")
+
+	connector.Add_Peer("PEER1", "Emanueldo Gonçalves Faria 1", "localhost", "1111")
+	connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
+
+	connector.Connect_to_Peers()
+
+	return ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector, Mutex: &sync.Mutex{}}
+}
+
 func main() {
 
 	is_in_Album := true
 
-	connector.Connect_to_Peers()
+	state := createClientState(1)
 
-	go causalBroadcastInfo.Start_versionVector_server("2220")
+	go HeartBeat(state)
 
-	causalBroadcastInfo.ConnectorInfo.BindSocket("2222")
-
-	causalBroadcastInfo.ConnectorInfo.SetIdentity("Peer2")
-
-	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer1", "1", "localhost", "1111", "1110")
-	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer3", "3", "localhost", "3333", "3330")
-
-	causalBroadcastInfo.ConnectorInfo.Connect_to_Peers()
-
-	go causalBroadcastInfo.CausalReceive(false)
+	go PeerListen(CreateMessageHandlers(), state)
 
 	commandMap := CreateCommandsMap()
 

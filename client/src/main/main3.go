@@ -28,20 +28,11 @@ func main() {
 
 	is_in_Album := true
 
-	causalBroadcastInfo := chat.InitCausalBroadCast(3)
+	state := createClientState(2)
 
-	go causalBroadcastInfo.Start_versionVector_server("3330")
+	go HeartBeat(state)
 
-	causalBroadcastInfo.ConnectorInfo.BindSocket("3333")
-
-	causalBroadcastInfo.ConnectorInfo.SetIdentity("Peer3")
-
-	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer2", "2", "localhost", "2222", "2220")
-	causalBroadcastInfo.ConnectorInfo.Add_Peer("Peer1", "1", "localhost", "1111", "1110")
-
-	causalBroadcastInfo.ConnectorInfo.Connect_to_Peers()
-
-	go causalBroadcastInfo.CausalReceive(false)
+	go PeerListen(CreateMessageHandlers(), state)
 
 	commandMap := CreateCommandsMap()
 
@@ -70,7 +61,7 @@ func main() {
 			continue
 		}
 
-		fmt.Println(input)
-		causalBroadcastInfo.CausalBroadcast([]byte(input))
+		//fmt.Println(input)
+		state.Connector.Send_to_Peers("chat", []byte(input))
 	}
 }
