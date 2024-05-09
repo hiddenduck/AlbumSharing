@@ -4,13 +4,21 @@ import (
 	"bufio"
 	"fmt"
 	chat "main/connection_management"
+	"main/crdt"
 	"os"
 	"strings"
 )
 
-func main() {
+type ClientState struct {
+	Replica   *crdt.Replica
+	VoteMap   *map[string]bool
+	Connector *chat.ConnectorInfo
+}
 
-	is_in_Album := true
+func CreateClientState(clientId uint32) ClientState {
+	//receive replica, votemap and clientId from central_server
+	replica := crdt.CreateReplica(clientId)
+	voteMap := make(map[string]bool)
 
 	connector := chat.Make_ConnectorInfo()
 
@@ -23,11 +31,20 @@ func main() {
 
 	connector.Connect_to_Peers()
 
-	go connector.Listen_to_Peers(CreateMessageHandlers())
+	return ClientState{&replica, &voteMap, &connector}
+}
 
-	var commandMap map[string]interface{} = CreateCommandsMap()
+func main() {
+
+	is_in_Album := true
 
 	state := CreateClientState(0)
+
+	go HeartBeat(state)
+
+	go PeerListen(CreateMessageHandlers(), state)
+
+	commandMap := CreateCommandsMap()
 
 	for {
 
@@ -55,6 +72,6 @@ func main() {
 		}
 
 		//fmt.Println(input)
-		connector.Send_to_Peers([]byte(input))
+		state.Connector.Send_to_Peers([]byte(input))
 	}
 }
