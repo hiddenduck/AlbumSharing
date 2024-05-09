@@ -65,10 +65,11 @@ func (causalBroadcastInfo *CausalBroadcastInfo) update_state(changedNodes *map[u
 		}
 	}
 
-    causalBroadcastInfo.mutex.Lock()
-    defer causalBroadcastInfo.mutex.Unlock()
+	causalBroadcastInfo.mutex.Lock()
+	defer causalBroadcastInfo.mutex.Unlock()
+
 	causalBroadcastInfo.versionVector[src] += 1
-    causalBroadcastInfo.changedNodes[src] = causalBroadcastInfo.versionVector[src]
+	causalBroadcastInfo.changedNodes[src] = causalBroadcastInfo.versionVector[src]
 }
 
 func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data []byte) {
@@ -100,16 +101,14 @@ func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []b
 
 		msg := pb.CbCastMessage{}
 
-		causalBroadcastInfo.mutex.Lock()
-        defer causalBroadcastInfo.mutex.Unlock()
+		var hasVersionVector bool
 
-		// fmt.Printf("i done did the lock\n")
+		func() {
+			causalBroadcastInfo.mutex.Lock()
+			defer causalBroadcastInfo.mutex.Unlock()
 
-		hasVersionVector := causalBroadcastInfo.hasVersionVector
-
-		// fmt.Printf("hasVersionVector: %v\n", hasVersionVector)
-
-        causalBroadcastInfo.mutex.Unlock()
+			hasVersionVector = causalBroadcastInfo.hasVersionVector
+		}()
 
 		proto.Unmarshal(bytes, &msg)
 
@@ -119,7 +118,6 @@ func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []b
 			// fmt.Printf("broke\n")
 			break
 		}
-
 	}
 
 	causalBroadcastInfo.test_buffer_messages(ch)
@@ -135,7 +133,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) test_buffer_messages(ch chan []b
 
 	flag_delivered_message := true
 
-    fmt.Printf("Testing buffered messages\n")
+	fmt.Printf("Testing buffered messages\n")
 
 	for flag_delivered_message {
 
@@ -143,17 +141,17 @@ func (causalBroadcastInfo *CausalBroadcastInfo) test_buffer_messages(ch chan []b
 
 		for buffered_msg := range buffer {
 
-            fmt.Printf("Testing (my versionVector) %v\n", causalBroadcastInfo.versionVector)
+			fmt.Printf("Testing (my versionVector) %v\n", causalBroadcastInfo.versionVector)
 
 			src, changedNodes, data := unpack_msg(buffered_msg)
 
-            fmt.Printf("Testing (changedNodes) %v\n", changedNodes)
+			fmt.Printf("Testing (changedNodes) %v\n", changedNodes)
 
 			if test_msg(src, &self_versionVector, &changedNodes) {
 
 				causalBroadcastInfo.update_state(&changedNodes, src)
 
-                fmt.Printf("Delivered a buffered message\n")
+				fmt.Printf("Delivered a buffered message\n")
 
 				select {
 				case ch <- data:
@@ -243,7 +241,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port 
 		// Wait for next request from client
 		socket.Recv(0) //NOTE: ignoring messages, only here to block until someone wants it
 
-        // time.Sleep(20*time.Second)
+		// time.Sleep(20*time.Second)
 
 		//using protobuf, maybe uneccessary
 		data := pb.CbCastMessage{
@@ -310,7 +308,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 
 		bytes, _ := requestSocket.RecvBytes(0)
 
-        time.Sleep(10*time.Second)
+		time.Sleep(10 * time.Second)
 
 		msg := pb.CbCastMessage{}
 
@@ -320,21 +318,22 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 
 		fmt.Printf("received version vector: %v \n", versionVector)
 
-		causalBroadcastInfo.mutex.Lock()
+		func() {
 
-		defer causalBroadcastInfo.mutex.Unlock()
+			causalBroadcastInfo.mutex.Lock()
+			defer causalBroadcastInfo.mutex.Unlock()
 
-		causalBroadcastInfo.hasVersionVector = true
+			causalBroadcastInfo.hasVersionVector = true
 
-		causalBroadcastInfo.versionVector = versionVector
+			causalBroadcastInfo.versionVector = versionVector
 
-		causalBroadcastInfo.versionVector[causalBroadcastInfo.self] = 0
+			causalBroadcastInfo.versionVector[causalBroadcastInfo.self] = 0
 
-		fmt.Printf("causalBroadcastInfo.self: %v\n", causalBroadcastInfo.self)
+			fmt.Printf("causalBroadcastInfo.self: %v\n", causalBroadcastInfo.self)
 
-		fmt.Printf("causalBroadcastInfo.versionVector: %v\n", causalBroadcastInfo.versionVector)
+			fmt.Printf("causalBroadcastInfo.versionVector: %v\n", causalBroadcastInfo.versionVector)
 
-		causalBroadcastInfo.mutex.Unlock()
+		}()
 
 		fmt.Printf("unlocked\n")
 
@@ -369,24 +368,20 @@ func InitCausalBroadCast(self uint32) (causalBroadcastInfo CausalBroadcastInfo) 
 	return
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) incrementVV()  {
+func (causalBroadcastInfo *CausalBroadcastInfo) incrementVV() {
 
-    causalBroadcastInfo.mutex.Lock()
+	causalBroadcastInfo.mutex.Lock()
+	defer causalBroadcastInfo.mutex.Unlock()
 
-    // fmt.Printf("Locked\n")
-    defer causalBroadcastInfo.mutex.Unlock()
-
-    causalBroadcastInfo.changedNodes[causalBroadcastInfo.self]++
-    causalBroadcastInfo.versionVector[causalBroadcastInfo.self]++
+	causalBroadcastInfo.changedNodes[causalBroadcastInfo.self]++
+	causalBroadcastInfo.versionVector[causalBroadcastInfo.self]++
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
-    causalBroadcastInfo.incrementVV()
+	causalBroadcastInfo.incrementVV()
 
-    // fmt.Printf("unLocked\n")
-
-    changedNodes := causalBroadcastInfo.changedNodes
+	changedNodes := causalBroadcastInfo.changedNodes
 
 	data := pb.CbCastMessage{
 		Src:          causalBroadcastInfo.self,
@@ -396,6 +391,6 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
 	bytes, _ := proto.Marshal(&data)
 
-    fmt.Printf("Sending changedNodes: %v\n", changedNodes)
+	fmt.Printf("Sending changedNodes: %v\n", changedNodes)
 	causalBroadcastInfo.ConnectorInfo.Send_to_Peers(bytes)
 }
