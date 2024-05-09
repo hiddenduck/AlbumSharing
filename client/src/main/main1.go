@@ -7,12 +7,14 @@ import (
 	"main/crdt"
 	"os"
 	"strings"
+	"sync"
 )
 
 type ClientState struct {
 	Replica   *crdt.Replica
 	VoteMap   *map[string]bool
 	Connector *chat.ConnectorInfo
+	Mutex     *sync.Mutex
 }
 
 func CreateClientState(clientId uint32) ClientState {
@@ -31,7 +33,7 @@ func CreateClientState(clientId uint32) ClientState {
 
 	connector.Connect_to_Peers()
 
-	return ClientState{&replica, &voteMap, &connector}
+	return ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector, Mutex: &sync.Mutex{}}
 }
 
 func main() {
@@ -72,6 +74,6 @@ func main() {
 		}
 
 		//fmt.Println(input)
-		state.Connector.Send_to_Peers([]byte(input))
+		state.Connector.Send_to_Peers("chat", []byte(input))
 	}
 }

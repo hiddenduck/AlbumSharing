@@ -59,14 +59,14 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers() {
 	}
 }
 
-func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
+func (connectorInfo ConnectorInfo) Send_to_Peers(msgType string, msg []byte) {
 
 	for _, clientInfo := range connectorInfo.PeerMap {
 
 		id := clientInfo.Id
 
 		connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
-		connectorInfo.RouterSocket.Send("print", zmq.SNDMORE)
+		connectorInfo.RouterSocket.Send(msgType, zmq.SNDMORE)
 		connectorInfo.RouterSocket.SendBytes(msg, 0)
 	}
 
