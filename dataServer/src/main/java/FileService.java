@@ -16,11 +16,13 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @return Stream.
      */
     private Flowable<String> openFileToStream(DownloadMessage request) {
-        String filePath = String.valueOf(request.getHashKey());
+        String filePath = request.getHashKey().toStringUtf8();
 
-        if (new java.io.File(filePath).exists()) {
+        if (!new java.io.File(filePath).exists()) {
             System.out.println("Error in opening file");
-            return Flowable.error(new FileNotFoundException("File not found: " + filePath));
+            return Flowable.error(io.grpc.Status.NOT_FOUND
+                    .withDescription("File not found")
+                    .asRuntimeException());
         }
 
         // Flowable using does 3 things:
@@ -28,7 +30,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         // 2: read lines from that resource
         // 3: when done, free resource by closing
         return Flowable.using(
-                () -> new BufferedReader(new FileReader(String.valueOf(request.getHashKey()))),
+                () -> new BufferedReader(new FileReader(filePath)),
                 reader -> Flowable.fromIterable(() -> reader.lines().iterator()),
                 BufferedReader::close
         );
