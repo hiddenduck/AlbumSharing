@@ -10,14 +10,7 @@ import (
 	"sync"
 )
 
-type ClientState struct {
-	Replica   *crdt.Replica
-	VoteMap   *map[string]bool
-	Connector *chat.ConnectorInfo
-	Mutex     *sync.Mutex
-}
-
-func CreateClientState(clientId uint32) ClientState {
+func createClientState(clientId uint32) ClientState {
 	//receive replica, votemap and clientId from central_server
 	replica := crdt.CreateReplica(clientId)
 	voteMap := make(map[string]bool)
@@ -40,7 +33,7 @@ func main() {
 
 	is_in_Album := true
 
-	state := CreateClientState(0)
+	state := createClientState(0)
 
 	go HeartBeat(state)
 

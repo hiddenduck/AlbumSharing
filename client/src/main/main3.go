@@ -8,10 +8,7 @@ import (
 	"strings"
 )
 
-func main() {
-
-	is_in_Album := true
-
+func createClientState(clientId uint32) ClientState {
 	connector := chat.Make_ConnectorInfo()
 
 	connector.SetIdentity("PEER3")
@@ -25,9 +22,19 @@ func main() {
 
 	go connector.Listen_to_Peers(CreateMessageHandlers())
 
-	var commandMap map[string]interface{} = CreateCommandsMap()
+}
 
-	state := CreateClientState(2)
+func main() {
+
+	is_in_Album := true
+
+	state := createClientState(2)
+
+	go HeartBeat(state)
+
+	go PeerListen(CreateMessageHandlers(), state)
+
+	commandMap := CreateCommandsMap()
 
 	for {
 
@@ -55,6 +62,6 @@ func main() {
 		}
 
 		//fmt.Println(input)
-		connector.Send_to_Peers([]byte(input))
+		state.Connector.Send_to_Peers("chat", []byte(input))
 	}
 }
