@@ -52,7 +52,7 @@
 -include("gpb.hrl").
 
 %% enumerated types
--type 'Type'() :: register | login | logout | create | get | send | quit | reply | new_peer.
+-type 'Type'() :: register | login | logout | create | get | send | quit | reply | new_peer | peer_left.
 -export_type(['Type'/0]).
 
 %% message types
@@ -721,6 +721,7 @@ e_enum_Type(send, Bin, _TrUserData) -> <<Bin/binary, 5>>;
 e_enum_Type(quit, Bin, _TrUserData) -> <<Bin/binary, 6>>;
 e_enum_Type(reply, Bin, _TrUserData) -> <<Bin/binary, 7>>;
 e_enum_Type(new_peer, Bin, _TrUserData) -> <<Bin/binary, 8>>;
+e_enum_Type(peer_left, Bin, _TrUserData) -> <<Bin/binary, 9>>;
 e_enum_Type(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 -compile({nowarn_unused_function,e_type_sint/3}).
@@ -2246,6 +2247,7 @@ d_enum_Type(5) -> send;
 d_enum_Type(6) -> quit;
 d_enum_Type(7) -> reply;
 d_enum_Type(8) -> new_peer;
+d_enum_Type(9) -> peer_left;
 d_enum_Type(V) -> V.
 
 read_group(Bin, FieldNum) ->
@@ -2821,6 +2823,7 @@ v_enum_Type(send, _Path, _TrUserData) -> ok;
 v_enum_Type(quit, _Path, _TrUserData) -> ok;
 v_enum_Type(reply, _Path, _TrUserData) -> ok;
 v_enum_Type(new_peer, _Path, _TrUserData) -> ok;
+v_enum_Type(peer_left, _Path, _TrUserData) -> ok;
 v_enum_Type(V, _Path, _TrUserData) when -2147483648 =< V, V =< 2147483647, is_integer(V) -> ok;
 v_enum_Type(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'Type'}, X, Path).
 
@@ -3137,7 +3140,7 @@ mt_merge_maptuples_r(L1, L2) -> dict:to_list(dict:merge(fun (_Key, _V1, V2) -> V
 
 
 get_msg_defs() ->
-    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {logout, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}]},
+    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {logout, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}]},
      {{msg, registerLoginFormat}, [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
      {{msg, album}, [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
      {{msg, get_album},
@@ -3249,7 +3252,7 @@ find_msg_def('Message') ->
 find_msg_def(_) -> error.
 
 
-find_enum_def('Type') -> [{register, 0}, {login, 1}, {logout, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}];
+find_enum_def('Type') -> [{register, 0}, {login, 1}, {logout, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}];
 find_enum_def(_) -> error.
 
 
@@ -3267,7 +3270,8 @@ enum_symbol_by_value_Type(4) -> get;
 enum_symbol_by_value_Type(5) -> send;
 enum_symbol_by_value_Type(6) -> quit;
 enum_symbol_by_value_Type(7) -> reply;
-enum_symbol_by_value_Type(8) -> new_peer.
+enum_symbol_by_value_Type(8) -> new_peer;
+enum_symbol_by_value_Type(9) -> peer_left.
 
 
 enum_value_by_symbol_Type(register) -> 0;
@@ -3278,7 +3282,8 @@ enum_value_by_symbol_Type(get) -> 4;
 enum_value_by_symbol_Type(send) -> 5;
 enum_value_by_symbol_Type(quit) -> 6;
 enum_value_by_symbol_Type(reply) -> 7;
-enum_value_by_symbol_Type(new_peer) -> 8.
+enum_value_by_symbol_Type(new_peer) -> 8;
+enum_value_by_symbol_Type(peer_left) -> 9.
 
 
 get_service_names() -> [].

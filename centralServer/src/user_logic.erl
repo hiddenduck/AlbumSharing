@@ -11,7 +11,7 @@ session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     Status =:= put_album_no_permission
 ->
     send_reply(atom_to_list(Status), Sock),
-    session_user(Sock, SessionLoop, UserName);
+    auth_user(Sock, SessionLoop, UserName);
 session_user_handler({new_peer, {Ip, PORT, UserName}, SessionLoop}, Sock, SessionLoop, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 8,
@@ -24,6 +24,18 @@ session_user_handler({new_peer, {Ip, PORT, UserName}, SessionLoop}, Sock, Sessio
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
+
+session_user_handler({peer_left, UserName, SessionLoop}, Sock, SessionLoop, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 9,
+        msg =
+            {m5, #reply_message{
+                status = UserName
+            }}
+    }),
+    send(Data, Sock),
+    session_user(Sock, SessionLoop, UserName);
+
 session_user_handler({put_album_ok, MainLoop, SessionLoop}, Sock, SessionLoop, UserName) ->
     send_reply("put_album_ok", Sock),
     auth_user(Sock, MainLoop, UserName).
