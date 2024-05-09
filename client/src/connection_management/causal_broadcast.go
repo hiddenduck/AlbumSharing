@@ -18,12 +18,12 @@ type CausalBroadcastInfo struct {
 	ConnectorInfo    ConnectorInfo
 	versionVector    map[uint32]uint64
 	changedNodes     map[uint32]uint64
-	replySocket      *zmq.Socket
+	ReplySocket      *zmq.Socket
 }
 
 func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *map[uint32]uint64) (flag bool) {
 
-	flag = (*self_versionVector)[src] == ((*changedNodes)[src] + 1)
+	flag = ((*self_versionVector)[src] + 1) == (*changedNodes)[src]
 
 	if flag {
 		for node, version := range *changedNodes {
@@ -75,6 +75,8 @@ func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data [
 
 func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []byte) {
 
+	fmt.Printf("Started buffer_messages_loop\n")
+
 	connector := causalBroadcastInfo.ConnectorInfo
 
 	causalBroadcastInfo.messageBuffer = make(map[*pb.CbCastMessage]struct{}, 0)
@@ -88,11 +90,17 @@ func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []b
 		bytes := parts[2]
 		//NOTE this os hacky, three parts will always be sent, id, delimiter, data
 
+		fmt.Printf("Received message (loop) from socket with bytes: %v\n", bytes)
+
 		msg := pb.CbCastMessage{}
 
 		causalBroadcastInfo.mutex.Lock()
 
+		fmt.Printf("i done did the lock\n")
+
 		hasVersionVector := causalBroadcastInfo.hasVersionVector
+
+		fmt.Printf("hasVersionVector: %v\n", hasVersionVector)
 
 		defer causalBroadcastInfo.mutex.Unlock()
 
@@ -101,13 +109,15 @@ func (causalBroadcastInfo *CausalBroadcastInfo) buffer_messages_loop(ch chan []b
 		buffer[&msg] = struct{}{}
 
 		if hasVersionVector {
+			fmt.Printf("broke\n")
 			break
 		}
 
 	}
 
 	causalBroadcastInfo.test_buffer_messages(ch)
-	go causalBroadcastInfo.fwd_message(ch)
+
+	causalBroadcastInfo.fwd_message(ch)
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) test_buffer_messages(ch chan []byte) {
@@ -160,12 +170,14 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 	for {
 
+		fmt.Printf("waiting on receive\n")
+
 		parts, _ := connector.RouterSocket.RecvMessageBytes(0)
 
 		bytes := parts[2]
 		//NOTE this os hacky, three parts will always be sent, id, delimiter, data
 
-		fmt.Printf("Received message from socket with bytes: %v", bytes)
+		fmt.Printf("Received message from socket with bytes: %v\n", bytes)
 
 		msg := pb.CbCastMessage{}
 
@@ -173,24 +185,31 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 		src, changedNodes, data := unpack_msg(&msg)
 
+		fmt.Printf("changed nodes are: %v\n", changedNodes)
+
 		if test_msg(src, &self_versionVector, &changedNodes) {
 
 			causalBroadcastInfo.update_state(&changedNodes, src)
 
-			fmt.Printf("delivered message with bytes: %v", bytes)
+			fmt.Printf("delivered message with bytes: %v\n", bytes)
 
-			ch <- data
+			select {
+			case ch <- data:
+			default:
+			}
 
 			causalBroadcastInfo.test_buffer_messages(ch)
 
 		} else {
 			buffer[&msg] = struct{}{}
 
-			fmt.Printf("buffered message with bytes: %v", bytes)
+			fmt.Printf("buffered message with bytes: %v\n", bytes)
 
 		}
 
-		// causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
+		causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
+
+		fmt.Printf("My versionVector is: %v\n", causalBroadcastInfo.versionVector)
 
 	}
 
@@ -198,7 +217,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) fwd_message(ch chan []byte) {
 
 func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port string) {
 
-	socket := causalBroadcastInfo.replySocket
+	socket := causalBroadcastInfo.ReplySocket
 
 	socket.Bind("tcp://*:" + port)
 
@@ -217,14 +236,14 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Start_versionVector_server(port 
 
 		bytes, _ := proto.Marshal(&data)
 
-		fmt.Printf("Received request with bytes: %v\n", string(bytes))
+		fmt.Printf("Received request with bytes: %v\n", bytes)
 
 		// Send reply back to client
 		socket.SendBytes(bytes, 0)
 	}
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) connect_to_random_peer(requestSocket *zmq.Socket) {
+func (causalBroadcastInfo *CausalBroadcastInfo) connect_to_random_peer(port string, requestSocket *zmq.Socket) {
 
 	peers := causalBroadcastInfo.ConnectorInfo.PeerMap
 
@@ -240,28 +259,31 @@ func (causalBroadcastInfo *CausalBroadcastInfo) connect_to_random_peer(requestSo
 
 	peer := peers[key]
 
-	requestSocket.Connect("tcp://" + peer.Ip_Addres + ":" + peer.Port)
+	requestSocket.Connect("tcp://" + peer.Ip_Addres + ":" + port)
 
 	fmt.Printf("Connected to peer: %v\n", peer)
 
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
+func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool, port string) {
 
 	ch := make(chan []byte, 1024) //buffered channel for 1024 messages
 
 	if is_first {
 		causalBroadcastInfo.versionVector = make(map[uint32]uint64)
 		causalBroadcastInfo.versionVector[causalBroadcastInfo.self] = 0
+
+		go causalBroadcastInfo.fwd_message(ch)
 	} else {
 
 		context, _ := zmq.NewContext() //NOTE: vou deixar assim por agora mas os gajos do zeroMQ recomendam usar so um context
 
 		requestSocket, _ := context.NewSocket(zmq.REQ)
 
-		causalBroadcastInfo.connect_to_random_peer(requestSocket)
+		causalBroadcastInfo.connect_to_random_peer(port, requestSocket)
 
 		fmt.Printf("buffering all messages\n")
+
 		go causalBroadcastInfo.buffer_messages_loop(ch)
 
 		requestSocket.Send("", 0) //This bitch blocks
@@ -280,11 +302,21 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 
 		causalBroadcastInfo.mutex.Lock()
 
+		defer causalBroadcastInfo.mutex.Unlock()
+
 		causalBroadcastInfo.hasVersionVector = true
 
 		causalBroadcastInfo.versionVector = versionVector
 
-		defer causalBroadcastInfo.mutex.Unlock()
+		causalBroadcastInfo.versionVector[causalBroadcastInfo.self] = 0
+
+		fmt.Printf("causalBroadcastInfo.self: %v\n", causalBroadcastInfo.self)
+
+		fmt.Printf("causalBroadcastInfo.versionVector: %v\n", causalBroadcastInfo.versionVector)
+
+		causalBroadcastInfo.mutex.Unlock()
+
+		fmt.Printf("unlocked\n")
 
 	}
 
@@ -311,16 +343,21 @@ func InitCausalBroadCast(self uint32) (causalBroadcastInfo CausalBroadcastInfo) 
 	causalBroadcastInfo.versionVector = make(map[uint32]uint64)
 	causalBroadcastInfo.self = self
 	causalBroadcastInfo.changedNodes = changedNodes
-	causalBroadcastInfo.replySocket = replySocket
+	causalBroadcastInfo.ReplySocket = replySocket
+	causalBroadcastInfo.messageBuffer = make(map[*pb.CbCastMessage]struct{})
 
 	return
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
+    causalBroadcastInfo.changedNodes[causalBroadcastInfo.self]++
+
+    changedNodes := causalBroadcastInfo.changedNodes
+
 	data := pb.CbCastMessage{
 		Src:          causalBroadcastInfo.self,
-		ChangedNodes: causalBroadcastInfo.changedNodes,
+		ChangedNodes: changedNodes,
 		Data:         msg,
 	}
 
