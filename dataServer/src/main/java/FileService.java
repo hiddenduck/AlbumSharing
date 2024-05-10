@@ -6,14 +6,24 @@ import file.UploadMessage;
 import file.joinMessage;
 import io.reactivex.rxjava3.core.*;
 import io.reactivex.rxjava3.schedulers.Schedulers;
-
+import java.io.File;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
 
+    private String folder;
+
+
     public FileService(int port, String central_Ip, int central_port) throws IOException {
+        this.folder = "localhost" + String.valueOf(port);
+        File directory = new File(folder);
+
+        if(!directory.exists()){
+            directory.mkdir();
+        }
+        /*
         try(Socket s = new Socket(central_Ip, central_port)){
             // Send join Msg to Central Server
             var joinMsg = joinMessage.newBuilder().setIp("localhost").setPort(port).build();
@@ -31,6 +41,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
 
 
         }
+        */
     }
 
 	/**
@@ -41,7 +52,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     private Flowable<String> openFileToStream(DownloadMessage request) {
         String filePath = request.getHashKey().toStringUtf8();
 
-        if (!new java.io.File(filePath).exists()) {
+        if (!new java.io.File(this.folder, filePath).exists()) {
             System.out.println("Error in opening file");
             return Flowable.error(io.grpc.Status.NOT_FOUND
                     .withDescription("File not found")
@@ -80,7 +91,8 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         var uploadResult = request
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(message.getHashKey().toStringUtf8()))) {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
                         writer.write(message.getData().toStringUtf8() + "\n");
 						writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
