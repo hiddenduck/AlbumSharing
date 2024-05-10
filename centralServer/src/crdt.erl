@@ -1,5 +1,5 @@
 -module(crdt).
--export([createAlbum/1, updateMetaData/2, refreshUserMap/1]).
+-export([createAlbum/1, updateMetaData/2, refreshUserMap/1, clearState/1]).
 
 createAlbum(UserName) ->
     %Files         map[string]{FileHash(string), VoteMap, DotSet} where VoteMap = map[uint32]VoteInfo and DotSet = map[DotPair]bool
@@ -29,7 +29,7 @@ refreshUserMap({{_, GroupUsers, _} = Metadata, UsersInfo}) ->
         end,
         GroupUsers
     ),
-    {Metadata, NewUsersInfo}.
+    NewUsersInfo.
 
 updateMetaData(
     {Files, GroupUsers, VersionVector},
@@ -227,3 +227,6 @@ causalContextUnion(VersionVector, [{ID, NewVersion} | VVTail]) ->
             NewVV = maps:put(ID, NewVersion, VersionVector)
     end,
     causalContextUnion(NewVV, VVTail).
+
+clearState({Files, GroupUsers, VersionVector}) ->
+    {todo, todo, todo}.
