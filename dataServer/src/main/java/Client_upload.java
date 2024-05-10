@@ -5,23 +5,28 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.FileWriter;
 
 public class Client_upload {
-    //FileWriter writer = new FileWriter(filePath);
 
-    //writer.write(content);
-
-    //writer.close();
 
     //System.out.println("Content has been written to " + filePath);
     public static void main(String[] args) throws Exception {
-        var c = ManagedChannelBuilder.forAddress("localhost", 12345)
+        var c = ManagedChannelBuilder.forAddress("localhost", 1234)
                 .usePlaintext()
                 .build();
 
         var s = file.Rx3FileGrpc.newRxStub(c);
 
         String filePath = "output.txt";
+
+        String content = "aoaieoae";
+
+        FileWriter writer = new FileWriter(filePath);
+
+        writer.write(content);
+
+        writer.close();
 
         String filePath2 = "output2.txt";
 
