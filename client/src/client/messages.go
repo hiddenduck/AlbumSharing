@@ -9,14 +9,14 @@ import (
 	proto "google.golang.org/protobuf/proto"
 )
 
-func PeerListen(messageHandlers map[string]interface{}, state ClientState) {
+func PeerListen(state ClientState) {
 	for {
 		msg, _ := state.Connector.RouterSocket.RecvMessage(0)
 
-		function, ok := messageHandlers[msg[1]]
+		function, ok := state.MessageHandlers[msg[1]]
 
 		if ok {
-			function.(func([]byte, ClientState))([]byte(msg[2]), state)
+			function.(func([]string, ClientState))(msg, state)
 		} else {
 			fmt.Printf("\"%v\"; not a valid type of message!\n", msg[1])
 		}
@@ -25,18 +25,31 @@ func PeerListen(messageHandlers map[string]interface{}, state ClientState) {
 
 func CreateMessageHandlers() map[string]interface{} {
 	return map[string]interface{}{
-		"chat":      myprint,
+		"chat":      bufferMsg,
 		"heartbeat": joinCrdt,
+		"requestVV": sendCbcastVV,
+		"replyVV":   receiveVV,
 	}
 }
 
-func myprint(msg []byte, state ClientState) {
-	fmt.Printf("%s\n", string(msg))
+func myprint(msg []string, state ClientState) {
+	fmt.Printf("%s\n", msg[2])
 }
 
-func joinCrdt(msg []byte, state ClientState) {
+func bufferMsg(msg []string, state ClientState) {
+	if state.CausalBroadcastInfo.Buffer_message([]byte(msg[2])) {
+		state.CausalBroadcastInfo.Test_buffer_messages()
+	}
+	state.MessageHandlers["chat"] = receiveMsg
+}
+
+func receiveMsg(msg []string, state ClientState) {
+	state.CausalBroadcastInfo.Fwd_message([]byte(msg[2]))
+}
+
+func joinCrdt(msg []string, state ClientState) {
 	protoMsg := pb.Crdt{}
-	proto.Unmarshal(msg, &protoMsg)
+	proto.Unmarshal([]byte(msg[2]), &protoMsg)
 
 	peerReplica := parseProtoReplica(&protoMsg)
 
@@ -44,6 +57,14 @@ func joinCrdt(msg []byte, state ClientState) {
 
 	state.Replica.Converge(peerReplica)
 
+}
+
+func sendCbcastVV(msg []string, state ClientState) {
+	state.CausalBroadcastInfo.SendVersionVector(msg[0])
+}
+
+func receiveVV(msg []string, state ClientState) {
+	state.CausalBroadcastInfo.ReceiveVV([]byte(msg[2]))
 }
 
 func HeartBeat(state ClientState) {

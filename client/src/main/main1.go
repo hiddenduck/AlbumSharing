@@ -26,7 +26,11 @@ func createClientState(clientId uint32) client.ClientState {
 
 	connector.Connect_to_Peers()
 
-	return client.ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector}
+	causalBI := chat.InitCausalBroadCast(clientId, &connector)
+
+	causalBI.CausalReceive(true)
+
+	return client.ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector, CausalBroadcastInfo: &causalBI, MessageHandlers: client.CreateMessageHandlers()}
 }
 
 func main() {
@@ -39,7 +43,7 @@ func main() {
 
 	go client.HeartBeat(state)
 
-	go client.PeerListen(client.CreateMessageHandlers(), state)
+	go client.PeerListen(state)
 
 	commandMap := client.CreateCommandsMap()
 
@@ -53,11 +57,11 @@ func main() {
 			continue
 		}
 
-		input = strings.TrimSuffix(input, "\n")
+		splitInput := strings.TrimSuffix(input, "\n")
 
-		if input[0] == '/' {
+		if splitInput[0] == '/' {
 
-			client.ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
+			client.ExecuteCommand(strings.Split(splitInput[1:], " "), commandMap, state)
 
 			continue
 		}
@@ -68,7 +72,9 @@ func main() {
 			continue
 		}
 
+		state.CausalBroadcastInfo.CausalBroadcast([]byte(input))
+
 		//fmt.Println(input)
-		state.Connector.Send_to_Peers("chat", []byte(input))
+		//state.Connector.Send_to_Peers("chat", []byte(input))
 	}
 }
