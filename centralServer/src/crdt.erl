@@ -1,5 +1,5 @@
 -module(crdt).
--export([createAlbum/1, updateMetaData/3]).
+-export([createAlbum/1, updateMetaData/2, refreshUserMap/1]).
 
 createAlbum(UserName) ->
     %Files         map[string]{Votes, DotSet}
@@ -11,17 +11,28 @@ createAlbum(UserName) ->
     % VersionVector map[uint32]uint64
     VersionVector = #{},
 
-    % Central Server logic - InSession + Votetable, map(userName)->{isInSession, voteTable}
-    UsersInfo = #{},
+    % Central Server logic - Votetable, map(userName)->{voteTable}
+    UsersInfo = maps:put(UserName, #{}, #{}),
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.
 
+refreshUserMap({{_, GroupUsers, _}=Metadata, UsersInfo}) ->
+    NewUsersInfo = maps:map(fun(Name, _) ->
+            case maps:find(Name, UsersInfo) of
+                {ok, VoteTable} ->
+                    VoteTable;
+
+                _ ->
+                    #{}
+            end
+        end, GroupUsers),
+    {Metadata, NewUsersInfo}.
+
+
 updateMetaData(
-    {{Files, GroupUsers, VersionVector}, NewVotetable},
-    {{OldFiles, OldGroupUsers, OldVersionVector}, UsersInfo},
-    UserName
+    {Files, GroupUsers, VersionVector},
+    {OldFiles, OldGroupUsers, OldVersionVector}
 ) ->
-    UsersInfo = updateVoteTable(NewVotetable, UsersInfo, UserName),
     NewFiles = joinMaps(maps:to_list(OldFiles), maps:to_list(Files), {fun(Info, PeerInfo, FuncInfo) -> joinFileInfos(Info, PeerInfo, FuncInfo) end, {OldVersionVector, VersionVector}}),
     NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), {
         fun(
@@ -32,16 +43,7 @@ updateMetaData(
         {OldVersionVector, VersionVector}
     }),
     VV = causalContextUnion(OldVersionVector, maps:to_list(VersionVector)),
-    {{NewFiles, NewGroupUsers, VV}, UsersInfo}.
-
-updateVoteTable(NewVotetable, UsersInfo, UserName) ->
-    case maps:find(UserName, UsersInfo) of
-        {ok, _} ->
-            maps:update(UserName, NewVotetable, UsersInfo);
-        _ ->
-            io:format("Error in updateVoteTable"),
-            UsersInfo
-    end.
+    {NewFiles, NewGroupUsers, VV}.
 
 % return DotSet in list format
 joinDotSet(VV, PeerVV, DotSet, PeerDotSet) ->

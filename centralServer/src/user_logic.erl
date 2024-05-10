@@ -8,18 +8,53 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
-    Status =:= put_album_not_in_session;
     Status =:= put_album_no_permission
 ->
     send_reply(atom_to_list(Status), Sock),
+    auth_user(Sock, SessionLoop, UserName);
+session_user_handler({new_peer, {Ip, PORT, UserName}, SessionLoop}, Sock, SessionLoop, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 8,
+        msg =
+            {m7, #newPeer{
+                name = UserName,
+                ip = Ip,
+                port = PORT
+            }}
+    }),
+    send(Data, Sock),
+    session_user(Sock, SessionLoop, UserName);
+
+session_user_handler({peer_left, UserName, SessionLoop}, Sock, SessionLoop, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 9,
+        msg =
+            {m5, #reply_message{
+                status = UserName
+            }}
+    }),
+    send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
 
 session_user_handler({put_album_ok, MainLoop, SessionLoop}, Sock, SessionLoop, UserName) ->
     send_reply("put_album_ok", Sock),
     auth_user(Sock, MainLoop, UserName).
 
-session_message_handler(quit, {m4, #quitMessage{crdt = Crdt, voteTable = Votetable}}, Sock, SessionLoop, UserName) ->
-    SessionLoop ! {{put_album, UserName, {Crdt, Votetable}}, self()},
+session_message_handler(
+    quit,
+    {m4, #quitMessage{
+        crdt = #crdt{
+            versionVector = VV,
+            files = Files,
+            groupUsers = GroupUsers
+        },
+        voteTable = Votetable
+    }},
+    Sock,
+    SessionLoop,
+    UserName
+) ->
+    SessionLoop ! {{put_album, UserName, {{Files, GroupUsers, VV}, Votetable}}, self()},
     session_user(Sock, SessionLoop, UserName).
 
 session_user(Sock, SessionLoop, UserName) ->
@@ -27,11 +62,11 @@ session_user(Sock, SessionLoop, UserName) ->
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
             io:format("~p disconnected without saving!~n", [UserName]),
             error;
-
         {tcp, _, Msg} ->
             Message = message:decode_msg(Msg, 'Message'),
-            session_message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, SessionLoop, UserName);
-
+            session_message_handler(
+                Message#'Message'.type, Message#'Message'.msg, Sock, SessionLoop, UserName
+            );
         Msg ->
             session_user_handler(Msg, Sock, SessionLoop, UserName)
     end.
@@ -50,7 +85,6 @@ auth_user_handler(Status, Sock, MainLoop, UserName) when
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
-
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok;
@@ -59,32 +93,37 @@ auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
-
-auth_user_handler({get_album_ok, {Id, Crdt, SessionPeers, Votetable}, SessionLoop}, Sock, _, UserName) ->
+auth_user_handler(
+    {get_album_ok, {Id, {Files, GroupUsers, VV} = _Crdt, SessionPeers, Votetable}, SessionLoop},
+    Sock,
+    _,
+    UserName
+) ->
     Data = message:encode_msg(#'Message'{
         type = 5,
         msg =
             {m3, #sessionStart{
                 id = Id,
-                crdt = Crdt,
+                crdt = #crdt{
+                    versionVector = VV,
+                    files = Files,
+                    groupUsers = GroupUsers
+                },
                 sessionPeers = SessionPeers,
                 voteTable = Votetable
             }}
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
-
 auth_user_handler(_, Sock, MainLoop, UserName) ->
     auth_user(Sock, MainLoop, UserName).
 
 auth_message_handler(create, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{create_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
-
 auth_message_handler(get, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{get_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
-
 auth_message_handler(
     _, _, Sock, MainLoop, UserName
 ) ->
@@ -94,11 +133,11 @@ auth_user(Sock, MainLoop, UserName) ->
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
             MainLoop ! {log_out, UserName};
-
         {tcp, _, Msg} ->
             Message = message:decode_msg(Msg, 'Message'),
-            auth_message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop, UserName);
-
+            auth_message_handler(
+                Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop, UserName
+            );
         Msg ->
             auth_user_handler(Msg, Sock, MainLoop, UserName)
     end.
@@ -121,7 +160,6 @@ send_reply(Status, Sock) ->
 user_handler({login_ok, UserName, MainLoop}, Sock, MainLoop) ->
     send_reply("login_ok", Sock),
     auth_user(Sock, MainLoop, UserName);
-
 user_handler({Status, MainLoop}, Sock, MainLoop) when
     Status =:= login_error;
     Status =:= register_ok;
@@ -129,7 +167,6 @@ user_handler({Status, MainLoop}, Sock, MainLoop) when
 ->
     send_reply(atom_to_list(Status), Sock),
     user(Sock, MainLoop);
-
 user_handler(_, Sock, MainLoop) ->
     user(Sock, MainLoop).
 
@@ -143,7 +180,6 @@ message_handler(
 ) ->
     MainLoop ! {{login, {UserName, Password}}, self()},
     user(Sock, MainLoop);
-
 message_handler(
     _, _, Sock, MainLoop
 ) ->

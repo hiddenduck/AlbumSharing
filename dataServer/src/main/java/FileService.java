@@ -3,12 +3,46 @@ import file.DownloadMessage;
 import file.FileMessage;
 import file.Rx3FileGrpc;
 import file.UploadMessage;
+import file.joinMessage;
 import io.reactivex.rxjava3.core.*;
 import io.reactivex.rxjava3.schedulers.Schedulers;
-
+import java.io.File;
 import java.io.*;
+import java.net.Socket;
+import java.nio.ByteBuffer;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
+
+    private String folder;
+
+
+    public FileService(int port, String central_Ip, int central_port) throws IOException {
+        this.folder = "localhost" + String.valueOf(port);
+        File directory = new File(folder);
+
+        if(!directory.exists()){
+            directory.mkdir();
+        }
+        /*
+        try(Socket s = new Socket(central_Ip, central_port)){
+            // Send join Msg to Central Server
+            var joinMsg = joinMessage.newBuilder().setIp("localhost").setPort(port).build();
+            var outputStream = s.getOutputStream();
+            outputStream.write(joinMsg.toByteArray());
+            outputStream.flush();
+
+            // Wait join response
+            var inputStream = s.getInputStream();
+            byte[] prefix = new byte[4];
+            inputStream.read(prefix);
+            int messageSize = ByteBuffer.wrap(prefix).getInt();
+            byte[] messageBytes = new byte[messageSize];
+            inputStream.read(messageBytes);
+
+
+        }
+        */
+    }
 
 	/**
      * Opens the file and create the stream.
@@ -16,12 +50,21 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @return Stream.
      */
     private Flowable<String> openFileToStream(DownloadMessage request) {
+        String filePath = request.getHashKey().toStringUtf8();
+
+        if (!new java.io.File(this.folder, filePath).exists()) {
+            System.out.println("Error in opening file");
+            return Flowable.error(io.grpc.Status.NOT_FOUND
+                    .withDescription("File not found")
+                    .asRuntimeException());
+        }
+
         // Flowable using does 3 things:
         // 1: request a resource (BufferedReader)
         // 2: read lines from that resource
         // 3: when done, free resource by closing
         return Flowable.using(
-                () -> new BufferedReader(new FileReader(String.valueOf(request.getHashKey()))),
+                () -> new BufferedReader(new FileReader(filePath)),
                 reader -> Flowable.fromIterable(() -> reader.lines().iterator()),
                 BufferedReader::close
         );
@@ -36,7 +79,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     public Flowable<FileMessage> download(DownloadMessage request) {
         return openFileToStream(request)
                 .observeOn(Schedulers.io())
-                .map(n -> FileMessage.newBuilder().setHashKey(request.getHashKey()).setData(ByteString.copyFromUtf8(n)).build());
+                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFromUtf8(n)).build());
     }
 
 	/**
@@ -48,16 +91,14 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         var uploadResult = request
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(String.valueOf(message.getHashKey())))) {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
                         writer.write(message.getData().toStringUtf8() + "\n");
-						// Flush the buffer to write data immediately (Perhaps redundant but it's good practice)
 						writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {
-                        // Log the error
-						logger.error("Error occurred during upload: " + e.getMessage());
-						// Notify client about the error
-						return Flowable.error(new RuntimeException("Failed to upload file."));
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
                     }
                 });
 

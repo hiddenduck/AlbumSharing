@@ -29,7 +29,12 @@ message voteMap {
 }
 
 message peerInfo {
-  uint32 id   = 1;
+  string ip   = 1;
+  string port = 2;
+}
+
+message newPeer {
+  string name = 1;
   string ip   = 2;
   string port = 3;
 }
@@ -80,16 +85,19 @@ message Message {
     quitMessage         m4 = 5;
     reply_message       m5 = 6;
     get_album           m6 = 7;
+    newPeer             m7 = 8;
   }
 }
 
 enum Type {
-  register = 0; // registerLoginFormat
-  login    = 1; // registerLoginFormat
-  logout   = 2; // <None>
-  create   = 3; // album
-  get      = 4; // get_album
-  send     = 5; // sessionStart
-  quit     = 6; // quitMessage
-  reply    = 7; // reply
+  register  = 0; // registerLoginFormat
+  login     = 1; // registerLoginFormat
+  logout    = 2; // <None>
+  create    = 3; // album
+  get       = 4; // get_album
+  send      = 5; // sessionStart
+  quit      = 6; // quitMessage
+  reply     = 7; // reply
+  new_peer  = 8; // newPeer
+  peer_left = 9; // reply
 }

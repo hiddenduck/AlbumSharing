@@ -14,12 +14,17 @@ message DownloadMessage {
 }
 
 message UploadMessage {
-  int64 lines = 1;
+
 }
 
 message FileMessage {
   bytes hash_key = 1;
   bytes data = 2;
+}
+
+message joinMessage {
+  string ip   = 1;
+  int64  port = 2;
 }
 
 /*

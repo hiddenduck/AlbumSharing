@@ -20,14 +20,23 @@ create_album(AlbumName, UserName) ->
             end
     end.
 
-% {albumMetaData, [IdPool], map(userName)->{{sessionID, Info}, voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, PID}
+%saveState(AlbumName, {Files, GroupUsers, _}, UserMap) ->
+%    NewFiles = maps:map(fun(FileName, _) ->
+
+%        end, Files)
+%    AlbumBin = term_to_binary({Files, GroupUsers, #{}}),
+    
+    
+
+% {albumMetaData, {IdPool, IdCounter}, #{String} -> Info}, map(userName)->{voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, ID, PID}
 start(AlbumName, UserName, MainLoop) ->
     case file:read_file(AlbumName) of
         {ok, AlbumBin} ->
             {AlbumMetaData, UserMap} = erlang:binary_to_term(AlbumBin),
             case maps:find(UserName, UserMap) of
                 {ok, _} ->
-                    {ok, spawn(fun() -> loop({AlbumMetaData, {[], 0}, UserMap, MainLoop}) end)};
+                    {ok,
+                        spawn(fun() -> loop(AlbumName, {AlbumMetaData, {[], 0}, #{}, UserMap, MainLoop}) end)};
                 _ ->
                     get_album_no_permission
             end;
@@ -35,7 +44,7 @@ start(AlbumName, UserName, MainLoop) ->
             get_album_error
     end.
 
-prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
+prepare_replica_state(UserName, {IdPool, IdCounter}, SessionUsers, Ip, PORT) ->
     case IdPool of
         [] ->
             Id = IdCounter,
@@ -45,54 +54,79 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, UserMap, Ip, PORT, PID) ->
         [Id | T] ->
             NewIdInfo = {[T], IdCounter}
     end,
-    
-    SessionPeers = maps:filtermap(
-        fun
-            (_, {{CurrId, {IP, Port, _}}, _}) when CurrId =/= -1 ->
-                {ok, {true, {CurrId, IP, Port}}};
-            (_, _) ->
-                false
+    SessionPeers = maps:map(
+        fun(_, {IP, Port, _, Pid}) ->
+            Pid ! {new_peer, {Ip, PORT, UserName}, self()},
+            {IP, Port}
         end,
-        UserMap
+        SessionUsers
     ),
-    {_, Votetable} = maps:get(UserName, UserMap),
-    NewUserMap = maps:update(UserName, {{Id, {Ip, PORT, PID}}, Votetable}),
-    {{Id, SessionPeers, PeersToWarn, Votetable}, NewIdInfo, NewUserMap}.
+    {{Id, SessionPeers}, NewIdInfo}.
 
 handler(
-    {join, Username, Client, MainLoop}, {AlbumMetaData, IdInfo, UserMap, MainLoop} = State, MainLoop
+    {join, Username, Ip, Port, Client, MainLoop},
+    {AlbumMetaData, IdInfo, SessionUsers, UserMap, MainLoop} = State,
+    MainLoop, AlbumName
 ) ->
-    case maps:find(Username, UserMap) of
-        {ok, {-1, _}} ->
-            {{Id, SessionPeers, Votetable}, NewIdInfo, NewUserMap} = prepare_replica_state(
-                Username, IdInfo, UserMap
-            ),
-            Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, Votetable}, self()},
-            {AlbumMetaData, NewIdInfo, NewUserMap, MainLoop};
+    case maps:find(Username, SessionUsers) of
         {ok, _} ->
             Client ! get_album_already_in_session,
-            State;
+            loop(AlbumName, State);
         _ ->
-            Client ! get_album_no_permission,
-            State
+            case maps:find(Username, UserMap) of
+                {ok, VoteTable} ->
+                    {{Id, SessionPeers}, NewIdInfo} = prepare_replica_state(
+                        Username, IdInfo, SessionUsers, Ip, Port
+                    ),
+                    Client ! {get_album_ok, {Id, AlbumMetaData, SessionPeers, VoteTable}, self()},
+                    loop(AlbumName,{AlbumMetaData, NewIdInfo,
+                        maps:put(Username, {Ip, Port, Id, Client}, SessionUsers), UserMap,
+                        MainLoop});
+                _ ->
+                    Client ! get_album_no_permission,
+                    loop(AlbumName,State)
+            end
     end;
-
-handler({put_album, UserName, {Crdt, Votetable}}, {AlbumMetaData, IdInfo, UserMap, MainLoop}=State, Client) ->
+handler(
+    {put_album, UserName, {Crdt, Votetable}},
+    {AlbumMetaData, {IdPool, IdCounter}, SessionUsers, UserMap, MainLoop} = State,
+    Client, AlbumName
+) ->
     case maps:find(UserName, UserMap) of
-        {ok, {Id, _}} ->
-            
+        {ok, _} ->
+            NewAlbumMetaData = crdt:updateMetaData(Crdt, AlbumMetaData),
+            NewUserMap = maps:update(UserName, Votetable, UserMap),
+            {_, _, Id, _} = maps:get(UserName, SessionUsers),
+            NewSessionUsers = maps:remove(UserName, SessionUsers),
+            case NewSessionUsers of
+                #{} ->
+                    MainLoop ! {end_session, self()},
+                    %saveState(AlbumName, AlbumMetaData, UserMap),
+                    end_loop();
 
-        {ok, {-1, _}} ->
-            Client ! {put_album_not_in_session, self()},
-            State;
-        
+                _ ->
+                    maps:foreach(fun(_, {_, _, _, PID}) ->
+                            PID ! {peer_left, UserName, self()}
+                        end,
+                        NewSessionUsers),
+                    loop(AlbumName,{NewAlbumMetaData, {[Id | IdPool], IdCounter}, NewSessionUsers, NewUserMap,
+                        MainLoop})
+            end;
         _ ->
-            Client ! {put_album_no_permission, self()};
-            State
+            Client ! {put_album_no_permission, self()},
+            loop(AlbumName, State)
     end.
 
-loop(State) ->
+end_loop() ->
+    receive
+        {_, From} ->
+            From ! get_album_error 
+        after 0 ->
+            ok
+    end.
+
+loop(AlbumName, State) ->
     receive
         {Msg, From} ->
-            loop(handler(Msg, State, From))
+            handler(Msg, State, From, AlbumName)
     end.
