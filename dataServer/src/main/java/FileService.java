@@ -59,14 +59,27 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                     .asRuntimeException());
         }
 
+
+        int chunkSize = 2097152; // Also Defined in GO
+
         // Flowable using does 3 things:
         // 1: request a resource (BufferedReader)
         // 2: read lines from that resource
         // 3: when done, free resource by closing
         return Flowable.using(
-                () -> new BufferedReader(new FileReader(filePath)),
-                reader -> Flowable.fromIterable(() -> reader.lines().iterator()),
-                BufferedReader::close
+                () -> new FileInputStream(new File(this.folder, filePath)),
+                inputStream -> Flowable.generate(
+                        emitter -> {
+                            byte[] buffer = new byte[chunkSize];
+                            int read = inputStream.read(buffer);
+                            if(read != -1){
+                                emitter.onNext(new String(buffer));
+                            } else {
+                                emitter.onComplete();
+                            }
+                        }
+                ),
+                InputStream::close
         );
     }
 
@@ -92,8 +105,8 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
                     String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
-                        writer.write(message.getData().toStringUtf8() + "\n");
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
 						writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {

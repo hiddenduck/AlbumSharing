@@ -20,13 +20,13 @@ public class Client_upload {
 
         String filePath = "output.txt";
 
-        String content = "aoaieoae";
+        //String content = "1234567";
 
-        FileWriter writer = new FileWriter(filePath);
+        //FileWriter writer = new FileWriter(filePath);
 
-        writer.write(content);
+        //writer.write(content);
 
-        writer.close();
+        //writer.close();
 
         String filePath2 = "output2.txt";
 

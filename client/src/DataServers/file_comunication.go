@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	pb "main/DataServers/fileChunkProto"
-	"main/crdt"
 	"net"
 	"os"
 
@@ -36,7 +35,7 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 	client := pb.NewFileClient(conn)
 
 	downloadMessage := &pb.DownloadMessage{
-        HashKey: fileHash[:],
+		HashKey: fileHash[:],
 	} // initialize a downloadMessage
 
 	stream, err := client.Download(context.Background(), downloadMessage)
@@ -93,7 +92,6 @@ func producer(ch chan rxgo.Item, fileName string) {
 		}
 
 		ch <- rxgo.Of(buff)
-		defer close(ch)
 	}
 	return
 }
@@ -102,11 +100,11 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
-	var opts []grpc.DialOption
+	//var opts []grpc.DialOption
 
-	conn, err := grpc.Dial(addr, opts...)
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 
-	defer conn.Close()
+	//defer conn.Close()
 
 	if err != nil {
 		panic(err)
@@ -114,7 +112,7 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 	client := pb.NewFileClient(conn)
 
-	stream, err := client.Upload(context.Background())
+	stream, _ := client.Upload(context.Background())
 
 	ch := make(chan rxgo.Item)
 
@@ -125,33 +123,34 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 	<-observable.ForEach(
 		func(item interface{}) {
 
-            fileMessage := pb.FileMessage{
-                HashKey: fileHash[:],
-                Data: item.([]byte),
-            }
+			fileMessage := pb.FileMessage{
+				HashKey: fileHash[:],
+				Data:    item.([]byte),
+			}
 
-            err := stream.Send(&fileMessage)
+			err := stream.Send(&fileMessage)
 
-            if err != nil {
-                panic(err)
-            }
+			if err != nil {
+				panic(err)
+			}
 
 		},
 		func(error error) {
 			panic(error)
 		},
 		func() {
-            reply, err := stream.CloseAndRecv()
+			reply, err := stream.CloseAndRecv()
 
-            if err != nil{
-                panic(err)
-            }
+			if err != nil {
+				panic(err)
+			}
 
-            fmt.Printf("Uploaded %v lines\n", reply.Lines)
+			fmt.Printf("Uploaded %v lines\n", reply.Lines)
 		})
 
 }
 
+/*
 func DownLoadFile(dataServers DataServers, fileName string) {
 
 	fd, err := os.Open(fileName)
@@ -188,3 +187,4 @@ func DownLoadFile(dataServers DataServers, fileName string) {
 	)
 
 }
+*/
