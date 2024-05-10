@@ -12,6 +12,80 @@ func incrementVote(voteInfo VoteInfo, classification uint64) VoteInfo {
 	return voteInfo
 }
 
+func (replica *Replica) AddFile(fileName string, fileHash string) bool {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
+	_, ok := replica.Files[fileName]
+	if !ok {
+		replica.VersionVector[replica.CurrentID]++
+		replica.Files[fileName] = FileInfo{fileHash, make(map[uint32]VoteInfo), make(DotSet)}
+		replica.Files[fileName].DotSet[DotPair{replica.CurrentID, replica.VersionVector[replica.CurrentID]}] = true
+	}
+
+	return !ok
+}
+
+func (replica *Replica) RemoveFile(fileName string) (ok bool) {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
+	_, ok = replica.Files[fileName]
+	if ok {
+		delete(replica.Files, fileName)
+	}
+
+	return
+}
+
+func (replica *Replica) AddUser(userName string) bool {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
+	_, ok := replica.GroupUsers[userName]
+	if !ok {
+		replica.VersionVector[replica.CurrentID]++
+		replica.GroupUsers[userName] = GroupInfo{make(DotSet)}
+		replica.GroupUsers[userName].DotSet[DotPair{replica.CurrentID, replica.VersionVector[replica.CurrentID]}] = true
+	}
+
+	return !ok
+}
+
+func (replica *Replica) RemoveUser(userName string) (ok bool) {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
+	_, ok = replica.GroupUsers[userName]
+	if ok {
+		delete(replica.GroupUsers, userName)
+	}
+
+	return
+}
+
+func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable *map[string]bool) (fileExists bool, cantVote bool) {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
+	fileInfo, fileExists := replica.Files[fileName]
+	cantVote = (*voteTable)[fileName]
+
+	if !fileExists || cantVote {
+		return
+	}
+
+	fileInfo.Votes[replica.CurrentID] = incrementVote(fileInfo.Votes[replica.CurrentID], classification)
+	(*voteTable)[fileName] = true
+
+	return
+}
+
 func (fileInfo FileInfo) joinInfo(peerVersionVector VersionVector) (FileInfo, bool) {
 	DotSet, _ := joinDotSet(nil, peerVersionVector, fileInfo.DotSet, nil)
 	if len(DotSet) == 0 {
@@ -47,76 +121,6 @@ func (groupInfo GroupInfo) joinInfos(versionVector VersionVector, peerVersionVec
 		return GroupInfo{}, false
 	} else {
 		return GroupInfo{DotSet}, true
-	}
-}
-
-func (replica *Replica) AddFile(fileName string, fileHash string) bool {
-
-	_, ok := replica.Files[fileName]
-	if !ok {
-		replica.VersionVector[replica.CurrentID]++
-		replica.Files[fileName] = FileInfo{fileHash, make(map[uint32]VoteInfo), make(DotSet)}
-		replica.Files[fileName].DotSet[DotPair{replica.CurrentID, replica.VersionVector[replica.CurrentID]}] = true
-	}
-
-	return !ok
-}
-
-func (replica *Replica) RemoveFile(fileName string) (ok bool) {
-
-	_, ok = replica.Files[fileName]
-	if ok {
-		delete(replica.Files, fileName)
-	}
-
-	return
-}
-
-func (replica *Replica) AddUser(userName string) bool {
-
-	_, ok := replica.GroupUsers[userName]
-	if !ok {
-		replica.VersionVector[replica.CurrentID]++
-		replica.GroupUsers[userName] = GroupInfo{make(DotSet)}
-		replica.GroupUsers[userName].DotSet[DotPair{replica.CurrentID, replica.VersionVector[replica.CurrentID]}] = true
-	}
-
-	return !ok
-}
-
-func (replica *Replica) RemoveUser(userName string) (ok bool) {
-	_, ok = replica.GroupUsers[userName]
-	if ok {
-		delete(replica.GroupUsers, userName)
-	}
-
-	return
-}
-
-func (replica *Replica) AddUserClassification(fileName string, classification uint64, voteTable *map[string]bool) (fileExists bool, cantVote bool) {
-	fileInfo, fileExists := replica.Files[fileName]
-	cantVote = (*voteTable)[fileName]
-
-	if !fileExists || cantVote {
-		return
-	}
-
-	fileInfo.Votes[replica.CurrentID] = incrementVote(fileInfo.Votes[replica.CurrentID], classification)
-	(*voteTable)[fileName] = true
-
-	return
-}
-
-func (replica *Replica) causalContextUnion(versionVector map[uint32]uint64) {
-
-	for id := range versionVector {
-		_, ok := replica.VersionVector[id]
-
-		if !ok {
-			replica.VersionVector[id] = versionVector[id]
-		} else {
-			replica.VersionVector[id] = max(replica.VersionVector[id], versionVector[id])
-		}
 	}
 }
 
@@ -272,16 +276,36 @@ func (replica *Replica) joinFileMaps(peerReplica Replica) {
 	replica.Files = newInfoMap
 }
 
-func (replica *Replica) DSJoin(peerReplica Replica) {
+func (replica *Replica) causalContextUnion(versionVector map[uint32]uint64) {
+
+	for id := range versionVector {
+		_, ok := replica.VersionVector[id]
+
+		if !ok {
+			replica.VersionVector[id] = versionVector[id]
+		} else {
+			replica.VersionVector[id] = max(replica.VersionVector[id], versionVector[id])
+		}
+	}
+}
+
+/*func (replica *Replica) DSJoin(peerReplica Replica) {
 
 	replica.joinFileMaps(peerReplica)
 
 	replica.joinGroupMaps(peerReplica)
-}
+}*/
 
 func (replica *Replica) Converge(peerReplica Replica) {
 
-	replica.DSJoin(peerReplica)
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
+	//replica.DSJoin(peerReplica)
+
+	replica.joinFileMaps(peerReplica)
+
+	replica.joinGroupMaps(peerReplica)
 
 	replica.causalContextUnion(peerReplica.VersionVector)
 }

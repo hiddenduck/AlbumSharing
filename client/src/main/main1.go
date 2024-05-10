@@ -7,7 +7,6 @@ import (
 	"main/crdt"
 	"os"
 	"strings"
-	"sync"
 )
 
 func createClientState(clientId uint32) ClientState {
@@ -26,7 +25,7 @@ func createClientState(clientId uint32) ClientState {
 
 	connector.Connect_to_Peers()
 
-	return ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector, Mutex: &sync.Mutex{}}
+	return ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector}
 }
 
 func main() {

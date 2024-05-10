@@ -5,7 +5,6 @@ import (
 	pb "main/CentralServerComunication/CentralServerProtoBuf"
 	chat "main/connection_management"
 	"main/crdt"
-	"sync"
 	"time"
 
 	proto "google.golang.org/protobuf/proto"
@@ -15,7 +14,6 @@ type ClientState struct {
 	Replica   *crdt.Replica
 	VoteMap   *map[string]bool
 	Connector *chat.ConnectorInfo
-	Mutex     *sync.Mutex
 }
 
 func PeerListen(messageHandlers map[string]interface{}, state ClientState) {
@@ -51,10 +49,6 @@ func joinCrdt(msg []byte, state ClientState) {
 
 	//fmt.Printf("Recebido Heartbeat do CRDT do nodo %v\n", protoMsg.Id)
 
-	state.Mutex.Lock()
-
-	defer state.Mutex.Unlock()
-
 	state.Replica.Converge(peerReplica)
 
 }
@@ -78,9 +72,9 @@ func HeartBeat(state ClientState) {
 
 func createCrdtMessage(state ClientState) *pb.Crdt {
 
-	state.Mutex.Lock()
+	state.Replica.Mutex.Lock()
 
-	defer state.Mutex.Unlock()
+	defer state.Replica.Mutex.Unlock()
 
 	crdtFiles := make(map[string]*pb.FileInfo)
 	for filename := range state.Replica.Files {

@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"fmt"
+	"sync"
 )
 
 type Nil struct{}
@@ -57,13 +58,25 @@ type Replica struct {
 	GroupUsers    map[string]GroupInfo
 	VersionVector VersionVector
 	CurrentID     uint32
+	Mutex         *sync.Mutex
+}
+
+func (replica *Replica) GetFileHash(filename string) string {
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
+	return replica.Files[filename].FileHash
 }
 
 func CreateReplica(id uint32) Replica {
-	return Replica{make(map[string]FileInfo), make(map[string]GroupInfo), make(VersionVector), id}
+	return Replica{make(map[string]FileInfo), make(map[string]GroupInfo), make(VersionVector), id, &sync.Mutex{}}
 }
 
 func (replica *Replica) ListFiles() {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
 	fmt.Println("Files:")
 	for fileName := range replica.Files {
 		fmt.Printf("%v, Average Votes: %v\n", fileName, averageVotes(replica.Files[fileName].Votes))
@@ -71,6 +84,10 @@ func (replica *Replica) ListFiles() {
 }
 
 func (replica *Replica) ListUsers() {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
 	fmt.Println("Group Users:")
 	for userName := range replica.GroupUsers {
 		fmt.Printf("%v ", userName)
@@ -79,10 +96,18 @@ func (replica *Replica) ListUsers() {
 }
 
 func (replica *Replica) ListVV() {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
 	fmt.Printf("Version Vector: ")
 	fmt.Printf("%+v\n", replica.VersionVector)
 }
 
 func (replica *Replica) ListReplica() {
+
+	replica.Mutex.Lock()
+	defer replica.Mutex.Unlock()
+
 	fmt.Printf("%+v\n", *replica)
 }
