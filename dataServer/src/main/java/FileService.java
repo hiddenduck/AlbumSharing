@@ -79,7 +79,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     public Flowable<FileMessage> download(DownloadMessage request) {
         return openFileToStream(request)
                 .observeOn(Schedulers.io())
-                .map(n -> FileMessage.newBuilder().setHashKey(request.getHashKey()).setData(ByteString.copyFromUtf8(n)).build());
+                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFromUtf8(n)).build());
     }
 
 	/**
