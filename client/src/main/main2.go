@@ -3,13 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"main/client"
 	chat "main/connection_management"
 	"main/crdt"
 	"os"
 	"strings"
 )
 
-func createClientState(clientId uint32) ClientState {
+func createClientState(clientId uint32) client.ClientState {
 	//receive replica, votemap and clientId from central_server
 	replica := crdt.CreateReplica(clientId)
 	voteMap := make(map[string]bool)
@@ -25,7 +26,7 @@ func createClientState(clientId uint32) ClientState {
 
 	connector.Connect_to_Peers()
 
-	return ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector}
+	return client.ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector}
 }
 
 func main() {
@@ -36,11 +37,11 @@ func main() {
 
 	state.Replica.AddFile("lmao", "hash1")
 
-	go HeartBeat(state)
+	go client.HeartBeat(state)
 
-	go PeerListen(CreateMessageHandlers(), state)
+	go client.PeerListen(client.CreateMessageHandlers(), state)
 
-	commandMap := CreateCommandsMap()
+	commandMap := client.CreateCommandsMap()
 
 	for {
 
@@ -56,7 +57,7 @@ func main() {
 
 		if input[0] == '/' {
 
-			ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
+			client.ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
 
 			continue
 		}

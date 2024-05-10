@@ -1,20 +1,13 @@
-package main
+package client
 
 import (
 	"fmt"
 	pb "main/CentralServerComunication/CentralServerProtoBuf"
-	chat "main/connection_management"
 	"main/crdt"
 	"time"
 
 	proto "google.golang.org/protobuf/proto"
 )
-
-type ClientState struct {
-	Replica   *crdt.Replica
-	VoteMap   *map[string]bool
-	Connector *chat.ConnectorInfo
-}
 
 func PeerListen(messageHandlers map[string]interface{}, state ClientState) {
 	for {
