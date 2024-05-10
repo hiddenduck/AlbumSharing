@@ -5,19 +5,6 @@ import (
 	// "errors"
 )
 
-type Hash [32]byte
-
-type DataServer struct {
-	Hash    Hash
-	Address string
-	Port    string
-}
-
-type DataServers struct {
-	Servers []DataServer
-	Size    int
-}
-
 func compare(hash_a Hash, hash_b Hash) int {
 
 	for index := range hash_a {

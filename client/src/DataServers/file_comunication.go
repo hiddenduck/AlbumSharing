@@ -1,6 +1,7 @@
 package dataservers
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -18,7 +19,7 @@ func DataServerReceiver(centralServerConnection net.Conn) {
 
 }
 
-func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash []byte) {
+func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
@@ -26,16 +27,16 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash []byte) {
 
 	conn, err := grpc.Dial(addr, opts...)
 
-	defer conn.Close()
-
 	if err != nil {
 		panic(err)
 	}
 
+	defer conn.Close()
+
 	client := pb.NewFileClient(conn)
 
 	downloadMessage := &pb.DownloadMessage{
-		HashKey: fileHash,
+        HashKey: fileHash[:],
 	} // initialize a downloadMessage
 
 	stream, err := client.Download(context.Background(), downloadMessage)
@@ -52,21 +53,112 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash []byte) {
 			log.Fatalf("%v.ListFeatures(_) = _, %v", client, err)
 		}
 
-        ch <- rxgo.Of(chunk)
+		ch <- rxgo.Of(chunk)
 
-        defer close(ch)
+		defer close(ch)
 
 	}
 
 }
 
+func producer(ch chan rxgo.Item, fileName string) {
+
+	fd, err := os.Open(fileName)
+
+	if err != nil {
+		log.Fatalf("Error to read [file=%v]: %v", fileName, err.Error())
+	}
+	reader := bufio.NewReader(fd)
+
+	buff := make([]byte, CHUNK_SIZE)
+
+	for {
+
+		bytes_read, err := reader.Read(buff)
+		// fmt.Printf("n: %v\n", n)
+
+		if bytes_read != CHUNK_SIZE {
+			buff = buff[:bytes_read]
+		}
+
+		if bytes_read == 0 {
+			if err == nil {
+				continue
+			}
+			if err == io.EOF {
+				close(ch)
+				break
+			}
+			log.Fatal(err)
+		}
+
+		ch <- rxgo.Of(buff)
+		defer close(ch)
+	}
+	return
+}
+
+func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
+
+	addr := dataServer.Address + ":" + dataServer.Port
+
+	var opts []grpc.DialOption
+
+	conn, err := grpc.Dial(addr, opts...)
+
+	defer conn.Close()
+
+	if err != nil {
+		panic(err)
+	}
+
+	client := pb.NewFileClient(conn)
+
+	stream, err := client.Upload(context.Background())
+
+	ch := make(chan rxgo.Item)
+
+	observable := rxgo.FromChannel(ch)
+
+	go producer(ch, fileName)
+
+	<-observable.ForEach(
+		func(item interface{}) {
+
+            fileMessage := pb.FileMessage{
+                HashKey: fileHash[:],
+                Data: item.([]byte),
+            }
+
+            err := stream.Send(&fileMessage)
+
+            if err != nil {
+                panic(err)
+            }
+
+		},
+		func(error error) {
+			panic(error)
+		},
+		func() {
+            reply, err := stream.CloseAndRecv()
+
+            if err != nil{
+                panic(err)
+            }
+
+            fmt.Printf("Uploaded %v lines\n", reply.Lines)
+		})
+
+}
+
 func DownLoadFile(dataServers DataServers, fileName string) {
 
-    fd, err := os.Open(fileName)
+	fd, err := os.Open(fileName)
 
-    if err != nil{
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 
 	fileHash := crdt.GetFileHash(fileName)
 
@@ -81,16 +173,16 @@ func DownLoadFile(dataServers DataServers, fileName string) {
 	<-observable.ForEach(
 		func(item interface{}) { //OnNext
 
-            fileMessage := item.(*pb.FileMessage)
+			fileMessage := item.(*pb.FileMessage)
 
-            fd.Write(fileMessage.GetData())
+			fd.Write(fileMessage.GetData())
 
 		},
 		func(error error) { //OneError
 			panic(error)
 		},
 		func() { //OnComplete
-            fmt.Printf("Conpleted Download")
+			fmt.Printf("Conpleted Download")
 
 		},
 	)

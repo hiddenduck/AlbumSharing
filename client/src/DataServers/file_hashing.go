@@ -8,11 +8,7 @@ import (
 	"os"
 )
 
-const(
-    CHUNK_SIZE = 10485940
-)
-
-func hashFile(fileName string) ([32]byte) {
+func hashFile(fileName string) (Hash) {
 
     h := sha256.New()
 
