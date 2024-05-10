@@ -2,14 +2,16 @@ package connectionmanagement
 
 import (
 	"fmt"
+	"time"
 
 	zmq "github.com/pebbe/zmq4"
 )
 
 type ClientInfo struct {
-	Ip_Addres string
-	Port      string
-	Id        string
+	Ip_Addres    string
+	Port         string
+	Id           string
+	VVServerPort string
 }
 
 type ConnectorInfo struct {
@@ -28,12 +30,13 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 	return
 }
 
-func (connectorInfo ConnectorInfo) Add_Peer(id string, name string, ip string, port string) {
+func (connectorInfo ConnectorInfo) Add_Peer(id string, name string, ip string, port string, VVport string) {
 
 	clientInfo := ClientInfo{
-		Ip_Addres: ip,
-		Port:      port,
-		Id:        id,
+		Ip_Addres:    ip,
+		Port:         port,
+		Id:           id,
+		VVServerPort: VVport,
 	}
 
 	connectorInfo.PeerMap[name] = clientInfo
@@ -59,7 +62,18 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers() {
 	}
 }
 
-func (connectorInfo ConnectorInfo) Send_to_Peers(msgType string, msg []byte) {
+func (connectorInfo ConnectorInfo) sender(s int, id string, msg []byte) {
+
+    time.Sleep(time.Duration(s*int(time.Millisecond)))
+
+	connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
+	connectorInfo.RouterSocket.Send("", zmq.SNDMORE)
+	connectorInfo.RouterSocket.SendBytes(msg, 0)
+}
+
+func (connectorInfo ConnectorInfo) Send_to_Peers(msg []byte) {
+
+	// var s int
 
 	for _, clientInfo := range connectorInfo.PeerMap {
 
