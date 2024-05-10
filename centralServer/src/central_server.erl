@@ -1,8 +1,8 @@
 -module(central_server).
--export([start/1, stop/0]).
+-export([start/2, stop/0]).
 
-start(Port) ->
-    register(?MODULE, spawn(fun() -> start_server(Port) end)),
+start(Port, DataLoopPort) ->
+    register(?MODULE, spawn(fun() -> start_server(Port, DataLoopPort) end)),
     ok.
 
 stop() ->
@@ -18,15 +18,18 @@ createState() ->
         #{}
     }.
 
-start_server(Port) ->
+start_server(Port, DataLoopPort) ->
     {ok, LSock} = gen_tcp:listen(Port, [binary, {active, once}, {packet, raw},
                                       {reuseaddr, true}]),
-
+    
     MainLoop = spawn(fun() -> main_loop:mainLoop(createState()) end),
+    DataLoop = spawn(fun() -> data_loop:start(DataLoopPort, self(), MainLoop) end),
     spawn(fun() -> acceptor(LSock, MainLoop) end),
 
     receive
-        stop -> ok
+        stop ->
+            DataLoop ! {stop, self()},
+            ok
     end.
 
 acceptor(LSock, MainLoop) ->
