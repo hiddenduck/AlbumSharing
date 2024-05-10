@@ -22,7 +22,12 @@ acceptor(LSock, Loop) ->
     spawn(fun() -> acceptor(LSock, Loop) end),
     data_server(Sock, Loop).
 
-handler({join, IP, PORT}, {MainLoop, DataServers}, From) ->
+binary_search(Servers, Hash) ->
+    todo.
+
+handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
+    Hash = crypto:hash(<<IP/binary, PORT/binary>>),
+    binary_search(DataServers, Hash),
     ok.
 
 loop(MainLoop, DataServers) ->
