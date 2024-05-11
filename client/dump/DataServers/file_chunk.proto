@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option go_package = "fileChunkProto/";
+
+service File {
+    rpc Download(DownloadMessage) returns (stream FileMessage) {};
+    rpc Upload(stream FileMessage) returns (UploadMessage) {};
+}
+
+message DownloadMessage {
+    bytes hash_key = 1;
+}
+
+message UploadMessage {
+    int64 lines = 1;
+}
+
+message FileMessage {
+    bytes hash_key = 1;
+    bytes data     = 2;
+}

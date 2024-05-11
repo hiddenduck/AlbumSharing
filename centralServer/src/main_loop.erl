@@ -58,6 +58,17 @@ handler({get_album, Username, AlbumName}, {Users, AlbumMap} = State, From) ->
                     From ! {ErrorMsg, self()},
                     State
             end
+    end;
+
+handler({end_session, AlbumName}, {Users, AlbumMap}=State, From) ->
+    case maps:find(AlbumName, AlbumMap) of
+        {ok, From} ->
+            NewAlbumMap = maps:remove(AlbumName, AlbumMap),
+            {Users, NewAlbumMap};
+
+        _ ->
+            io:format("Unkown end_session message"),
+            State
     end.
 
 mainLoop(State) ->

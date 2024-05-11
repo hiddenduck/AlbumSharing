@@ -1,1 +1,229 @@
-aoaieoae
+public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+        System.out.println("One");
+        var uploadResult = request
+                .observeOn(Schedulers.io())
+                .flatMap(message -> {
+                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
+                        writer.write(message.getData().toByteArray());
+						writer.flush();
+                        return Flowable.just(UploadMessage.newBuilder().build());
+                    } catch (IOException e) {
+						return Flowable.error(io.grpc.Status.NOT_FOUND
+                                .asRuntimeException());
+                    }
+
+                });
+
+        return uploadResult.firstOrError();
+    }

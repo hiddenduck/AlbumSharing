@@ -1,11 +1,12 @@
 -module(crdt).
--export([createAlbum/1, updateMetaData/2, refreshUserMap/1]).
+-export([createAlbum/1, updateMetaData/2, refreshUserMap/1, clearState/1]).
 
 createAlbum(UserName) ->
-    %Files         map[string]{Votes, DotSet}
+    %Files         map[string]{FileHash(string), VoteMap, DotSet} where VoteMap = map[uint32]VoteInfo and DotSet = map[DotPair]bool
+    % and DotPair = {Id,Version}
     Files = #{},
 
-    %GroupUsers    map[string]map[{Id, Version}]bool
+    %GroupUsers    map[string]DotMap
     GroupUsers = maps:put(UserName, #{}, #{}),
 
     % VersionVector map[uint32]uint64
@@ -16,108 +17,204 @@ createAlbum(UserName) ->
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.
 
-refreshUserMap({{_, GroupUsers, _}=Metadata, UsersInfo}) ->
-    NewUsersInfo = maps:map(fun(Name, _) ->
+refreshUserMap({{_, GroupUsers, _} = _Metadata, UsersInfo}) ->
+    NewUsersInfo = maps:map(
+        fun(Name, _) ->
             case maps:find(Name, UsersInfo) of
                 {ok, VoteTable} ->
                     VoteTable;
-
                 _ ->
                     #{}
             end
-        end, GroupUsers),
-    {Metadata, NewUsersInfo}.
-
+        end,
+        GroupUsers
+    ),
+    NewUsersInfo.
 
 updateMetaData(
     {Files, GroupUsers, VersionVector},
     {OldFiles, OldGroupUsers, OldVersionVector}
 ) ->
-    NewFiles = joinMaps(maps:to_list(OldFiles), maps:to_list(Files), {fun(Info, PeerInfo, FuncInfo) -> joinFileInfos(Info, PeerInfo, FuncInfo) end, {OldVersionVector, VersionVector}}),
-    NewGroupUsers = joinMaps(maps:to_list(OldGroupUsers), maps:to_list(GroupUsers), {
-        fun(
-            Info, PeerInfo, FuncInfo
-        ) ->
-            joinGroupInfos(Info, PeerInfo, FuncInfo)
-        end,
-        {OldVersionVector, VersionVector}
+    NewFiles = joinMaps(OldFiles, Files, {
+        fun joinFileInfos/4, fun joinFileInfo/2, {OldVersionVector, VersionVector}
+    }),
+    NewGroupUsers = joinMaps(OldGroupUsers, GroupUsers, {
+        fun joinGroupInfos/4, fun joinGroupInfo/2, {OldVersionVector, VersionVector}
     }),
     VV = causalContextUnion(OldVersionVector, maps:to_list(VersionVector)),
     {NewFiles, NewGroupUsers, VV}.
 
-% return DotSet in list format
-joinDotSet(VV, PeerVV, DotSet, PeerDotSet) ->
-    % S & S'
-    NewDotSet = lists:filter(fun({DotPair, _}) -> lists:member(DotPair, PeerDotSet) end, DotSet),
-
-    AddIf = fun(VersionVector) ->
-        fun({{Id, Version}, _} = DotPairSet, Acc) ->
-            case maps:find(Id, VersionVector) of
-                {ok, Version2} ->
-                    case Version2 < Version of
+joinDotSet(VV, DotSet) ->
+    NewDotSet = maps:filter(
+        fun({ID, Version}) ->
+            case maps:find(ID, VV) of
+                {ok, PeerVersion} ->
+                    case PeerVersion < Version of
                         true ->
-                            [DotPairSet | Acc];
+                            true;
                         _ ->
-                            Acc
+                            false
                     end;
                 _ ->
-                    [DotPairSet | Acc]
+                    true
+            end
+        end,
+        DotSet
+    ),
+    {NewDotSet, true}.
+
+joinDotSets(VV, PeerVV, DotSet, PeerDotSet) ->
+    MinFun = fun({Id, _}, _, MIN) ->
+        case Id < MIN of
+            true -> Id;
+            _ -> MIN
+        end
+    end,
+    M1 = maps:fold(MinFun, infinity, DotSet),
+    M2 = maps:fold(MinFun, infinity, PeerDotSet),
+    KeepCurrValues = M1 < M2,
+
+    % S & S'
+    NewDotSet = maps:filter(
+        fun(DotPair, _) ->
+            maps:is_key(DotPair, PeerDotSet)
+        end,
+        DotSet
+    ),
+
+    % Fun
+    Fun = fun(VVInQuestion) ->
+        fun({ID, Version} = DotPair, _, ACC) ->
+            case maps:find(ID, VVInQuestion) of
+                {ok, VVersion} ->
+                    case VVersion < Version of
+                        true ->
+                            maps:put(DotPair, ACC);
+                        _ ->
+                            ACC
+                    end;
+                _ ->
+                    maps:put(DotPair, ACC)
             end
         end
     end,
 
     % S | C'
-    NewDotSet1 = lists:foldl(AddIf(PeerVV), NewDotSet, DotSet),
+    NewerDotSet = maps:fold(Fun(PeerVV), NewDotSet, DotSet),
 
-    % S' | C
-    lists:foldl(AddIf(VV), NewDotSet1, PeerDotSet).
+    % S | C'
+    EvenNewerDotSet = maps:fold(Fun(VV), NewerDotSet, PeerDotSet),
 
-% Convert to Map because of golang
-%maps:from_list(NewDotSet2).
+    {EvenNewerDotSet, KeepCurrValues}.
 
 joinVoteMaps(Votes, PeerVotes) ->
-    JoinVoteInfos = fun({Sum, Count}, {PeerSum, PeerCount}, _) ->
+    JoinVoteInfos = fun({Sum, Count}, {PeerSum, PeerCount}) ->
         {max(Sum, PeerSum), max(Count, PeerCount)}
     end,
 
-    joinMaps(Votes, PeerVotes, {JoinVoteInfos, ok}).
+    NewVoteMap = maps:map(
+        fun(User, Info) ->
+            case maps:find(User, PeerVotes) of
+                {ok, PeerInfo} ->
+                    JoinVoteInfos(Info, PeerInfo);
+                _ ->
+                    Info
+            end
+        end,
+        Votes
+    ),
 
-joinFileInfos({Votes, DotSet}, {PeerVotes, PeerDotSet}, {VV, PeerVV}) ->
-    NewVotes = joinVoteMaps(Votes, PeerVotes),
-    NewDotSet = joinDotSet(VV, PeerVV, DotSet, PeerDotSet),
-    {NewVotes, NewDotSet}.
+    maps:fold(
+        fun(User, Info, ACC) ->
+            case maps:find(User, ACC) of
+                {ok, _} ->
+                    ACC;
+                _ ->
+                    maps:put(User, Info, ACC)
+            end
+        end,
+        NewVoteMap,
+        PeerVotes
+    ).
 
-joinGroupInfos(Info, PeerInfo, {VV, PeerVV}) ->
-    joinDotSet(VV, PeerVV, Info, PeerInfo).
-
-joinFirstMap(Map, PeerMap, JoinFuncInfo) ->
-    joinFirstMap(Map, PeerMap, #{}, JoinFuncInfo).
-joinFirstMap([], _, NewerMap, _) ->
-    NewerMap;
-joinFirstMap([{Name, Value} | MapTail], PeerMap, NewMap, {JoinFunc, Info}) -> % todo, ver isto do peermap acho que assume que é map mas esta como lista
-    case maps:find(Name, PeerMap) of
-        {ok, PeerValue} ->
-            NewerMap = JoinFunc(Value, PeerValue, Info);
+joinFileInfos(VV, PeerVV, {Hash, Votes, DotSet}, {PeerHash, PeerVotes, PeerDotSet}) ->
+    {NewDotSet, Ok} = joinDotSets(VV, PeerVV, DotSet, PeerDotSet),
+    case length(maps:keys(NewDotSet)) of
+        0 ->
+            {nil, false};
         _ ->
-            NewerMap = maps:put(Name, Value, NewMap)
-    end,
-    joinFirstMap(MapTail, PeerMap, NewerMap, JoinFunc).
+            NewVoteMaps = joinVoteMaps(Votes, PeerVotes),
+            case Ok of
+                true -> FileHash = Hash;
+                _ -> FileHash = PeerHash
+            end,
+            {{FileHash, NewVoteMaps, NewDotSet}, true}
+    end.
 
-joinSecondMap([], NewMap) ->
-    NewMap;
-joinSecondMap([{Name, Value} | PeerMapTail], NewMap) ->
-    case maps:find(Name, NewMap) of
-        error ->
-            NewerMap = maps:put(Name, Value, NewMap);
+joinFileInfo(VV, {Hash, Votes, DotSet}) ->
+    {NewDotSet, _} = joinDotSet(VV, DotSet),
+    case length(maps:keys(NewDotSet)) of
+        0 ->
+            {nil, false};
         _ ->
-            NewerMap = NewMap
-    end,
-    joinSecondMap(PeerMapTail, NewerMap).
+            {{Hash, Votes, NewDotSet}, true}
+    end.
 
-joinMaps(Map, PeerMap, JoinFuncInfo) ->
-    NewMap = joinFirstMap(Map, PeerMap, JoinFuncInfo),
-    NewerMap = joinSecondMap(PeerMap, NewMap),
-    NewerMap.
+joinGroupInfos(VV, PeerVV, Info, PeerInfo) ->
+    {DotSet, _} = joinDotSets(VV, PeerVV, Info, PeerInfo),
+    case length(maps:keys(DotSet)) of
+        0 ->
+            {nil, false};
+        _ ->
+            {DotSet, true}
+    end.
+
+joinGroupInfo(VV, Info) ->
+    {DotSet, _} = joinDotSet(VV, Info),
+    case length(maps:keys(DotSet)) of
+        0 ->
+            {nil, false};
+        _ ->
+            {DotSet, true}
+    end.
+
+joinMaps(Map, PeerMap, {JoinInfos, JoinInfo, VV, PeerVV}) ->
+    NewMap = maps:filtermap(
+        fun(User, Info) ->
+            case maps:find(User, PeerMap) of
+                {ok, PeerInfo} ->
+                    {NewInfo, Ok} = JoinInfos(VV, PeerVV, Info, PeerInfo);
+                _ ->
+                    {NewInfo, Ok} = JoinInfo(VV, Info)
+            end,
+            case Ok of
+                true ->
+                    {true, NewInfo};
+                _ ->
+                    false
+            end
+        end,
+        Map
+    ),
+
+    maps:fold(
+        fun(User, Info, ACC) ->
+            case maps:find(User, ACC) of
+                {ok, _} ->
+                    ACC;
+                _ ->
+                    {NewInfo, Ok} = JoinInfo(PeerVV, Info),
+                    case Ok of
+                        true ->
+                            maps:put(User, NewInfo, ACC);
+                        _ ->
+                            ACC
+                    end
+            end
+        end,
+        NewMap,
+        PeerMap
+    ).
 
 causalContextUnion(VersionVector, []) ->
     VersionVector;
@@ -130,3 +227,6 @@ causalContextUnion(VersionVector, [{ID, NewVersion} | VVTail]) ->
             NewVV = maps:put(ID, NewVersion, VersionVector)
     end,
     causalContextUnion(NewVV, VVTail).
+
+clearState({Files, GroupUsers, VersionVector}) ->
+    {todo, todo, todo}.

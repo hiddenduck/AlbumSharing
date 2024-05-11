@@ -20,12 +20,16 @@ create_album(AlbumName, UserName) ->
             end
     end.
 
-%saveState(AlbumName, {Files, GroupUsers, _}, UserMap) ->
-%    NewFiles = maps:map(fun(FileName, _) ->
-
-%        end, Files)
-%    AlbumBin = term_to_binary({Files, GroupUsers, #{}}),
-    
+saveState(AlbumName, AlbumMetaData, UserMap) ->
+    ClearedAlbumMetaData = crdt:clearState(AlbumMetaData),
+    NewUserMap = crdt:refreshUserMap(AlbumMetaData, UserMap),
+    AlbumBin = term_to_binary({ClearedAlbumMetaData, NewUserMap}),
+    case file:write_file(AlbumName, AlbumBin) of
+                ok ->
+                    ok;
+                {error, _} ->
+                    error
+    end.
     
 
 % {albumMetaData, {IdPool, IdCounter}, #{String} -> Info}, map(userName)->{voteTable}} sessionID = -1 -> not in session, Info -> {IP, PORT, ID, PID}
@@ -100,8 +104,8 @@ handler(
             NewSessionUsers = maps:remove(UserName, SessionUsers),
             case NewSessionUsers of
                 #{} ->
-                    MainLoop ! {end_session, self()},
-                    %saveState(AlbumName, AlbumMetaData, UserMap),
+                    MainLoop ! {{end_session, AlbumName}, self()},
+                    saveState(AlbumName, AlbumMetaData, UserMap),
                     end_loop();
 
                 _ ->

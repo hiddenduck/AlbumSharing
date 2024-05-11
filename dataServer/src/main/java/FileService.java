@@ -4,16 +4,24 @@ import file.FileMessage;
 import file.Rx3FileGrpc;
 import file.UploadMessage;
 import file.joinMessage;
+import io.grpc.Status;
 import io.reactivex.rxjava3.core.*;
+import io.reactivex.rxjava3.processors.PublishProcessor;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.File;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.concurrent.Flow;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
 
     private String folder;
+
+    private int chunkSize = 4096; // Also Defined in GO
 
 
     public FileService(int port, String central_Ip, int central_port) throws IOException {
@@ -49,7 +57,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @param request Request message for download.
      * @return Stream.
      */
-    private Flowable<String> openFileToStream(DownloadMessage request) {
+    private Flowable<byte[]> openFileToStream(DownloadMessage request) {
         String filePath = request.getHashKey().toStringUtf8();
 
         if (!new java.io.File(this.folder, filePath).exists()) {
@@ -59,15 +67,20 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                     .asRuntimeException());
         }
 
-        // Flowable using does 3 things:
-        // 1: request a resource (BufferedReader)
-        // 2: read lines from that resource
-        // 3: when done, free resource by closing
-        return Flowable.using(
-                () -> new BufferedReader(new FileReader(filePath)),
-                reader -> Flowable.fromIterable(() -> reader.lines().iterator()),
-                BufferedReader::close
-        );
+        return Flowable.create(sub -> {
+            try(var reader = new FileInputStream(new File(folder, filePath))) {
+                byte[] buffer = new byte[chunkSize];
+                int read;
+                while ((read = reader.read(buffer)) != -1) {
+                    byte[] readBuff = new byte[read];
+                    System.arraycopy(buffer, 0, readBuff, 0, read);
+                    sub.onNext(readBuff);
+                }
+                sub.onComplete();
+            } catch (IOException e){
+                sub.onError(Status.ABORTED.asRuntimeException());
+            }
+        }, BackpressureStrategy.DROP);
     }
 
 	/**
@@ -78,8 +91,8 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     @Override
     public Flowable<FileMessage> download(DownloadMessage request) {
         return openFileToStream(request)
-                .observeOn(Schedulers.io())
-                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFromUtf8(n)).build());
+                .subscribeOn(Schedulers.io())
+                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build());
     }
 
 	/**
@@ -87,22 +100,35 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @param request Message Stream.
      * @return Single with confirmation message of the upload.
      */
-    public Single<UploadMessage> upload(Flowable<FileMessage> request) {
-        var uploadResult = request
+    public Flowable<UploadMessage> upload(Flowable<FileMessage> request) {
+
+        PublishProcessor<FileMessage> processor = PublishProcessor.create();
+
+        request.subscribe(processor);
+
+        var f = processor
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
                     String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
-                        writer.write(message.getData().toStringUtf8() + "\n");
-						writer.flush();
+                    byte[] data = message.getData().toByteArray();
+
+                    try (FileOutputStream writer = new FileOutputStream(filePath, true)) {
+                        writer.write(data);
+                        writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {
-						return Flowable.error(io.grpc.Status.NOT_FOUND
-                                .asRuntimeException());
+                        return Flowable.error(Status.ABORTED.asRuntimeException());
                     }
                 });
 
-        return uploadResult.firstOrError();
+        return processor.take(1).observeOn(Schedulers.io()).flatMap(message -> {
+            if(!new java.io.File(this.folder, message.getHashKey().toStringUtf8()).exists()){
+                return f;
+            } else{
+                return Flowable.error(Status.ALREADY_EXISTS.asRuntimeException());
+            }
+        });
+
     }
 
 }
