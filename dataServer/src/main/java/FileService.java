@@ -21,7 +21,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
 
     private String folder;
 
-    private int chunkSize = 2097152; // Also Defined in GO
+    private int chunkSize = 4096; // Also Defined in GO
 
 
     public FileService(int port, String central_Ip, int central_port) throws IOException {
@@ -67,28 +67,20 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                     .asRuntimeException());
         }
 
-
-        // Flowable using does 3 things:
-        // 1: request a resource (BufferedReader)
-        // 2: read lines from that resource
-        // 3: when done, free resource by closing
-        return Flowable.using(
-                () -> new FileInputStream(new File(folder, filePath)),
-                inputStream -> Flowable.create(
-                        emitter -> {
-                            System.out.println("Received");
-                            byte[] buffer = new byte[chunkSize];
-                            int read;
-                            while ((read = inputStream.read(buffer)) != -1) {
-                                byte[] readBuff = new byte[read];
-                                System.arraycopy(buffer, 0, readBuff, 0, read);
-                                emitter.onNext(readBuff);
-                            }
-                            emitter.onComplete();
-                        }
-                        , BackpressureStrategy.DROP),
-                InputStream::close
-        );
+        return Flowable.create(sub -> {
+            try(var reader = new FileInputStream(new File(folder, filePath))) {
+                byte[] buffer = new byte[chunkSize];
+                int read;
+                while ((read = reader.read(buffer)) != -1) {
+                    byte[] readBuff = new byte[read];
+                    System.arraycopy(buffer, 0, readBuff, 0, read);
+                    sub.onNext(readBuff);
+                }
+                sub.onComplete();
+            } catch (IOException e){
+                sub.onError(Status.ABORTED.asRuntimeException());
+            }
+        }, BackpressureStrategy.DROP);
     }
 
 	/**
@@ -99,7 +91,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     @Override
     public Flowable<FileMessage> download(DownloadMessage request) {
         return openFileToStream(request)
-                .observeOn(Schedulers.io())
+                .subscribeOn(Schedulers.io())
                 .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build());
     }
 
