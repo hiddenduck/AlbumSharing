@@ -6,6 +6,7 @@ import file.UploadMessage;
 import file.joinMessage;
 import io.grpc.Status;
 import io.reactivex.rxjava3.core.*;
+import io.reactivex.rxjava3.processors.PublishProcessor;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.File;
 import java.io.*;
@@ -14,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.Flow;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
 
@@ -108,7 +110,11 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      */
     public Flowable<UploadMessage> upload(Flowable<FileMessage> request) {
 
-        var f = request
+        PublishProcessor<FileMessage> processor = PublishProcessor.create();
+
+        request.subscribe(processor);
+
+        var f = processor
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
                     String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
@@ -123,7 +129,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                     }
                 });
 
-        return request.take(1).observeOn(Schedulers.io()).flatMap(message -> {
+        return processor.take(1).observeOn(Schedulers.io()).flatMap(message -> {
             if(!new java.io.File(this.folder, message.getHashKey().toStringUtf8()).exists()){
                 return f;
             } else{
