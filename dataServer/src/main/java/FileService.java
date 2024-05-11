@@ -10,10 +10,15 @@ import java.io.File;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
 
     private String folder;
+
+    private int chunkSize = 2097152; // Also Defined in GO
 
 
     public FileService(int port, String central_Ip, int central_port) throws IOException {
@@ -60,8 +65,6 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         }
 
 
-        int chunkSize = 2097152; // Also Defined in GO
-
         // Flowable using does 3 things:
         // 1: request a resource (BufferedReader)
         // 2: read lines from that resource
@@ -100,22 +103,25 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @param request Message Stream.
      * @return Single with confirmation message of the upload.
      */
-    public Single<UploadMessage> upload(Flowable<FileMessage> request) {
+    public Flowable<UploadMessage> upload(Flowable<FileMessage> request) {
+        int count = 0;
         var uploadResult = request
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
                     String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    byte[] data = message.getData().toByteArray();
+
                     try (FileOutputStream writer = new FileOutputStream(filePath)) {
-                        writer.write(message.getData().toByteArray());
-						writer.flush();
+                        writer.write(data, chunkSize*count, data.length);
+                        //count++;
+                        writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {
-						return Flowable.error(io.grpc.Status.NOT_FOUND
-                                .asRuntimeException());
+                        return Flowable.error(io.grpc.Status.NOT_FOUND.asRuntimeException());
                     }
                 });
 
-        return uploadResult.firstOrError();
+        return uploadResult;
     }
 
 }

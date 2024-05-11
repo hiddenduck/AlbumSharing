@@ -17,7 +17,7 @@ createAlbum(UserName) ->
 
     {{Files, GroupUsers, VersionVector}, UsersInfo}.
 
-refreshUserMap({{_, GroupUsers, _} = Metadata, UsersInfo}) ->
+refreshUserMap({{_, GroupUsers, _} = _Metadata, UsersInfo}) ->
     NewUsersInfo = maps:map(
         fun(Name, _) ->
             case maps:find(Name, UsersInfo) of
