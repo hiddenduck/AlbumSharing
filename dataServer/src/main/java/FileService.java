@@ -67,20 +67,37 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                     .asRuntimeException());
         }
 
-        return Flowable.create(sub -> {
-            try(var reader = new FileInputStream(new File(folder, filePath))) {
-                byte[] buffer = new byte[chunkSize];
-                int read;
-                while ((read = reader.read(buffer)) != -1) {
-                    byte[] readBuff = new byte[read];
-                    System.arraycopy(buffer, 0, readBuff, 0, read);
-                    sub.onNext(readBuff);
+        return Flowable.generate(
+                () -> {
+                    FileInputStream reader = new FileInputStream(new File(folder, filePath));
+                    return reader;
+                },
+                (reader, emitter) -> {
+                    try {
+                        byte[] buffer = new byte[chunkSize];
+                        int read = reader.read(buffer);
+                        if (read == -1) {
+                            reader.close();
+                            emitter.onComplete();
+                        } else {
+                            byte[] readBuff = new byte[read];
+                            System.arraycopy(buffer, 0, readBuff, 0, read);
+                            emitter.onNext(readBuff);
+                        }
+                    } catch (IOException e) {
+                        reader.close();
+                        emitter.onError(e);
+                    }
+                    return reader;
+                },
+                reader -> {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
-                sub.onComplete();
-            } catch (IOException e){
-                sub.onError(Status.ABORTED.asRuntimeException());
-            }
-        }, BackpressureStrategy.DROP);
+        );
     }
 
 	/**

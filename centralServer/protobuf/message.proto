@@ -92,7 +92,6 @@ message Message {
 enum Type {
   register  = 0; // registerLoginFormat
   login     = 1; // registerLoginFormat
-  logout    = 2; // <None>
   create    = 3; // album
   get       = 4; // get_album
   send      = 5; // sessionStart

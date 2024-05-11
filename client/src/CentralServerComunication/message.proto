@@ -25,9 +25,8 @@ message voteMap {
 }
 
 message peerInfo {
-  uint32 id   = 1;
-  string ip   = 2;
-  string port = 3;
+  string ip   = 1;
+  string port = 2;
 }
 
 message dotPair {
@@ -58,15 +57,26 @@ message crdt {
 }
 
 message sessionStart {
-  uint32          id             = 1;
-  crdt            crdt           = 2;
-  map<string, peerInfo> sessionPeers = 3;
-  map<string, bool> voteTable    = 4;
+  crdt            crdt           = 1;
+  map<string, peerInfo> sessionPeers = 2;
+  map<string, bool> voteTable    = 3;
 }
 
 message quitMessage {
   crdt            crdt        = 1;
   map<string, bool> voteTable = 2;
+}
+
+message get_album {
+  string albumName = 1;
+  string ip        = 2;
+  int64  port      = 3;
+}
+
+message newPeer {
+  string name = 1;
+  string ip   = 2;
+  string port = 3;
 }
 
 message Message {
@@ -77,16 +87,19 @@ message Message {
     sessionStart        m3 = 4;
     quitMessage         m4 = 5;
     reply_message       m5 = 6;
+    get_album           m6 = 7;
+    newPeer             m7 = 8;
   }
 }
 
 enum Type {
-  register = 0; // registerLoginFormat
-  login    = 1; // registerLoginFormat
-  logout   = 2; // <None>
-  create   = 3; // album
-  get      = 4; // album
-  send     = 5; // sessionStart
-  quit     = 6; // quitMessage
-  reply    = 7; // reply
+  register  = 0; // registerLoginFormat
+  login     = 1; // registerLoginFormat
+  create    = 3; // album
+  get       = 4; // get_album
+  send      = 5; // sessionStart
+  quit      = 6; // quitMessage
+  reply     = 7; // reply
+  new_peer  = 8; // newPeer
+  peer_left = 9; // reply
 }
