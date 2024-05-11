@@ -15,7 +15,9 @@ func PeerListen(state ClientState) {
 
 		function, ok := state.MessageHandlers[msg[1]]
 
-		fmt.Printf("Received message of type %v from peer %v\n", msg[1], msg[0])
+		if msg[1] != "heartbeat" {
+			fmt.Printf("Received message of type %v from peer %v\n", msg[1], msg[0])
+		}
 
 		if ok {
 			function.(func([]string, ClientState))(msg, state)
@@ -29,9 +31,8 @@ func CreateMessageHandlers() map[string]interface{} {
 	return map[string]interface{}{
 		"chat":      bufferMsg,
 		"heartbeat": joinCrdt,
-		"requestVV": refuseRequest,
+		"requestVV": bufferRequest,
 		"replyVV":   receiveVV,
-		"refuse":    resendRequestVV,
 	}
 }
 
@@ -40,14 +41,10 @@ func myprint(msg []string, state ClientState) {
 }
 
 func bufferMsg(msg []string, state ClientState) {
-	if state.CausalBroadcastInfo.Buffer_message(msg) {
-		state.CausalBroadcastInfo.Test_buffer_messages()
-		state.MessageHandlers["chat"] = receiveMsg
-		state.MessageHandlers["requestVV"] = sendCbcastVV
-	}
+	state.CausalBroadcastInfo.Buffer_message(msg)
 }
 
-func receiveMsg(msg []string, state ClientState) {
+func ReceiveMsg(msg []string, state ClientState) {
 	state.CausalBroadcastInfo.Fwd_message(msg)
 }
 
@@ -67,22 +64,18 @@ func resendRequestVV(msg []string, state ClientState) {
 	state.CausalBroadcastInfo.RequestVV()
 }
 
-func refuseRequest(msg []string, state ClientState) {
-	if state.CausalBroadcastInfo.GetHasVersionVector() {
-		state.MessageHandlers["chat"] = receiveMsg
-		state.MessageHandlers["requestVV"] = sendCbcastVV
-		sendCbcastVV(msg, state)
-	} else {
-		state.Connector.Sender(1, msg[0], "refuse", []byte{})
-	}
+func bufferRequest(msg []string, state ClientState) {
+	state.CausalBroadcastInfo.AddVVRequest(msg[0])
 }
 
-func sendCbcastVV(msg []string, state ClientState) {
+func SendCbcastVV(msg []string, state ClientState) {
 	state.CausalBroadcastInfo.SendVersionVector(msg[0])
 }
 
 func receiveVV(msg []string, state ClientState) {
 	state.CausalBroadcastInfo.ReceiveVV([]byte(msg[2]))
+	state.MessageHandlers["chat"] = ReceiveMsg
+	state.MessageHandlers["requestVV"] = SendCbcastVV
 }
 
 func HeartBeat(state ClientState) {
