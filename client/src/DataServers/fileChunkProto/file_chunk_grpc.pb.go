@@ -35,7 +35,7 @@ func NewFileClient(cc grpc.ClientConnInterface) FileClient {
 }
 
 func (c *fileClient) Download(ctx context.Context, in *DownloadMessage, opts ...grpc.CallOption) (File_DownloadClient, error) {
-	stream, err := c.cc.NewStream(ctx, &File_ServiceDesc.Streams[0], "/File/Download", opts...)
+	stream, err := c.cc.NewStream(ctx, &File_ServiceDesc.Streams[0], "/file.File/Download", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (x *fileDownloadClient) Recv() (*FileMessage, error) {
 }
 
 func (c *fileClient) Upload(ctx context.Context, opts ...grpc.CallOption) (File_UploadClient, error) {
-	stream, err := c.cc.NewStream(ctx, &File_ServiceDesc.Streams[1], "/File/Upload", opts...)
+	stream, err := c.cc.NewStream(ctx, &File_ServiceDesc.Streams[1], "/file.File/Upload", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (x *fileUploadServer) Recv() (*FileMessage, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var File_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "File",
+	ServiceName: "file.File",
 	HandlerType: (*FileServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{

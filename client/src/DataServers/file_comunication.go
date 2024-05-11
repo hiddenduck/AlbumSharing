@@ -22,9 +22,7 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
-	var opts []grpc.DialOption
-
-	conn, err := grpc.Dial(addr, opts...)
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 
 	if err != nil {
 		panic(err)
@@ -45,6 +43,7 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 		chunk, err := stream.Recv()
 
 		if err == io.EOF {
+            close(ch)
 			break
 		}
 
@@ -54,13 +53,13 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
 		ch <- rxgo.Of(chunk)
 
-		defer close(ch)
+		// defer close(ch)
 
 	}
 
 }
 
-func producer(ch chan rxgo.Item, fileName string) {
+func uploader(ch chan rxgo.Item, fileName string) {
 
 	fd, err := os.Open(fileName)
 
@@ -100,8 +99,6 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
-	//var opts []grpc.DialOption
-
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 
 	//defer conn.Close()
@@ -118,7 +115,7 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 	observable := rxgo.FromChannel(ch)
 
-	go producer(ch, fileName)
+	go uploader(ch, fileName)
 
 	<-observable.ForEach(
 		func(item interface{}) {
@@ -150,16 +147,19 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 }
 
-/*
-func DownLoadFile(dataServers DataServers, fileName string) {
+func DownLoadFile(dataServers DataServers, fileName string, hash string) {
 
-	fd, err := os.Open(fileName)
+	fd, err := os.Create(fileName)
+
+    acc := 0
+
+    defer fd.Close()
 
 	if err != nil {
 		panic(err)
 	}
 
-	fileHash := crdt.GetFileHash(fileName)
+	fileHash := Hash([]byte(hash))
 
 	dataServer := dataServers.FindBucket(fileHash)
 
@@ -174,17 +174,27 @@ func DownLoadFile(dataServers DataServers, fileName string) {
 
 			fileMessage := item.(*pb.FileMessage)
 
-			fd.Write(fileMessage.GetData())
+            // fmt.Printf("fileMessage.GetData(): %v\n", string(fileMessage.GetData()))
+
+            n, err := fd.Write(fileMessage.GetData())
+
+            acc += n
+
+            if err != nil {
+                fmt.Printf("err: %v\n", err)
+            }
+
+            fmt.Printf("n: %v\n", n)
 
 		},
 		func(error error) { //OneError
 			panic(error)
 		},
 		func() { //OnComplete
+            fmt.Printf("acc: %v\n", acc)
 			fmt.Printf("Conpleted Download")
 
 		},
 	)
 
 }
-*/
