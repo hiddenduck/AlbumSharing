@@ -4,6 +4,7 @@ import file.FileMessage;
 import file.Rx3FileGrpc;
 import file.UploadMessage;
 import file.joinMessage;
+import io.grpc.Status;
 import io.reactivex.rxjava3.core.*;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.File;
@@ -73,6 +74,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 () -> new FileInputStream(new File(folder, filePath)),
                 inputStream -> Flowable.create(
                         emitter -> {
+                            System.out.println("Received");
                             byte[] buffer = new byte[chunkSize];
                             int read;
                             while ((read = inputStream.read(buffer)) != -1) {
@@ -105,24 +107,30 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @return Single with confirmation message of the upload.
      */
     public Flowable<UploadMessage> upload(Flowable<FileMessage> request) {
-        int count = 0;
-        var uploadResult = request
+
+        var f = request
                 .observeOn(Schedulers.io())
                 .flatMap(message -> {
                     String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
                     byte[] data = message.getData().toByteArray();
 
-                    try (FileOutputStream writer = new FileOutputStream(filePath)) {
-                        writer.write(data, chunkSize*count, data.length);
-                        //count++;
+                    try (FileOutputStream writer = new FileOutputStream(filePath, true)) {
+                        writer.write(data);
                         writer.flush();
                         return Flowable.just(UploadMessage.newBuilder().build());
                     } catch (IOException e) {
-                        return Flowable.error(io.grpc.Status.NOT_FOUND.asRuntimeException());
+                        return Flowable.error(Status.ABORTED.asRuntimeException());
                     }
                 });
 
-        return uploadResult;
+        return request.take(1).observeOn(Schedulers.io()).flatMap(message -> {
+            if(!new java.io.File(this.folder, message.getHashKey().toStringUtf8()).exists()){
+                return f;
+            } else{
+                return Flowable.error(Status.ALREADY_EXISTS.asRuntimeException());
+            }
+        });
+
     }
 
 }
