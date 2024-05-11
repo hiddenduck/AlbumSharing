@@ -54,7 +54,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      * @param request Request message for download.
      * @return Stream.
      */
-    private Flowable<String> openFileToStream(DownloadMessage request) {
+    private Flowable<byte[]> openFileToStream(DownloadMessage request) {
         String filePath = request.getHashKey().toStringUtf8();
 
         if (!new java.io.File(this.folder, filePath).exists()) {
@@ -70,18 +70,19 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         // 2: read lines from that resource
         // 3: when done, free resource by closing
         return Flowable.using(
-                () -> new FileInputStream(new File(this.folder, filePath)),
-                inputStream -> Flowable.generate(
+                () -> new FileInputStream(filePath),
+                inputStream -> Flowable.create(
                         emitter -> {
                             byte[] buffer = new byte[chunkSize];
-                            int read = inputStream.read(buffer);
-                            if(read != -1){
-                                emitter.onNext(new String(buffer));
-                            } else {
-                                emitter.onComplete();
+                            int read;
+                            while ((read = inputStream.read(buffer)) != -1) {
+                                byte[] readBuff = new byte[read];
+                                System.arraycopy(buffer, 0, readBuff, 0, read);
+                                emitter.onNext(readBuff);
                             }
+                            emitter.onComplete();
                         }
-                ),
+                        , BackpressureStrategy.DROP),
                 InputStream::close
         );
     }
@@ -95,7 +96,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     public Flowable<FileMessage> download(DownloadMessage request) {
         return openFileToStream(request)
                 .observeOn(Schedulers.io())
-                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFromUtf8(n)).build());
+                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build());
     }
 
 	/**
