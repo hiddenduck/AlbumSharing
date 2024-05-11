@@ -2,6 +2,7 @@ package connectionmanagement
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	zmq "github.com/pebbe/zmq4"
@@ -16,6 +17,7 @@ type ClientInfo struct {
 type ConnectorInfo struct {
 	PeerMap      map[string]ClientInfo
 	RouterSocket *zmq.Socket
+	Mutex        *sync.Mutex
 }
 
 func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
@@ -26,6 +28,7 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 
 	connectorInfo.PeerMap = make(map[string]ClientInfo)
 	connectorInfo.RouterSocket = routerSocket
+	connectorInfo.Mutex = &sync.Mutex{}
 	return
 }
 
@@ -64,6 +67,9 @@ func (connectorInfo ConnectorInfo) sender(s int, id string, msgType string, msg 
 
 	time.Sleep(time.Duration(s * int(time.Millisecond)))
 
+	connectorInfo.Mutex.Lock()
+	defer connectorInfo.Mutex.Unlock()
+
 	connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
 	connectorInfo.RouterSocket.Send(msgType, zmq.SNDMORE)
 	connectorInfo.RouterSocket.SendBytes(msg, 0)
@@ -72,6 +78,9 @@ func (connectorInfo ConnectorInfo) sender(s int, id string, msgType string, msg 
 func (connectorInfo ConnectorInfo) Send_to_Peers(msgType string, msg []byte) {
 
 	// var s int
+
+	connectorInfo.Mutex.Lock()
+	defer connectorInfo.Mutex.Unlock()
 
 	for _, clientInfo := range connectorInfo.PeerMap {
 

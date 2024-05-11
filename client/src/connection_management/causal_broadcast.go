@@ -25,6 +25,10 @@ type CausalBroadcastInfo struct {
 	Channel          chan []byte
 }
 
+func (causalBroadcastInfo *CausalBroadcastInfo) PrintVV() {
+	fmt.Printf("VV: %+v\n", causalBroadcastInfo.versionVector)
+}
+
 func test_msg(src uint32, self_versionVector *map[uint32]uint64, changedNodes *map[uint32]uint64) (flag bool) {
 
 	flag = ((*self_versionVector)[src] + 1) == (*changedNodes)[src]
@@ -83,9 +87,7 @@ func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data [
 
 func (causalBroadcastInfo *CausalBroadcastInfo) Buffer_message(bytes []byte) bool {
 
-	fmt.Printf("Started buffer_messages_loop\n")
-
-	causalBroadcastInfo.messageBuffer = make(map[*pb.CbCastMessage]struct{}, 0)
+	fmt.Printf("Buffering message\n")
 
 	buffer := causalBroadcastInfo.messageBuffer
 	//NOTE this os hacky, three parts will always be sent, id, delimiter, data
@@ -217,7 +219,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) SendVersionVector(id string) {
 	fmt.Printf("Received request, sending VV: %v\n", data.ChangedNodes)
 
 	// Send reply back to client
-	causalBroadcastInfo.ConnectorInfo.sender(0, id, "replyVV", bytes)
+	causalBroadcastInfo.ConnectorInfo.sender(1, id, "replyVV", bytes)
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) requestVV() {
@@ -236,14 +238,12 @@ func (causalBroadcastInfo *CausalBroadcastInfo) requestVV() {
 
 	randomId := peers[key].Id
 
-	causalBroadcastInfo.ConnectorInfo.sender(0, randomId, "requestVV", []byte{}) //This bitch blocks
+	causalBroadcastInfo.ConnectorInfo.sender(1, randomId, "requestVV", []byte("control")) //This bitch blocks
 
-	fmt.Printf("Sent VV request\n")
+	fmt.Printf("Sent VV request to node %v\n", randomId)
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
-
-	ch := make(chan []byte, 1024) //buffered channel for 1024 messages
 
 	if is_first {
 		causalBroadcastInfo.versionVector = make(map[uint32]uint64)
@@ -254,7 +254,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 		causalBroadcastInfo.requestVV()
 	}
 
-	for msg := range ch {
+	for msg := range causalBroadcastInfo.Channel {
 		fmt.Println(string(msg))
 	}
 
@@ -293,10 +293,8 @@ func (causalBroadcastInfo *CausalBroadcastInfo) ReceiveVV(bytes []byte) {
 
 func InitCausalBroadCast(self uint32, connector *ConnectorInfo) (causalBroadcastInfo CausalBroadcastInfo) {
 
-	context, _ := zmq.NewContext() //NOTE: vou deixar assim por agora mas os gajos do zeroMQ recomendam usar so um context
+	//context, _ := zmq.NewContext() //NOTE: vou deixar assim por agora mas os gajos do zeroMQ recomendam usar so um context
 	//temos que ver depois como encapsular para ter so um context
-
-	replySocket, _ := context.NewSocket(zmq.REP)
 
 	changedNodes := make(map[uint32]uint64)
 
@@ -306,8 +304,8 @@ func InitCausalBroadCast(self uint32, connector *ConnectorInfo) (causalBroadcast
 	causalBroadcastInfo.versionVector = make(map[uint32]uint64)
 	causalBroadcastInfo.self = self
 	causalBroadcastInfo.changedNodes = changedNodes
-	causalBroadcastInfo.ReplySocket = replySocket
 	causalBroadcastInfo.messageBuffer = make(map[*pb.CbCastMessage]struct{})
+	causalBroadcastInfo.Channel = make(chan []byte, 1024)
 
 	return
 }

@@ -75,6 +75,10 @@ func downloadFile(msg []string, state ClientState) {
 	fmt.Printf("Undefined command.")
 }
 
+func printVV(msg []string, state ClientState) {
+	state.CausalBroadcastInfo.PrintVV()
+}
+
 func CreateCommandsMap() map[string]interface{} {
 	return map[string]interface{}{
 		"downloadFile": downloadFile,
@@ -87,5 +91,6 @@ func CreateCommandsMap() map[string]interface{} {
 		"addFile":      addFile,
 		"removeFile":   removeFile,
 		"rateFile":     rateFile,
+		"printVV":      printVV,
 	}
 }

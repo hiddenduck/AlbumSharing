@@ -28,7 +28,7 @@ func createClientState(clientId uint32) client.ClientState {
 
 	causalBI := chat.InitCausalBroadCast(clientId, &connector)
 
-	causalBI.CausalReceive(false)
+	go causalBI.CausalReceive(false)
 
 	return client.ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector, CausalBroadcastInfo: &causalBI, MessageHandlers: client.CreateMessageHandlers()}
 }

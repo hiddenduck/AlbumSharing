@@ -15,6 +15,8 @@ func PeerListen(state ClientState) {
 
 		function, ok := state.MessageHandlers[msg[1]]
 
+		//fmt.Printf("Received message of type %v from peer %v\n", msg[1], msg[0])
+
 		if ok {
 			function.(func([]string, ClientState))(msg, state)
 		} else {

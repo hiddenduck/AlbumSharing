@@ -28,7 +28,7 @@ func createClientState(clientId uint32) client.ClientState {
 
 	causalBI := chat.InitCausalBroadCast(clientId, &connector)
 
-	causalBI.CausalReceive(true)
+	go causalBI.CausalReceive(true)
 
 	return client.ClientState{Replica: &replica, VoteMap: &voteMap, Connector: &connector, CausalBroadcastInfo: &causalBI, MessageHandlers: client.CreateMessageHandlers()}
 }
@@ -57,11 +57,11 @@ func main() {
 			continue
 		}
 
-		splitInput := strings.TrimSuffix(input, "\n")
+		input = strings.TrimSuffix(input, "\n")
 
-		if splitInput[0] == '/' {
+		if input[0] == '/' {
 
-			client.ExecuteCommand(strings.Split(splitInput[1:], " "), commandMap, state)
+			client.ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
 
 			continue
 		}
