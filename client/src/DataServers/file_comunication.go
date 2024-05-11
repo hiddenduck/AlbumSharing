@@ -7,16 +7,12 @@ import (
 	"io"
 	"log"
 	pb "main/DataServers/fileChunkProto"
-	"net"
 	"os"
 
 	rxgo "github.com/reactivex/rxgo/v2"
 	"google.golang.org/grpc"
 )
 
-func DataServerReceiver(centralServerConnection net.Conn) {
-
-}
 
 func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
@@ -95,13 +91,15 @@ func uploader(ch chan rxgo.Item, fileName string) {
 	return
 }
 
-func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
+func UploadFile(dataServer DataServer, fileName string) {
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
+    fileHash := HashFile(fileName)
+
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 
-	//defer conn.Close()
+	defer conn.Close()
 
 	if err != nil {
 		panic(err)
@@ -147,7 +145,7 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 }
 
-func DownLoadFile(dataServers DataServers, fileName string, hash string) {
+func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 
 	fd, err := os.Create(fileName)
 
@@ -158,8 +156,6 @@ func DownLoadFile(dataServers DataServers, fileName string, hash string) {
 	if err != nil {
 		panic(err)
 	}
-
-	fileHash := Hash([]byte(hash))
 
 	dataServer := dataServers.FindBucket(fileHash)
 
