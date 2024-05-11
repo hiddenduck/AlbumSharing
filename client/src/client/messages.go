@@ -15,7 +15,7 @@ func PeerListen(state ClientState) {
 
 		function, ok := state.MessageHandlers[msg[1]]
 
-		//fmt.Printf("Received message of type %v from peer %v\n", msg[1], msg[0])
+		fmt.Printf("Received message of type %v from peer %v\n", msg[1], msg[0])
 
 		if ok {
 			function.(func([]string, ClientState))(msg, state)
@@ -29,8 +29,9 @@ func CreateMessageHandlers() map[string]interface{} {
 	return map[string]interface{}{
 		"chat":      bufferMsg,
 		"heartbeat": joinCrdt,
-		"requestVV": sendCbcastVV,
+		"requestVV": refuseRequest,
 		"replyVV":   receiveVV,
+		"refuse":    resendRequestVV,
 	}
 }
 
@@ -39,14 +40,15 @@ func myprint(msg []string, state ClientState) {
 }
 
 func bufferMsg(msg []string, state ClientState) {
-	if state.CausalBroadcastInfo.Buffer_message([]byte(msg[2])) {
+	if state.CausalBroadcastInfo.Buffer_message(msg) {
 		state.CausalBroadcastInfo.Test_buffer_messages()
+		state.MessageHandlers["chat"] = receiveMsg
+		state.MessageHandlers["requestVV"] = sendCbcastVV
 	}
-	state.MessageHandlers["chat"] = receiveMsg
 }
 
 func receiveMsg(msg []string, state ClientState) {
-	state.CausalBroadcastInfo.Fwd_message([]byte(msg[2]))
+	state.CausalBroadcastInfo.Fwd_message(msg)
 }
 
 func joinCrdt(msg []string, state ClientState) {
@@ -59,6 +61,20 @@ func joinCrdt(msg []string, state ClientState) {
 
 	state.Replica.Converge(peerReplica)
 
+}
+
+func resendRequestVV(msg []string, state ClientState) {
+	state.CausalBroadcastInfo.RequestVV()
+}
+
+func refuseRequest(msg []string, state ClientState) {
+	if state.CausalBroadcastInfo.GetHasVersionVector() {
+		state.MessageHandlers["chat"] = receiveMsg
+		state.MessageHandlers["requestVV"] = sendCbcastVV
+		sendCbcastVV(msg, state)
+	} else {
+		state.Connector.Sender(1, msg[0], "refuse", []byte{})
+	}
 }
 
 func sendCbcastVV(msg []string, state ClientState) {

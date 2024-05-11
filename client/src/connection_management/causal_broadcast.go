@@ -13,8 +13,18 @@ import (
 	proto "google.golang.org/protobuf/proto"
 )
 
+type WritePackage struct {
+	Message []byte
+	Peer    string
+}
+
+type CausalMessage struct {
+	Message *pb.CbCastMessage
+	Peer    string
+}
+
 type CausalBroadcastInfo struct {
-	messageBuffer    map[*pb.CbCastMessage]struct{}
+	messageBuffer    map[CausalMessage]struct{}
 	mutex            sync.Mutex
 	hasVersionVector bool
 	self             uint32
@@ -22,7 +32,13 @@ type CausalBroadcastInfo struct {
 	versionVector    map[uint32]uint64
 	changedNodes     map[uint32]uint64
 	ReplySocket      *zmq.Socket
-	Channel          chan []byte
+	Channel          chan WritePackage
+}
+
+func (causalBroadcastInfo *CausalBroadcastInfo) GetHasVersionVector() bool {
+	causalBroadcastInfo.mutex.Lock()
+	defer causalBroadcastInfo.mutex.Unlock()
+	return causalBroadcastInfo.hasVersionVector
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) PrintVV() {
@@ -85,9 +101,9 @@ func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data [
 	return
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) Buffer_message(bytes []byte) bool {
+func (causalBroadcastInfo *CausalBroadcastInfo) Buffer_message(input []string) bool {
 
-	fmt.Printf("Buffering message\n")
+	//fmt.Printf("Buffering message\n")
 
 	buffer := causalBroadcastInfo.messageBuffer
 	//NOTE this os hacky, three parts will always be sent, id, delimiter, data
@@ -105,9 +121,9 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Buffer_message(bytes []byte) boo
 		hasVersionVector = causalBroadcastInfo.hasVersionVector
 	}()
 
-	proto.Unmarshal(bytes, &msg)
+	proto.Unmarshal([]byte(input[2]), &msg)
 
-	buffer[&msg] = struct{}{}
+	buffer[CausalMessage{&msg, input[0]}] = struct{}{}
 
 	return hasVersionVector
 }
@@ -120,7 +136,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Test_buffer_messages() {
 
 	flag_delivered_message := true
 
-	fmt.Printf("Testing buffered messages\n")
+	//fmt.Printf("Testing buffered messages\n")
 
 	for flag_delivered_message {
 
@@ -128,20 +144,20 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Test_buffer_messages() {
 
 		for buffered_msg := range buffer {
 
-			fmt.Printf("Testing (my versionVector) %v\n", causalBroadcastInfo.versionVector)
+			//fmt.Printf("Testing (my versionVector) %v\n", causalBroadcastInfo.versionVector)
 
-			src, changedNodes, data := unpack_msg(buffered_msg)
+			src, changedNodes, data := unpack_msg(buffered_msg.Message)
 
-			fmt.Printf("Testing (changedNodes) %v\n", changedNodes)
+			//fmt.Printf("Testing (changedNodes) %v\n", changedNodes)
 
 			if test_msg(src, &self_versionVector, &changedNodes) {
 
 				causalBroadcastInfo.update_state(&changedNodes, src)
 
-				fmt.Printf("Delivered a buffered message\n")
+				//fmt.Printf("Delivered a buffered message\n")
 
 				select {
-				case causalBroadcastInfo.Channel <- data:
+				case causalBroadcastInfo.Channel <- WritePackage{data, buffered_msg.Peer}:
 				default:
 				}
 
@@ -160,7 +176,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Test_buffer_messages() {
 	}
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) Fwd_message(bytes []byte) {
+func (causalBroadcastInfo *CausalBroadcastInfo) Fwd_message(input []string) {
 
 	self_versionVector := causalBroadcastInfo.versionVector
 
@@ -168,41 +184,44 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Fwd_message(bytes []byte) {
 
 	//NOTE this os hacky, three parts will always be sent, id, delimiter, data
 
-	// fmt.Printf("Received message from socket with bytes: %v\n", bytes)
+	//fmt.Printf("Received message")
 
 	msg := pb.CbCastMessage{}
 
+	peer := input[0]
+	bytes := []byte(input[2])
+
 	proto.Unmarshal(bytes, &msg)
 
-	fmt.Printf("My previous versionVector is: %v\n", causalBroadcastInfo.versionVector)
+	//fmt.Printf("My previous versionVector is: %v\n", causalBroadcastInfo.versionVector)
 
 	src, changedNodes, data := unpack_msg(&msg)
 
-	fmt.Printf("changed nodes are: %v\n", changedNodes)
+	//fmt.Printf("changed nodes are: %v\n", changedNodes)
 
 	if test_msg(src, &self_versionVector, &changedNodes) {
 
 		causalBroadcastInfo.update_state(&changedNodes, src)
 
-		fmt.Printf("delivered message with bytes: %v\n", bytes)
+		//fmt.Printf("delivered message with bytes: %v\n", bytes)
 
 		select {
-		case causalBroadcastInfo.Channel <- data:
+		case causalBroadcastInfo.Channel <- WritePackage{data, peer}:
 		default:
 		}
 
 		causalBroadcastInfo.Test_buffer_messages()
 
 	} else {
-		buffer[&msg] = struct{}{}
+		buffer[CausalMessage{&msg, peer}] = struct{}{}
 
-		fmt.Printf("buffered message with bytes: %v\n", bytes)
+		//fmt.Printf("buffered message with bytes: %v\n", bytes)
 
 	}
 
 	// causalBroadcastInfo.update_versionVector(&changedNodes) //tem que ser feito so no fim
 
-	fmt.Printf("My updated versionVector is: %v\n", causalBroadcastInfo.versionVector)
+	//fmt.Printf("My updated versionVector is: %v\n", causalBroadcastInfo.versionVector)
 
 }
 
@@ -219,26 +238,30 @@ func (causalBroadcastInfo *CausalBroadcastInfo) SendVersionVector(id string) {
 	fmt.Printf("Received request, sending VV: %v\n", data.ChangedNodes)
 
 	// Send reply back to client
-	causalBroadcastInfo.ConnectorInfo.sender(1, id, "replyVV", bytes)
+	causalBroadcastInfo.ConnectorInfo.Sender(1, id, "replyVV", bytes)
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) requestVV() {
+func (causalBroadcastInfo *CausalBroadcastInfo) RequestVV() {
 
-	peers := causalBroadcastInfo.ConnectorInfo.PeerMap
+	randomId := func() string {
+		causalBroadcastInfo.ConnectorInfo.Mutex.Lock()
+		defer causalBroadcastInfo.mutex.Unlock()
+		peers := causalBroadcastInfo.ConnectorInfo.PeerMap
 
-	k := rand.Intn(len(peers))
-	var key string
+		k := rand.Intn(len(peers))
+		var key string
 
-	for key = range peers {
-		if k == 0 {
-			break
+		for key = range peers {
+			if k == 0 {
+				break
+			}
+			k--
 		}
-		k--
-	}
+		randomId := peers[key].Id
+		return randomId
+	}()
 
-	randomId := peers[key].Id
-
-	causalBroadcastInfo.ConnectorInfo.sender(1, randomId, "requestVV", []byte("control")) //This bitch blocks
+	causalBroadcastInfo.ConnectorInfo.Sender(1, randomId, "requestVV", []byte("control")) //This bitch blocks
 
 	fmt.Printf("Sent VV request to node %v\n", randomId)
 }
@@ -251,11 +274,12 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 		causalBroadcastInfo.hasVersionVector = true
 
 	} else {
-		causalBroadcastInfo.requestVV()
+		time.Sleep(5 * time.Second)
+		causalBroadcastInfo.RequestVV()
 	}
 
 	for msg := range causalBroadcastInfo.Channel {
-		fmt.Println(string(msg))
+		fmt.Printf("%v: %v\n", msg.Peer, string(msg.Message))
 	}
 
 }
@@ -269,7 +293,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) ReceiveVV(bytes []byte) {
 
 	_, versionVector, _ := unpack_msg(&msg)
 
-	fmt.Printf("received version vector: %v \n", versionVector)
+	//fmt.Printf("received version vector: %v \n", versionVector)
 
 	func() {
 
@@ -278,17 +302,19 @@ func (causalBroadcastInfo *CausalBroadcastInfo) ReceiveVV(bytes []byte) {
 
 		causalBroadcastInfo.hasVersionVector = true
 
+		oldVV := causalBroadcastInfo.versionVector
+
 		causalBroadcastInfo.versionVector = versionVector
 
-		causalBroadcastInfo.versionVector[causalBroadcastInfo.self] = 0
+		causalBroadcastInfo.versionVector[causalBroadcastInfo.self] = oldVV[causalBroadcastInfo.self]
 
-		fmt.Printf("causalBroadcastInfo.self: %v\n", causalBroadcastInfo.self)
+		//fmt.Printf("causalBroadcastInfo.self: %v\n", causalBroadcastInfo.self)
 
-		fmt.Printf("causalBroadcastInfo.versionVector: %v\n", causalBroadcastInfo.versionVector)
+		//fmt.Printf("causalBroadcastInfo.versionVector: %v\n", causalBroadcastInfo.versionVector)
 
 	}()
 
-	fmt.Printf("unlocked\n")
+	//fmt.Printf("unlocked\n")
 }
 
 func InitCausalBroadCast(self uint32, connector *ConnectorInfo) (causalBroadcastInfo CausalBroadcastInfo) {
@@ -304,8 +330,8 @@ func InitCausalBroadCast(self uint32, connector *ConnectorInfo) (causalBroadcast
 	causalBroadcastInfo.versionVector = make(map[uint32]uint64)
 	causalBroadcastInfo.self = self
 	causalBroadcastInfo.changedNodes = changedNodes
-	causalBroadcastInfo.messageBuffer = make(map[*pb.CbCastMessage]struct{})
-	causalBroadcastInfo.Channel = make(chan []byte, 1024)
+	causalBroadcastInfo.messageBuffer = make(map[CausalMessage]struct{})
+	causalBroadcastInfo.Channel = make(chan WritePackage, 1024)
 
 	return
 }
@@ -333,6 +359,6 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 
 	bytes, _ := proto.Marshal(&data)
 
-	fmt.Printf("Sending changedNodes: %v\n", changedNodes)
+	//fmt.Printf("Sending changedNodes: %v\n", changedNodes)
 	causalBroadcastInfo.ConnectorInfo.Send_to_Peers("chat", bytes)
 }

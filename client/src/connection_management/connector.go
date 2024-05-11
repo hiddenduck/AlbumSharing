@@ -1,7 +1,6 @@
 package connectionmanagement
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -63,7 +62,7 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers() {
 	}
 }
 
-func (connectorInfo ConnectorInfo) sender(s int, id string, msgType string, msg []byte) {
+func (connectorInfo ConnectorInfo) Sender(s int, id string, msgType string, msg []byte) {
 
 	time.Sleep(time.Duration(s * int(time.Millisecond)))
 
@@ -95,18 +94,4 @@ func (connectorInfo ConnectorInfo) Send_to_Peers(msgType string, msg []byte) {
 
 func (ConnectorInfo ConnectorInfo) SetFilter(filter string) {
 	ConnectorInfo.RouterSocket.SetSubscribe(filter)
-}
-
-func (connectorInfo ConnectorInfo) Listen_to_Peers(messageHandlers map[string]interface{}) {
-	for {
-		msg, _ := connectorInfo.RouterSocket.RecvMessage(0)
-
-		function, ok := messageHandlers[msg[1]]
-
-		if ok {
-			function.(func(string))(msg[2])
-		} else {
-			fmt.Printf("\"%v\"; not a valid type of message!\n", msg[1])
-		}
-	}
 }
