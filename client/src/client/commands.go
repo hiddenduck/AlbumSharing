@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	dataservers "main/DataServers"
 	"strconv"
 )
 
@@ -26,8 +27,9 @@ func removeUser(msg []string, state ClientState) {
 }
 
 func addFile(msg []string, state ClientState) {
-	//TODO calcular o hash
-	state.Replica.AddFile(msg[0], "hash_test_1")
+	fileHash := dataservers.HashFile(msg[0])
+	//TODO enviar para o dataserver
+	state.Replica.AddFile(msg[0], fileHash)
 }
 
 func removeFile(msg []string, state ClientState) {

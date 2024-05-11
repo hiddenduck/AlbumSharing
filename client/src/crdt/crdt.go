@@ -1,5 +1,7 @@
 package crdt
 
+import dataservers "main/DataServers"
+
 func joinInfos(voteInfo VoteInfo, peerVoteInfo VoteInfo) VoteInfo {
 	voteInfo.Sum = max(voteInfo.Sum, peerVoteInfo.Sum)
 	voteInfo.Count = max(voteInfo.Count, peerVoteInfo.Count)
@@ -12,7 +14,7 @@ func incrementVote(voteInfo VoteInfo, classification uint64) VoteInfo {
 	return voteInfo
 }
 
-func (replica *Replica) AddFile(fileName string, fileHash string) bool {
+func (replica *Replica) AddFile(fileName string, fileHash dataservers.Hash) bool {
 
 	replica.Mutex.Lock()
 	defer replica.Mutex.Unlock()

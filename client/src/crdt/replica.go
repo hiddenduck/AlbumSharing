@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"fmt"
+	dataservers "main/DataServers"
 	"sync"
 )
 
@@ -42,7 +43,7 @@ func averageVotes(voteMap VoteMap) float64 {
 }
 
 type FileInfo struct {
-	FileHash string
+	FileHash dataservers.Hash
 	Votes    VoteMap
 	DotSet   DotSet
 }
@@ -61,7 +62,7 @@ type Replica struct {
 	Mutex         *sync.Mutex
 }
 
-func (replica *Replica) GetFileHash(filename string) string {
+func (replica *Replica) GetFileHash(filename string) dataservers.Hash {
 	replica.Mutex.Lock()
 	defer replica.Mutex.Unlock()
 

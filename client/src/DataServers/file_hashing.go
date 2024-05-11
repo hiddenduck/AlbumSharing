@@ -8,9 +8,9 @@ import (
 	"os"
 )
 
-func hashFile(fileName string) (Hash) {
+func HashFile(fileName string) Hash {
 
-    h := sha256.New()
+	h := sha256.New()
 
 	fd, err := os.Open(fileName)
 
@@ -24,11 +24,11 @@ func hashFile(fileName string) (Hash) {
 
 	for {
 
-        bytes_read, err := r.Read(buf)
+		bytes_read, err := r.Read(buf)
 
-        if bytes_read != CHUNK_SIZE {
-            buf = buf[:bytes_read]
-        }
+		if bytes_read != CHUNK_SIZE {
+			buf = buf[:bytes_read]
+		}
 
 		if bytes_read == 0 {
 			if err == nil {
@@ -40,7 +40,7 @@ func hashFile(fileName string) (Hash) {
 			log.Fatal(err)
 		}
 
-        _, err = h.Write(buf)
+		_, err = h.Write(buf)
 
 		// process buf
 		if err != nil && err != io.EOF {
@@ -48,5 +48,5 @@ func hashFile(fileName string) (Hash) {
 		}
 	}
 
-    return [32]byte(h.Sum(nil))
+	return [32]byte(h.Sum(nil))
 }
