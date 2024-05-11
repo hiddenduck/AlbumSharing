@@ -70,7 +70,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         // 2: read lines from that resource
         // 3: when done, free resource by closing
         return Flowable.using(
-                () -> new FileInputStream(filePath),
+                () -> new FileInputStream(new File(folder, filePath)),
                 inputStream -> Flowable.create(
                         emitter -> {
                             byte[] buffer = new byte[chunkSize];
