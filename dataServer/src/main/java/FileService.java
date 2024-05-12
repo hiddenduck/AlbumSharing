@@ -112,6 +112,34 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build());
     }
 
+    class FileWriter {
+        private FileOutputStream writer = null;
+
+        public boolean createIfDontExist(String fileName){
+            if(this.writer==null) {
+                if(new java.io.File(fileName).exists())
+                    return false;
+                try {
+                    this.writer = new FileOutputStream(fileName, true);
+                } catch (IOException e){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public boolean writeData(byte[] data){
+            try {
+                this.writer.write(data);
+                this.writer.flush();
+            } catch (IOException e){
+                return false;
+            }
+
+            return true;
+        }
+    }
+
 	/**
      * Implements the service of file upload.
      * @param request Message Stream.
@@ -119,33 +147,27 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      */
     public Flowable<UploadMessage> upload(Flowable<FileMessage> request) {
 
-        PublishProcessor<FileMessage> processor = PublishProcessor.create();
+        final FileWriter writer = new FileWriter();
 
-        request.subscribe(processor);
-
-        var f = processor
-                .observeOn(Schedulers.io())
+        return request
                 .flatMap(message -> {
                     String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
+                    if(!writer.createIfDontExist(filePath)){
+                        return Flowable.error(Status.ALREADY_EXISTS.asRuntimeException());
+                    }
+
                     byte[] data = message.getData().toByteArray();
 
-                    try (FileOutputStream writer = new FileOutputStream(filePath, true)) {
-                        writer.write(data);
-                        writer.flush();
+                    if(writer.writeData(data)){
                         return Flowable.just(UploadMessage.newBuilder().build());
-                    } catch (IOException e) {
+                    } else {
                         return Flowable.error(Status.ABORTED.asRuntimeException());
                     }
                 });
-
-        return processor.take(1).observeOn(Schedulers.io()).flatMap(message -> {
-            if(!new java.io.File(this.folder, message.getHashKey().toStringUtf8()).exists()){
-                return f;
-            } else{
-                return Flowable.error(Status.ALREADY_EXISTS.asRuntimeException());
-            }
-        });
-
     }
 
 }
+
+/*
+
+ */
