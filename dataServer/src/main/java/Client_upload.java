@@ -29,24 +29,38 @@ public class Client_upload {
 
         String filePath2 = "output2.txt";
 
-        int chunkSize = 100;
+        int chunkSize = 4096;
 
-        var f = Flowable.using(
-                () -> new FileInputStream(filePath),
-                inputStream -> Flowable.create(
-                        emitter -> {
-                            int count = 0;
-                            byte[] buffer = new byte[chunkSize];
-                            int read;
-                            while ((read = inputStream.read(buffer)) != -1) {
-                                byte[] readBuff = new byte[read];
-                                System.arraycopy(buffer, 0, readBuff, 0, read);
-                                emitter.onNext(readBuff);
-                            }
+        var f = Flowable.generate(
+                () -> {
+                    FileInputStream reader = new FileInputStream(filePath);
+                    return reader;
+                },
+                (reader, emitter) -> {
+                    try {
+                        byte[] buffer = new byte[chunkSize];
+                        int read = reader.read(buffer);
+                        if (read == -1) {
+                            reader.close();
                             emitter.onComplete();
+                        } else {
+                            byte[] readBuff = new byte[read];
+                            System.arraycopy(buffer, 0, readBuff, 0, read);
+                            emitter.onNext(readBuff);
                         }
-                , BackpressureStrategy.DROP),
-                InputStream::close
+                    } catch (IOException e) {
+                        reader.close();
+                        emitter.onError(e);
+                    }
+                    return reader;
+                },
+                reader -> {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
         ).observeOn(Schedulers.io()).map(n -> file.FileMessage.newBuilder().setHashKey(ByteString.copyFromUtf8(filePath2)).setData(ByteString.copyFrom((byte[])n)).build());
 
         s.upload(f).blockingSubscribe();

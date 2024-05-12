@@ -119,32 +119,35 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      */
     public Flowable<UploadMessage> upload(Flowable<FileMessage> request) {
 
-        PublishProcessor<FileMessage> processor = PublishProcessor.create();
+        return request.replay(sharedStream -> {
+            Flowable<ByteString> testStream = sharedStream
+                    .take(1)
+                    .map(FileMessage::getHashKey);
 
-        request.subscribe(processor);
+            Flowable<ByteString> chunkStream = sharedStream
+                    .map(FileMessage::getData);
 
-        var f = processor
-                .observeOn(Schedulers.io())
-                .flatMap(message -> {
-                    String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
-                    byte[] data = message.getData().toByteArray();
+            return testStream.flatMap(hash -> {
+                if(!new java.io.File(this.folder, hash.toStringUtf8()).exists()){
+                    return chunkStream.observeOn(Schedulers.io())
+                            .flatMap(byteData -> {
+                                String filePath = this.folder + File.separator + hash.toStringUtf8();
+                                byte[] data = byteData.toByteArray();
 
-                    try (FileOutputStream writer = new FileOutputStream(filePath, true)) {
-                        writer.write(data);
-                        writer.flush();
-                        return Flowable.just(UploadMessage.newBuilder().build());
-                    } catch (IOException e) {
-                        return Flowable.error(Status.ABORTED.asRuntimeException());
-                    }
-                });
-
-        return processor.take(1).observeOn(Schedulers.io()).flatMap(message -> {
-            if(!new java.io.File(this.folder, message.getHashKey().toStringUtf8()).exists()){
-                return f;
-            } else{
-                return Flowable.error(Status.ALREADY_EXISTS.asRuntimeException());
-            }
+                                try (FileOutputStream writer = new FileOutputStream(filePath, true)) {
+                                    writer.write(data);
+                                    writer.flush();
+                                    return Flowable.just(UploadMessage.newBuilder().build());
+                                } catch (IOException e) {
+                                    return Flowable.error(Status.ABORTED.asRuntimeException());
+                                }
+                            });
+                } else{
+                    return Flowable.error(Status.ALREADY_EXISTS.asRuntimeException());
+                }
+            });
         });
+
 
     }
 
