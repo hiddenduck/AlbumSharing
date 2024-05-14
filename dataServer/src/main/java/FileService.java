@@ -3,20 +3,15 @@ import file.DownloadMessage;
 import file.FileMessage;
 import file.Rx3FileGrpc;
 import file.UploadMessage;
-import file.joinMessage;
 import io.grpc.Status;
 import io.reactivex.rxjava3.core.*;
-import io.reactivex.rxjava3.processors.PublishProcessor;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.File;
+import file.peerInfo;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Objects;
-import java.util.concurrent.Flow;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
 
@@ -25,32 +20,28 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     private int chunkSize = 4096; // Also Defined in GO
 
 
-    public FileService(int port, String central_Ip, int central_port) throws IOException {
-        this.folder = "localhost" + String.valueOf(port);
+    public FileService(Boolean isInitial, int port, String central_Ip, int central_port) throws IOException {
+        this.folder = String.valueOf(port);
         File directory = new File(folder);
 
         if(!directory.exists()){
             directory.mkdir();
         }
-        /*
-        try(Socket s = new Socket(central_Ip, central_port)){
-            // Send join Msg to Central Server
-            var joinMsg = joinMessage.newBuilder().setIp("localhost").setPort(port).build();
-            var outputStream = s.getOutputStream();
-            outputStream.write(joinMsg.toByteArray());
-            outputStream.flush();
 
-            // Wait join response
-            var inputStream = s.getInputStream();
-            byte[] prefix = new byte[4];
-            inputStream.read(prefix);
-            int messageSize = ByteBuffer.wrap(prefix).getInt();
-            byte[] messageBytes = new byte[messageSize];
-            inputStream.read(messageBytes);
+        if(!isInitial) {
+            try (Socket s = new Socket(central_Ip, central_port)) {
+                // Wait join response
+                var inputStream = s.getInputStream();
+                byte[] prefix = new byte[8];
+                inputStream.read(prefix);
+                int messageSize = ByteBuffer.wrap(prefix).getInt();
+                byte[] messageBytes = new byte[messageSize];
+                inputStream.read(messageBytes);
 
-
+                peerInfo peerInfo = file.peerInfo.parseFrom(messageBytes);
+            }
         }
-        */
+
     }
 
 	/**

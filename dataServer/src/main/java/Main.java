@@ -5,13 +5,13 @@ import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
-        if(args.length!=3){
-            System.out.println("Wrong Arguments! [PORT] [Central Server IP] [Central Server Port]");
+        if(args.length!=4){
+            System.out.println("Wrong Arguments! [is_Initial] [PORT] [Central Server IP] [Central Server Port]");
             return;
         }
 
-        ServerBuilder.forPort(Integer.parseInt(args[0]))
-                .addService(new FileService(Integer.parseInt(args[0]), args[1], Integer.parseInt(args[2])))
+        ServerBuilder.forPort(Integer.parseInt(args[1]))
+                .addService(new FileService(Boolean.parseBoolean(args[0]), Integer.parseInt(args[1]), args[2], Integer.parseInt(args[3])))
                 .build()
                 .start()
                 .awaitTermination();

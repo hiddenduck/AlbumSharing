@@ -22,14 +22,14 @@ acceptor(LSock, Loop) ->
     spawn(fun() -> acceptor(LSock, Loop) end),
     data_server(Sock, Loop).
 
-binary_search([], Hash, _) -> {-1,0};
-binary_search(Servers, Hash, _, Right) if element(Right, Servers) < Hash ->
+binary_search([], Hash, _) -> {-1,0}.
+binary_search(Servers, Hash, _, Right) when element(Right, Servers) < Hash ->
     {Right, Right + 1};
-binary_search([H | T], Hash, _, _) if H >= Hash ->
+binary_search([H | T], Hash, _, _) when H >= Hash ->
     {-1, 1};
 binary_search(Servers, Hash, Left, Right) ->
     binary_search_aux(Servers, Hash, Left, Right).
-binary_search_aux(Servers, Hash, Left, Right) if Right - Left <= 1 ->
+binary_search_aux(Servers, Hash, Left, Right) when Right - Left =< 1 ->
     {Left, Right};
 binary_search_aux(Servers, Hash, Left, Right) ->
     Mid = (Left + Right)/2,
