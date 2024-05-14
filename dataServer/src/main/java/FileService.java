@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Objects;
 import java.util.concurrent.Flow;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
@@ -114,18 +115,21 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
 
     class FileWriter {
         private FileOutputStream writer = null;
+        private File file = null;
 
-        public boolean createIfDontExist(String fileName){
+        public String createIfDontExist(String fileName){
             if(this.writer==null) {
-                if(new java.io.File(fileName).exists())
-                    return false;
+                this.file = new java.io.File(fileName);
+                if(file.exists())
+                    return "E"; // already exists
                 try {
                     this.writer = new FileOutputStream(fileName, true);
                 } catch (IOException e){
-                    return false;
+                    file.delete();
+                    return "A";
                 }
             }
-            return true;
+            return "";
         }
 
         public boolean writeData(byte[] data){
@@ -133,6 +137,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 this.writer.write(data);
                 this.writer.flush();
             } catch (IOException e){
+                this.file.delete();
                 return false;
             }
 
@@ -152,8 +157,11 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         return request
                 .flatMap(message -> {
                     String filePath = this.folder + File.separator + message.getHashKey().toStringUtf8();
-                    if(!writer.createIfDontExist(filePath)){
+                    String status = writer.createIfDontExist(filePath);
+                    if(Objects.equals(status, "E")){
                         return Flowable.error(Status.ALREADY_EXISTS.asRuntimeException());
+                    } else if(Objects.equals(status, "A")){
+                        return Flowable.error(Status.ABORTED.asRuntimeException());
                     }
 
                     byte[] data = message.getData().toByteArray();
