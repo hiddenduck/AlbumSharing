@@ -8,8 +8,6 @@ import (
 	"log"
 	pb "main/DataServers/fileChunkProto"
 	"os"
-	"time"
-
 	rxgo "github.com/reactivex/rxgo/v2"
 	"google.golang.org/grpc"
 )
@@ -69,8 +67,6 @@ func uploader(ch chan rxgo.Item, fileName string) {
 
 	for {
 
-        time.Sleep(2*time.Millisecond)
-
 		bytes_read, err := reader.Read(buff)
 		// fmt.Printf("n: %v\n", n)
 
@@ -83,7 +79,6 @@ func uploader(ch chan rxgo.Item, fileName string) {
 				continue
 			}
 			if err == io.EOF {
-				close(ch)
 				break
 			}
 			log.Fatal(err)
@@ -91,6 +86,7 @@ func uploader(ch chan rxgo.Item, fileName string) {
 
 		ch <- rxgo.Of(buff)
 	}
+    defer close(ch)
 	return
 }
 
@@ -130,22 +126,26 @@ func UploadFile(dataServers DataServers, fileName string) {
 				Data:    item.([]byte),
 			}
 
-			err := stream.SendMsg(&fileMessage)
+			err := stream.Send(&fileMessage)
+
+            if err != nil {
+                panic(err)
+            }
+
+            stream.Recv()
 
             acc++
 
             fmt.Printf("sent chunk %v\n", acc)
-
-			if err != nil {
-				panic(err)
-			}
 
 		},
 		func(error error) {
 			panic(error)
 		},
 		func() {
-			reply, err := stream.CloseAndRecv()
+			reply, err := stream.Recv()
+
+            stream.CloseSend()
 
 			if err != nil {
 				panic(err)
