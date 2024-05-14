@@ -10,7 +10,7 @@ start_loop(Port, Central, MainLoop) ->
     {ok, LSock} = gen_tcp:listen(Port, [binary, {active, once}, {packet, raw},
                                       {reuseaddr, true}]),
 
-    Loop = spawn(fun() -> loop(MainLoop, []) end),
+    Loop = spawn(fun() -> loop(MainLoop, ) end),
     spawn(fun() -> acceptor(LSock, Loop) end),
 
     receive
@@ -22,12 +22,27 @@ acceptor(LSock, Loop) ->
     spawn(fun() -> acceptor(LSock, Loop) end),
     data_server(Sock, Loop).
 
-binary_search(Servers, Hash) ->
-    todo.
+binary_search([], Hash, _) -> {-1,0};
+binary_search(Servers, Hash, _, Right) if element(Right, Servers) < Hash ->
+    {Right, Right + 1};
+binary_search([H | T], Hash, _, _) if H >= Hash ->
+    {-1, 1};
+binary_search(Servers, Hash, Left, Right) ->
+    binary_search_aux(Servers, Hash, Left, Right).
+binary_search_aux(Servers, Hash, Left, Right) if Right - Left <= 1 ->
+    {Left, Right};
+binary_search_aux(Servers, Hash, Left, Right) ->
+    Mid = (Left + Right)/2,
+    Val = element(Mid, Servers),
+    if 
+        Val >= Hash -> binary_search_aux(Servers, Hash, Left, Mid);
+        true -> binary_search_aux(Servers, Hash, Mid, Right)
+    end.
+
 
 handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
     Hash = crypto:hash(<<IP/binary, PORT/binary>>),
-    binary_search(DataServers, Hash),
+    binary_search(DataServers, Hash, 0, len(DataServers)-1),
     ok.
 
 loop(MainLoop, DataServers) ->
