@@ -10,6 +10,6 @@ func main() {
 
 	ds.AddServer("localhost", "1234")
 
-	dataservers.DownLoadFile(ds, "lmao.txt", dataservers.Hash([]byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")))
+    dataservers.UploadFile(ds, "lmao.txt")
 
 }

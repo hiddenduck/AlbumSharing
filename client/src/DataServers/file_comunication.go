@@ -8,6 +8,7 @@ import (
 	"log"
 	pb "main/DataServers/fileChunkProto"
 	"os"
+	"time"
 
 	rxgo "github.com/reactivex/rxgo/v2"
 	"google.golang.org/grpc"
@@ -68,6 +69,8 @@ func uploader(ch chan rxgo.Item, fileName string) {
 
 	for {
 
+        time.Sleep(2*time.Millisecond)
+
 		bytes_read, err := reader.Read(buff)
 		// fmt.Printf("n: %v\n", n)
 
@@ -91,11 +94,15 @@ func uploader(ch chan rxgo.Item, fileName string) {
 	return
 }
 
-func UploadFile(dataServer DataServer, fileName string) {
+func UploadFile(dataServers DataServers, fileName string) {
+
+    fileHash := HashFile(fileName)
+
+    dataServer := dataServers.FindBucket(fileHash)
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
-    fileHash := HashFile(fileName)
+    acc := 0
 
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 
@@ -123,7 +130,11 @@ func UploadFile(dataServer DataServer, fileName string) {
 				Data:    item.([]byte),
 			}
 
-			err := stream.Send(&fileMessage)
+			err := stream.SendMsg(&fileMessage)
+
+            acc++
+
+            fmt.Printf("sent chunk %v\n", acc)
 
 			if err != nil {
 				panic(err)
