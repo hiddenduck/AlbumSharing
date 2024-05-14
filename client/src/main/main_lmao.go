@@ -5,7 +5,11 @@ import (
 )
 
 func main() {
+
 	ds := dataservers.InitDataServer()
+
 	ds.AddServer("localhost", "1234")
-	dataservers.DownLoadFile(ds, "lmao.txt", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
+    dataservers.UploadFile(ds, "lmao.txt")
+
 }

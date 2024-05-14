@@ -77,7 +77,7 @@ func (c *fileClient) Upload(ctx context.Context, opts ...grpc.CallOption) (File_
 
 type File_UploadClient interface {
 	Send(*FileMessage) error
-	CloseAndRecv() (*UploadMessage, error)
+	Recv() (*UploadMessage, error)
 	grpc.ClientStream
 }
 
@@ -89,10 +89,7 @@ func (x *fileUploadClient) Send(m *FileMessage) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *fileUploadClient) CloseAndRecv() (*UploadMessage, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+func (x *fileUploadClient) Recv() (*UploadMessage, error) {
 	m := new(UploadMessage)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -158,7 +155,7 @@ func _File_Upload_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type File_UploadServer interface {
-	SendAndClose(*UploadMessage) error
+	Send(*UploadMessage) error
 	Recv() (*FileMessage, error)
 	grpc.ServerStream
 }
@@ -167,7 +164,7 @@ type fileUploadServer struct {
 	grpc.ServerStream
 }
 
-func (x *fileUploadServer) SendAndClose(m *UploadMessage) error {
+func (x *fileUploadServer) Send(m *UploadMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -195,6 +192,7 @@ var File_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Upload",
 			Handler:       _File_Upload_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 	},

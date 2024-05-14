@@ -6,7 +6,7 @@ option go_package = "fileChunkProto/";
 
 service File {
     rpc Download(DownloadMessage) returns (stream FileMessage) {};
-    rpc Upload(stream FileMessage) returns (UploadMessage) {};
+    rpc Upload(stream FileMessage) returns (stream UploadMessage) {};
 }
 
 message DownloadMessage {

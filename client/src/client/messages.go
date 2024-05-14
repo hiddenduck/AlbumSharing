@@ -3,13 +3,14 @@ package client
 import (
 	"fmt"
 	pb "main/CentralServerComunication/CentralServerProtoBuf"
+	dataservers "main/DataServers"
 	"main/crdt"
 	"time"
 
 	proto "google.golang.org/protobuf/proto"
 )
 
-func PeerListen(state ClientState) {
+func PeerListen(state SessionState) {
 	for {
 		msg, _ := state.Connector.RouterSocket.RecvMessage(0)
 
@@ -20,7 +21,7 @@ func PeerListen(state ClientState) {
 		}
 
 		if ok {
-			function.(func([]string, ClientState))(msg, state)
+			function.(func([]string, SessionState))(msg, state)
 		} else {
 			fmt.Printf("\"%v\"; not a valid type of message!\n", msg[1])
 		}
@@ -36,19 +37,19 @@ func CreateMessageHandlers() map[string]interface{} {
 	}
 }
 
-func myprint(msg []string, state ClientState) {
+func myprint(msg []string, state SessionState) {
 	fmt.Printf("%s\n", msg[2])
 }
 
-func bufferMsg(msg []string, state ClientState) {
+func bufferMsg(msg []string, state SessionState) {
 	state.CausalBroadcastInfo.Buffer_message(msg)
 }
 
-func ReceiveMsg(msg []string, state ClientState) {
+func ReceiveMsg(msg []string, state SessionState) {
 	state.CausalBroadcastInfo.Fwd_message(msg)
 }
 
-func joinCrdt(msg []string, state ClientState) {
+func joinCrdt(msg []string, state SessionState) {
 	protoMsg := pb.Crdt{}
 	proto.Unmarshal([]byte(msg[2]), &protoMsg)
 
@@ -60,25 +61,25 @@ func joinCrdt(msg []string, state ClientState) {
 
 }
 
-func resendRequestVV(msg []string, state ClientState) {
+func resendRequestVV(msg []string, state SessionState) {
 	state.CausalBroadcastInfo.RequestVV()
 }
 
-func bufferRequest(msg []string, state ClientState) {
+func bufferRequest(msg []string, state SessionState) {
 	state.CausalBroadcastInfo.AddVVRequest(msg[0])
 }
 
-func SendCbcastVV(msg []string, state ClientState) {
+func SendCbcastVV(msg []string, state SessionState) {
 	state.CausalBroadcastInfo.SendVersionVector(msg[0])
 }
 
-func receiveVV(msg []string, state ClientState) {
+func receiveVV(msg []string, state SessionState) {
 	state.CausalBroadcastInfo.ReceiveVV([]byte(msg[2]))
 	state.MessageHandlers["chat"] = ReceiveMsg
 	state.MessageHandlers["requestVV"] = SendCbcastVV
 }
 
-func HeartBeat(state ClientState) {
+func HeartBeat(state SessionState) {
 	for {
 
 		time.Sleep(time.Millisecond * 1000)
@@ -95,7 +96,7 @@ func HeartBeat(state ClientState) {
 	}
 }
 
-func createCrdtMessage(state ClientState) *pb.Crdt {
+func createCrdtMessage(state SessionState) *pb.Crdt {
 
 	state.Replica.Mutex.Lock()
 
@@ -118,7 +119,7 @@ func createCrdtMessage(state ClientState) *pb.Crdt {
 		crdtFiles[filename] = &pb.FileInfo{
 			Votes:    crdtVotes,
 			DotSet:   crdtDotSet,
-			FileHash: fileInfo.FileHash,
+            FileHash: string(fileInfo.FileHash[:]),
 		}
 	}
 
@@ -164,7 +165,7 @@ func parseProtoReplica(msg *pb.Crdt) crdt.Replica {
 		crdtFiles[filename] = crdt.FileInfo{
 			Votes:    crdtVotes,
 			DotSet:   crdtDotSet,
-			FileHash: fileInfo.FileHash,
+			FileHash: dataservers.Hash([]byte(fileInfo.FileHash)),
 		}
 	}
 

@@ -1,7 +1,7 @@
 package dataservers
 
 const(
-    CHUNK_SIZE = 10485940
+    CHUNK_SIZE = 4096
 )
 
 type Hash [32]byte

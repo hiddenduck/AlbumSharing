@@ -7,16 +7,11 @@ import (
 	"io"
 	"log"
 	pb "main/DataServers/fileChunkProto"
-	"net"
 	"os"
-
 	rxgo "github.com/reactivex/rxgo/v2"
 	"google.golang.org/grpc"
 )
 
-func DataServerReceiver(centralServerConnection net.Conn) {
-
-}
 
 func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
@@ -84,7 +79,6 @@ func uploader(ch chan rxgo.Item, fileName string) {
 				continue
 			}
 			if err == io.EOF {
-				close(ch)
 				break
 			}
 			log.Fatal(err)
@@ -92,16 +86,23 @@ func uploader(ch chan rxgo.Item, fileName string) {
 
 		ch <- rxgo.Of(buff)
 	}
+    defer close(ch)
 	return
 }
 
-func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
+func UploadFile(dataServers DataServers, fileName string) {
+
+    fileHash := HashFile(fileName)
+
+    dataServer := dataServers.FindBucket(fileHash)
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
+    acc := 0
+
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 
-	//defer conn.Close()
+	defer conn.Close()
 
 	if err != nil {
 		panic(err)
@@ -127,16 +128,24 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 			err := stream.Send(&fileMessage)
 
-			if err != nil {
-				panic(err)
-			}
+            if err != nil {
+                panic(err)
+            }
+
+            stream.Recv()
+
+            acc++
+
+            fmt.Printf("sent chunk %v\n", acc)
 
 		},
 		func(error error) {
 			panic(error)
 		},
 		func() {
-			reply, err := stream.CloseAndRecv()
+			reply, err := stream.Recv()
+
+            stream.CloseSend()
 
 			if err != nil {
 				panic(err)
@@ -147,7 +156,7 @@ func UploadFile(dataServer DataServer, fileName string, fileHash Hash) {
 
 }
 
-func DownLoadFile(dataServers DataServers, fileName string, hash string) {
+func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 
 	fd, err := os.Create(fileName)
 
@@ -158,8 +167,6 @@ func DownLoadFile(dataServers DataServers, fileName string, hash string) {
 	if err != nil {
 		panic(err)
 	}
-
-	fileHash := Hash([]byte(hash))
 
 	dataServer := dataServers.FindBucket(fileHash)
 
