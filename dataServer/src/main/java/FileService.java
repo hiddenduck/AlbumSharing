@@ -3,11 +3,11 @@ import file.DownloadMessage;
 import file.FileMessage;
 import file.Rx3FileGrpc;
 import file.UploadMessage;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.Status;
 import io.reactivex.rxjava3.core.*;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.File;
-import file.peerInfo;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -20,7 +20,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     private int chunkSize = 4096; // Also Defined in GO
 
 
-    public FileService(Boolean isInitial, int port, String central_Ip, int central_port) throws IOException {
+    public FileService(Boolean isInitial, int port, String central_Ip, int central_port) throws IOException, InvalidTargetServerException {
         this.folder = String.valueOf(port);
         File directory = new File(folder);
 
@@ -29,28 +29,58 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         }
 
         if(!isInitial) {
+            file.ServerInfo serverInfo = null;
             try (Socket s = new Socket(central_Ip, central_port)) {
-                // Wait join response
+                // Waiting join response...
                 var inputStream = s.getInputStream();
                 byte[] prefix = new byte[8];
                 inputStream.read(prefix);
                 int messageSize = ByteBuffer.wrap(prefix).getInt();
                 byte[] messageBytes = new byte[messageSize];
                 inputStream.read(messageBytes);
-
-                peerInfo peerInfo = file.peerInfo.parseFrom(messageBytes);
+                serverInfo = file.ServerInfo.parseFrom(messageBytes);
             }
+            if(serverInfo== null) throw new InvalidTargetServerException("Target Server values are null");
+
+            var connection = ManagedChannelBuilder.forAddress(serverInfo.getIp(), serverInfo.getPort())
+                    .usePlaintext()
+                    .build();
+
+            var stub = Rx3FileGrpc.newRxStub(connection);
+
+            DownloadMessage request = DownloadMessage.newBuilder()
+                    .setHashKey(serverInfo.getHash())
+                    .build();
+
+            stub.transfer(request).blockingSubscribe(
+                    fileMessage -> {
+                        byte[] data = fileMessage.getData().toByteArray();
+                        String hash = fileMessage.getHashKey().toStringUtf8();
+
+                        try (FileOutputStream writer = new FileOutputStream(hash, true)) {
+                            writer.write(data);
+                            writer.flush();
+                        } catch (IOException e) {
+                            new File(hash).delete();
+                            throw new ErrorInTransferException("Error while transfering file with hash: " + hash);
+                        }
+                    },
+                    throwable -> {
+                        throw new ErrorInTransferException(throwable.getMessage());
+                    },
+                    () -> System.out.println("File transfer completed! :)")
+            );
+
         }
 
     }
 
 	/**
      * Opens the file and create the stream.
-     * @param request Request message for download.
-     * @return Stream.
+     * @param filePath Path for the file to be downloaded.
+     * @return Stream of data chunks of the file.
      */
-    private Flowable<byte[]> openFileToStream(DownloadMessage request) {
-        String filePath = request.getHashKey().toStringUtf8();
+    private Flowable<byte[]> openFileToStream(String filePath) {
 
         if (!new java.io.File(this.folder, filePath).exists()) {
             System.out.println("Error in opening file");
@@ -99,7 +129,8 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
      */
     @Override
     public Flowable<FileMessage> download(DownloadMessage request) {
-        return openFileToStream(request)
+        String filePath = request.getHashKey().toStringUtf8();
+        return openFileToStream(filePath)
                 .subscribeOn(Schedulers.io())
                 .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build());
     }
@@ -165,8 +196,13 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 });
     }
 
+    public Flowable<FileMessage> transfer(DownloadMessage request){
+        File directory = new File(this.folder);
+        String[] filesNames = directory.list();
+        if(filesNames==null) filesNames = new String[]{};
+
+        return Flowable.fromArray(filesNames).flatMap(fileName -> openFileToStream(fileName)
+                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build())).subscribeOn(Schedulers.io());
+    }
+
 }
-
-/*
-
- */

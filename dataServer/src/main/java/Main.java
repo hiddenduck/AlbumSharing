@@ -4,7 +4,7 @@ import java.io.IOException;
 
 
 public class Main {
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException, InterruptedException, InvalidTargetServerException {
         if(args.length!=4){
             System.out.println("Wrong Arguments! [is_Initial] [PORT] [Central Server IP] [Central Server Port]");
             return;
