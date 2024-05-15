@@ -42,10 +42,9 @@ binary_search_aux(Servers, Hash, Left, Right) ->
 
 handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
     Hash = crypto:hash(<<IP/binary, PORT/binary>>),
-    {LeftServer, RightServer, IndexToAdd} = binary_search(DataServers, Hash, 1, lists:length(DataServers)),
+    {InfServer, TopServer, IndexToAdd} = binary_search(DataServers, Hash, 1, lists:length(DataServers)),
     {FirstHalf, SecondHalf} = lists:split(IndexToAdd, DataServers),
-    From ! {LeftServer, RightServer, Hash, From},
-    %warn server of its location
+    From ! {InfServer, TopServer, Hash, self()},
     FirstHalf ++ [{IP, PORT, Hash}] ++ SecondHalf.
 
 loop(MainLoop, DataServers) ->
@@ -72,18 +71,21 @@ message_handler(
 -endif().
 
 data_server(Sock, Loop) ->
-    {ok, {IP, PORT}} = inet:peername(Sock),
-    Loop ! {{join, IP, PORT}, self()},
+    {ok, {MyIP, MyPORT}} = inet:peername(Sock),
+    Loop ! {{join, string:join([integer_to_list(I) || I <- tuple_to_list(MyIP)], "."), MyPORT}, self()},
+    receive
+        {{_, _, InfHash}, {IP, PORT, _}, Hash, Loop} -> 
+            inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
+            Data = message:encode_msg(#'ServerInfo'{
+                ip = IP,
+                port = PORT, 
+                my_hash = Hash,
+                inf_hash = InfHash
+            }),
+            gen_tcp:send(Sock, <<<<byte_size(Data):8/integer>>, Data/binary>>)
+    end,
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
             ok
-        {{_, _, LowerHash}, {IP, PORT, _}, Hash, Loop} -> 
-            
-         %{tcp, _, Msg} ->
-         %   Message = message:decode_msg(Msg, 'Message'),
-          %  message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop);
-        %Msg ->
-         %   user_handler(Msg, Sock, MainLoop)
     end.
-    
 
