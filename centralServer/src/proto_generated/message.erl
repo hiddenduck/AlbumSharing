@@ -52,10 +52,12 @@
 -include("gpb.hrl").
 
 %% enumerated types
--type 'Type'() :: register | login | logout | create | get | send | quit | reply | new_peer | peer_left.
+-type 'Type'() :: register | login | create | get | send | quit | reply | new_peer | peer_left.
 -export_type(['Type'/0]).
 
 %% message types
+-type 'ServerInfo'() :: #'ServerInfo'{}.
+
 -type registerLoginFormat() :: #registerLoginFormat{}.
 
 -type album() :: #album{}.
@@ -88,9 +90,9 @@
 
 -type 'Message'() :: #'Message'{}.
 
--export_type(['registerLoginFormat'/0, 'album'/0, 'get_album'/0, 'reply_message'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'newPeer'/0, 'dotPair'/0, 'voteInfo'/0, 'fileInfo'/0, 'groupInfo'/0, 'crdt'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
--type '$msg_name'() :: registerLoginFormat | album | get_album | reply_message | voteValue | voteMap | peerInfo | newPeer | dotPair | voteInfo | fileInfo | groupInfo | crdt | sessionStart | quitMessage | 'Message'.
--type '$msg'() :: registerLoginFormat() | album() | get_album() | reply_message() | voteValue() | voteMap() | peerInfo() | newPeer() | dotPair() | voteInfo() | fileInfo() | groupInfo() | crdt() | sessionStart() | quitMessage() | 'Message'().
+-export_type(['ServerInfo'/0, 'registerLoginFormat'/0, 'album'/0, 'get_album'/0, 'reply_message'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'newPeer'/0, 'dotPair'/0, 'voteInfo'/0, 'fileInfo'/0, 'groupInfo'/0, 'crdt'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
+-type '$msg_name'() :: 'ServerInfo' | registerLoginFormat | album | get_album | reply_message | voteValue | voteMap | peerInfo | newPeer | dotPair | voteInfo | fileInfo | groupInfo | crdt | sessionStart | quitMessage | 'Message'.
+-type '$msg'() :: 'ServerInfo'() | registerLoginFormat() | album() | get_album() | reply_message() | voteValue() | voteMap() | peerInfo() | newPeer() | dotPair() | voteInfo() | fileInfo() | groupInfo() | crdt() | sessionStart() | quitMessage() | 'Message'().
 -export_type(['$msg_name'/0, '$msg'/0]).
 
 -record('map<uint32,uint64>',{key, value}).
@@ -124,6 +126,7 @@ encode_msg(Msg, MsgName, Opts) ->
     end,
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
+        'ServerInfo' -> encode_msg_ServerInfo(id(Msg, TrUserData), TrUserData);
         registerLoginFormat -> encode_msg_registerLoginFormat(id(Msg, TrUserData), TrUserData);
         album -> encode_msg_album(id(Msg, TrUserData), TrUserData);
         get_album -> encode_msg_get_album(id(Msg, TrUserData), TrUserData);
@@ -142,6 +145,50 @@ encode_msg(Msg, MsgName, Opts) ->
         'Message' -> encode_msg_Message(id(Msg, TrUserData), TrUserData)
     end.
 
+
+encode_msg_ServerInfo(Msg, TrUserData) -> encode_msg_ServerInfo(Msg, <<>>, TrUserData).
+
+
+encode_msg_ServerInfo(#'ServerInfo'{ip = F1, port = F2, my_hash = F3, inf_hash = F4}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+            true ->
+                begin
+                    TrF1 = id(F1, TrUserData),
+                    case is_empty_string(TrF1) of
+                        true -> Bin;
+                        false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+                    end
+                end
+         end,
+    B2 = if F2 == undefined -> B1;
+            true ->
+                begin
+                    TrF2 = id(F2, TrUserData),
+                    if TrF2 =:= 0 -> B1;
+                       true -> e_type_int32(TrF2, <<B1/binary, 16>>, TrUserData)
+                    end
+                end
+         end,
+    B3 = if F3 == undefined -> B2;
+            true ->
+                begin
+                    TrF3 = id(F3, TrUserData),
+                    case iolist_size(TrF3) of
+                        0 -> B2;
+                        _ -> e_type_bytes(TrF3, <<B2/binary, 26>>, TrUserData)
+                    end
+                end
+         end,
+    if F4 == undefined -> B3;
+       true ->
+           begin
+               TrF4 = id(F4, TrUserData),
+               case iolist_size(TrF4) of
+                   0 -> B3;
+                   _ -> e_type_bytes(TrF4, <<B3/binary, 34>>, TrUserData)
+               end
+           end
+    end.
 
 encode_msg_registerLoginFormat(Msg, TrUserData) -> encode_msg_registerLoginFormat(Msg, <<>>, TrUserData).
 
@@ -714,7 +761,6 @@ e_mfield_Message_m7(Msg, Bin, TrUserData) ->
 
 e_enum_Type(register, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 e_enum_Type(login, Bin, _TrUserData) -> <<Bin/binary, 1>>;
-e_enum_Type(logout, Bin, _TrUserData) -> <<Bin/binary, 2>>;
 e_enum_Type(create, Bin, _TrUserData) -> <<Bin/binary, 3>>;
 e_enum_Type(get, Bin, _TrUserData) -> <<Bin/binary, 4>>;
 e_enum_Type(send, Bin, _TrUserData) -> <<Bin/binary, 5>>;
@@ -863,6 +909,7 @@ decode_msg_1_catch(Bin, MsgName, TrUserData) ->
     end.
 -endif.
 
+decode_msg_2_doit('ServerInfo', Bin, TrUserData) -> id(decode_msg_ServerInfo(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(registerLoginFormat, Bin, TrUserData) -> id(decode_msg_registerLoginFormat(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(album, Bin, TrUserData) -> id(decode_msg_album(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(get_album, Bin, TrUserData) -> id(decode_msg_get_album(Bin, TrUserData), TrUserData);
@@ -881,6 +928,71 @@ decode_msg_2_doit(quitMessage, Bin, TrUserData) -> id(decode_msg_quitMessage(Bin
 decode_msg_2_doit('Message', Bin, TrUserData) -> id(decode_msg_Message(Bin, TrUserData), TrUserData).
 
 
+
+decode_msg_ServerInfo(Bin, TrUserData) -> dfp_read_field_def_ServerInfo(Bin, 0, 0, 0, id([], TrUserData), id(0, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
+
+dfp_read_field_def_ServerInfo(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_ServerInfo_ip(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_ServerInfo(<<16, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_ServerInfo_port(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_ServerInfo(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_ServerInfo_my_hash(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_ServerInfo(<<34, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_ServerInfo_inf_hash(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_ServerInfo(<<>>, 0, 0, _, F@_1, F@_2, F@_3, F@_4, _) -> #'ServerInfo'{ip = F@_1, port = F@_2, my_hash = F@_3, inf_hash = F@_4};
+dfp_read_field_def_ServerInfo(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dg_read_field_def_ServerInfo(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+dg_read_field_def_ServerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 32 - 7 -> dg_read_field_def_ServerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dg_read_field_def_ServerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+        10 -> d_field_ServerInfo_ip(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        16 -> d_field_ServerInfo_port(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        26 -> d_field_ServerInfo_my_hash(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        34 -> d_field_ServerInfo_inf_hash(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        _ ->
+            case Key band 7 of
+                0 -> skip_varint_ServerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                1 -> skip_64_ServerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                2 -> skip_length_delimited_ServerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                3 -> skip_group_ServerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                5 -> skip_32_ServerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData)
+            end
+    end;
+dg_read_field_def_ServerInfo(<<>>, 0, 0, _, F@_1, F@_2, F@_3, F@_4, _) -> #'ServerInfo'{ip = F@_1, port = F@_2, my_hash = F@_3, inf_hash = F@_4}.
+
+d_field_ServerInfo_ip(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_ServerInfo_ip(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_ServerInfo_ip(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, F@_4, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_ServerInfo(RestF, 0, 0, F, NewFValue, F@_2, F@_3, F@_4, TrUserData).
+
+d_field_ServerInfo_port(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_ServerInfo_port(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_ServerInfo_port(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, F@_3, F@_4, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end, Rest},
+    dfp_read_field_def_ServerInfo(RestF, 0, 0, F, F@_1, NewFValue, F@_3, F@_4, TrUserData).
+
+d_field_ServerInfo_my_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_ServerInfo_my_hash(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_ServerInfo_my_hash(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, _, F@_4, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, Bytes2 = binary:copy(Bytes), {id(Bytes2, TrUserData), Rest2} end,
+    dfp_read_field_def_ServerInfo(RestF, 0, 0, F, F@_1, F@_2, NewFValue, F@_4, TrUserData).
+
+d_field_ServerInfo_inf_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_ServerInfo_inf_hash(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_ServerInfo_inf_hash(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, Bytes2 = binary:copy(Bytes), {id(Bytes2, TrUserData), Rest2} end,
+    dfp_read_field_def_ServerInfo(RestF, 0, 0, F, F@_1, F@_2, F@_3, NewFValue, TrUserData).
+
+skip_varint_ServerInfo(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> skip_varint_ServerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+skip_varint_ServerInfo(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_ServerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_length_delimited_ServerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> skip_length_delimited_ServerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+skip_length_delimited_ServerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+    Length = X bsl N + Acc,
+    <<_:Length/binary, Rest2/binary>> = Rest,
+    dfp_read_field_def_ServerInfo(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_group_ServerInfo(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+    {_, Rest} = read_group(Bin, FNum),
+    dfp_read_field_def_ServerInfo(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_32_ServerInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_ServerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_64_ServerInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_ServerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
 decode_msg_registerLoginFormat(Bin, TrUserData) -> dfp_read_field_def_registerLoginFormat(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), TrUserData).
 
@@ -2240,7 +2352,6 @@ skip_64_Message(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp
 
 d_enum_Type(0) -> register;
 d_enum_Type(1) -> login;
-d_enum_Type(2) -> logout;
 d_enum_Type(3) -> create;
 d_enum_Type(4) -> get;
 d_enum_Type(5) -> send;
@@ -2316,6 +2427,7 @@ merge_msgs(Prev, New, Opts) when element(1, Prev) =:= element(1, New), is_list(O
 merge_msgs(Prev, New, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
+        'ServerInfo' -> merge_msg_ServerInfo(Prev, New, TrUserData);
         registerLoginFormat -> merge_msg_registerLoginFormat(Prev, New, TrUserData);
         album -> merge_msg_album(Prev, New, TrUserData);
         get_album -> merge_msg_get_album(Prev, New, TrUserData);
@@ -2333,6 +2445,25 @@ merge_msgs(Prev, New, MsgName, Opts) ->
         quitMessage -> merge_msg_quitMessage(Prev, New, TrUserData);
         'Message' -> merge_msg_Message(Prev, New, TrUserData)
     end.
+
+-compile({nowarn_unused_function,merge_msg_ServerInfo/3}).
+merge_msg_ServerInfo(#'ServerInfo'{ip = PFip, port = PFport, my_hash = PFmy_hash, inf_hash = PFinf_hash}, #'ServerInfo'{ip = NFip, port = NFport, my_hash = NFmy_hash, inf_hash = NFinf_hash}, _) ->
+    #'ServerInfo'{ip =
+                      if NFip =:= undefined -> PFip;
+                         true -> NFip
+                      end,
+                  port =
+                      if NFport =:= undefined -> PFport;
+                         true -> NFport
+                      end,
+                  my_hash =
+                      if NFmy_hash =:= undefined -> PFmy_hash;
+                         true -> NFmy_hash
+                      end,
+                  inf_hash =
+                      if NFinf_hash =:= undefined -> PFinf_hash;
+                         true -> NFinf_hash
+                      end}.
 
 -compile({nowarn_unused_function,merge_msg_registerLoginFormat/3}).
 merge_msg_registerLoginFormat(#registerLoginFormat{userName = PFuserName, password = PFpassword}, #registerLoginFormat{userName = NFuserName, password = NFpassword}, _) ->
@@ -2545,6 +2676,7 @@ verify_msg(X, _Opts) -> mk_type_error(not_a_known_message, X, []).
 verify_msg(Msg, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
+        'ServerInfo' -> v_msg_ServerInfo(Msg, [MsgName], TrUserData);
         registerLoginFormat -> v_msg_registerLoginFormat(Msg, [MsgName], TrUserData);
         album -> v_msg_album(Msg, [MsgName], TrUserData);
         get_album -> v_msg_get_album(Msg, [MsgName], TrUserData);
@@ -2564,6 +2696,24 @@ verify_msg(Msg, MsgName, Opts) ->
         _ -> mk_type_error(not_a_known_message, Msg, [])
     end.
 
+
+-compile({nowarn_unused_function,v_msg_ServerInfo/3}).
+-dialyzer({nowarn_function,v_msg_ServerInfo/3}).
+v_msg_ServerInfo(#'ServerInfo'{ip = F1, port = F2, my_hash = F3, inf_hash = F4}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_string(F1, [ip | Path], TrUserData)
+    end,
+    if F2 == undefined -> ok;
+       true -> v_type_int32(F2, [port | Path], TrUserData)
+    end,
+    if F3 == undefined -> ok;
+       true -> v_type_bytes(F3, [my_hash | Path], TrUserData)
+    end,
+    if F4 == undefined -> ok;
+       true -> v_type_bytes(F4, [inf_hash | Path], TrUserData)
+    end,
+    ok;
+v_msg_ServerInfo(X, Path, _TrUserData) -> mk_type_error({expected_msg, 'ServerInfo'}, X, Path).
 
 -compile({nowarn_unused_function,v_submsg_registerLoginFormat/3}).
 -dialyzer({nowarn_function,v_submsg_registerLoginFormat/3}).
@@ -2816,7 +2966,6 @@ v_msg_Message(X, Path, _TrUserData) -> mk_type_error({expected_msg, 'Message'}, 
 -dialyzer({nowarn_function,v_enum_Type/3}).
 v_enum_Type(register, _Path, _TrUserData) -> ok;
 v_enum_Type(login, _Path, _TrUserData) -> ok;
-v_enum_Type(logout, _Path, _TrUserData) -> ok;
 v_enum_Type(create, _Path, _TrUserData) -> ok;
 v_enum_Type(get, _Path, _TrUserData) -> ok;
 v_enum_Type(send, _Path, _TrUserData) -> ok;
@@ -2826,6 +2975,12 @@ v_enum_Type(new_peer, _Path, _TrUserData) -> ok;
 v_enum_Type(peer_left, _Path, _TrUserData) -> ok;
 v_enum_Type(V, _Path, _TrUserData) when -2147483648 =< V, V =< 2147483647, is_integer(V) -> ok;
 v_enum_Type(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'Type'}, X, Path).
+
+-compile({nowarn_unused_function,v_type_int32/3}).
+-dialyzer({nowarn_function,v_type_int32/3}).
+v_type_int32(N, _Path, _TrUserData) when is_integer(N), -2147483648 =< N, N =< 2147483647 -> ok;
+v_type_int32(N, Path, _TrUserData) when is_integer(N) -> mk_type_error({value_out_of_range, int32, signed, 32}, N, Path);
+v_type_int32(X, Path, _TrUserData) -> mk_type_error({bad_integer, int32, signed, 32}, X, Path).
 
 -compile({nowarn_unused_function,v_type_int64/3}).
 -dialyzer({nowarn_function,v_type_int64/3}).
@@ -2863,6 +3018,12 @@ v_type_string(S, Path, _TrUserData) when is_list(S); is_binary(S) ->
         error:badarg -> mk_type_error(bad_unicode_string, S, Path)
     end;
 v_type_string(X, Path, _TrUserData) -> mk_type_error(bad_unicode_string, X, Path).
+
+-compile({nowarn_unused_function,v_type_bytes/3}).
+-dialyzer({nowarn_function,v_type_bytes/3}).
+v_type_bytes(B, _Path, _TrUserData) when is_binary(B) -> ok;
+v_type_bytes(B, _Path, _TrUserData) when is_list(B) -> ok;
+v_type_bytes(X, Path, _TrUserData) -> mk_type_error(bad_binary_value, X, Path).
 
 -compile({nowarn_unused_function,'v_map<uint32,uint64>'/3}).
 -dialyzer({nowarn_function,'v_map<uint32,uint64>'/3}).
@@ -3140,7 +3301,12 @@ mt_merge_maptuples_r(L1, L2) -> dict:to_list(dict:merge(fun (_Key, _V1, V2) -> V
 
 
 get_msg_defs() ->
-    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {logout, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}]},
+    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}]},
+     {{msg, 'ServerInfo'},
+      [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
+       #field{name = port, fnum = 2, rnum = 3, type = int32, occurrence = optional, opts = []},
+       #field{name = my_hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []},
+       #field{name = inf_hash, fnum = 4, rnum = 5, type = bytes, occurrence = optional, opts = []}]},
      {{msg, registerLoginFormat}, [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
      {{msg, album}, [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
      {{msg, get_album},
@@ -3183,13 +3349,13 @@ get_msg_defs() ->
                   opts = []}]}].
 
 
-get_msg_names() -> [registerLoginFormat, album, get_album, reply_message, voteValue, voteMap, peerInfo, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
+get_msg_names() -> ['ServerInfo', registerLoginFormat, album, get_album, reply_message, voteValue, voteMap, peerInfo, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> [registerLoginFormat, album, get_album, reply_message, voteValue, voteMap, peerInfo, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
+get_msg_or_group_names() -> ['ServerInfo', registerLoginFormat, album, get_album, reply_message, voteValue, voteMap, peerInfo, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
 
 
 get_enum_names() -> ['Type'].
@@ -3209,6 +3375,11 @@ fetch_enum_def(EnumName) ->
     end.
 
 
+find_msg_def('ServerInfo') ->
+    [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
+     #field{name = port, fnum = 2, rnum = 3, type = int32, occurrence = optional, opts = []},
+     #field{name = my_hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []},
+     #field{name = inf_hash, fnum = 4, rnum = 5, type = bytes, occurrence = optional, opts = []}];
 find_msg_def(registerLoginFormat) -> [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
 find_msg_def(album) -> [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
 find_msg_def(get_album) ->
@@ -3252,7 +3423,7 @@ find_msg_def('Message') ->
 find_msg_def(_) -> error.
 
 
-find_enum_def('Type') -> [{register, 0}, {login, 1}, {logout, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}];
+find_enum_def('Type') -> [{register, 0}, {login, 1}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}];
 find_enum_def(_) -> error.
 
 
@@ -3264,7 +3435,6 @@ enum_value_by_symbol('Type', Sym) -> enum_value_by_symbol_Type(Sym).
 
 enum_symbol_by_value_Type(0) -> register;
 enum_symbol_by_value_Type(1) -> login;
-enum_symbol_by_value_Type(2) -> logout;
 enum_symbol_by_value_Type(3) -> create;
 enum_symbol_by_value_Type(4) -> get;
 enum_symbol_by_value_Type(5) -> send;
@@ -3276,7 +3446,6 @@ enum_symbol_by_value_Type(9) -> peer_left.
 
 enum_value_by_symbol_Type(register) -> 0;
 enum_value_by_symbol_Type(login) -> 1;
-enum_value_by_symbol_Type(logout) -> 2;
 enum_value_by_symbol_Type(create) -> 3;
 enum_value_by_symbol_Type(get) -> 4;
 enum_value_by_symbol_Type(send) -> 5;
@@ -3329,6 +3498,7 @@ fqbins_to_service_and_rpc_name(S, R) -> error({gpb_error, {badservice_or_rpc, {S
 service_and_rpc_name_to_fqbins(S, R) -> error({gpb_error, {badservice_or_rpc, {S, R}}}).
 
 
+fqbin_to_msg_name(<<"ServerInfo">>) -> 'ServerInfo';
 fqbin_to_msg_name(<<"registerLoginFormat">>) -> registerLoginFormat;
 fqbin_to_msg_name(<<"album">>) -> album;
 fqbin_to_msg_name(<<"get_album">>) -> get_album;
@@ -3348,6 +3518,7 @@ fqbin_to_msg_name(<<"Message">>) -> 'Message';
 fqbin_to_msg_name(E) -> error({gpb_error, {badmsg, E}}).
 
 
+msg_name_to_fqbin('ServerInfo') -> <<"ServerInfo">>;
 msg_name_to_fqbin(registerLoginFormat) -> <<"registerLoginFormat">>;
 msg_name_to_fqbin(album) -> <<"album">>;
 msg_name_to_fqbin(get_album) -> <<"get_album">>;
@@ -3402,7 +3573,7 @@ get_all_source_basenames() -> ["message.proto"].
 get_all_proto_names() -> ["message"].
 
 
-get_msg_containment("message") -> ['Message', album, crdt, dotPair, fileInfo, get_album, groupInfo, newPeer, peerInfo, quitMessage, registerLoginFormat, reply_message, sessionStart, voteInfo, voteMap, voteValue];
+get_msg_containment("message") -> ['Message', 'ServerInfo', album, crdt, dotPair, fileInfo, get_album, groupInfo, newPeer, peerInfo, quitMessage, registerLoginFormat, reply_message, sessionStart, voteInfo, voteMap, voteValue];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -3438,6 +3609,7 @@ get_proto_by_msg_name_as_fqbin(<<"voteInfo">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"peerInfo">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"groupInfo">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"fileInfo">>) -> "message";
+get_proto_by_msg_name_as_fqbin(<<"ServerInfo">>) -> "message";
 get_proto_by_msg_name_as_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
 

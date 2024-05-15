@@ -8,6 +8,16 @@
 -define(message_gpb_version, "4.21.1").
 
 
+-ifndef('SERVERINFO_PB_H').
+-define('SERVERINFO_PB_H', true).
+-record('ServerInfo',
+        {ip = []                :: unicode:chardata() | undefined, % = 1, optional
+         port = 0               :: integer() | undefined, % = 2, optional, 32 bits
+         my_hash = <<>>         :: iodata() | undefined, % = 3, optional
+         inf_hash = <<>>        :: iodata() | undefined % = 4, optional
+        }).
+-endif.
+
 -ifndef('REGISTERLOGINFORMAT_PB_H').
 -define('REGISTERLOGINFORMAT_PB_H', true).
 -record(registerLoginFormat,
@@ -132,7 +142,7 @@
 -ifndef('MESSAGE_PB_H').
 -define('MESSAGE_PB_H', true).
 -record('Message',
-        {type = register        :: register | login | logout | create | get | send | quit | reply | new_peer | peer_left | integer() | undefined, % = 1, optional, enum Type
+        {type = register        :: register | login | create | get | send | quit | reply | new_peer | peer_left | integer() | undefined, % = 1, optional, enum Type
          msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:get_album()} | {m7, message:newPeer()} | undefined % oneof
         }).
 -endif.

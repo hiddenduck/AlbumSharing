@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Objects;
 
 public class FileService extends Rx3FileGrpc.FileImplBase {
@@ -196,13 +197,38 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                 });
     }
 
+    private int compare(byte[] a, byte[] b){
+        int compare = 0;
+        for(int i=0; i < a.length && compare == 0; i++){
+            if(a[i] > b[i]){
+                compare = 1;
+            } else if(a[i] < b[i]){
+                compare = -1;
+            }
+        }
+
+        return compare;
+    }
+
     public Flowable<FileMessage> transfer(DownloadMessage request){
-        File directory = new File(this.folder);
+        final File directory = new File(this.folder);
         String[] filesNames = directory.list();
         if(filesNames==null) filesNames = new String[]{};
 
-        return Flowable.fromArray(filesNames).flatMap(fileName -> openFileToStream(fileName)
-                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build())).subscribeOn(Schedulers.io());
+        final byte[] requestHash = request.getHashKey().toByteArray();
+
+        return Flowable.fromArray(filesNames).filter(fileName -> {
+            byte[] file_hash = ByteString.copyFromUtf8(fileName).toByteArray();
+            if(file_hash.length!=requestHash.length) return false;
+
+            int compareWithDestHash = compare(file_hash, requestHash);
+
+            if(){
+
+            }
+
+        }) //flatMap(fileName -> openFileToStream(fileName)
+                //.map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build())).subscribeOn(Schedulers.io());
     }
 
 }

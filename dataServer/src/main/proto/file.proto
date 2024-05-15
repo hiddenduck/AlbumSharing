@@ -26,7 +26,8 @@ message FileMessage {
 message ServerInfo {
   string ip   = 1;
   int32  port = 2;
-  bytes  hash = 3;
+  bytes  my_hash = 3;
+  bytes  inf_hash = 4;
 }
 
 /*
