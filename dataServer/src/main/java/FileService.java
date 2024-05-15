@@ -20,6 +20,8 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
 
     private int chunkSize = 4096; // Also Defined in GO
 
+    private byte[] my_hash;
+
 
     public FileService(Boolean isInitial, int port, String central_Ip, int central_port) throws IOException, InvalidTargetServerException {
         this.folder = String.valueOf(port);
@@ -49,9 +51,12 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
 
             var stub = Rx3FileGrpc.newRxStub(connection);
 
-            DownloadMessage request = DownloadMessage.newBuilder()
-                    .setHashKey(serverInfo.getHash())
+            file.TransferMessage request = file.TransferMessage.newBuilder()
+                    .setHashKey(serverInfo.getMyHash())
+                    .setInfHash(serverInfo.getInfHash())
                     .build();
+
+            this.my_hash = serverInfo.getMyHash().toByteArray();
 
             stub.transfer(request).blockingSubscribe(
                     fileMessage -> {
@@ -210,25 +215,31 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
         return compare;
     }
 
-    public Flowable<FileMessage> transfer(DownloadMessage request){
+    public Flowable<FileMessage> transfer(file.TransferMessage request){
         final File directory = new File(this.folder);
         String[] filesNames = directory.list();
         if(filesNames==null) filesNames = new String[]{};
 
         final byte[] requestHash = request.getHashKey().toByteArray();
+        boolean destServerBiggerThanMe = compare(requestHash, this.my_hash) == 1;
+        boolean notAlone = compare(this.my_hash, request.getInfHash().toByteArray()) != 0;
 
         return Flowable.fromArray(filesNames).filter(fileName -> {
             byte[] file_hash = ByteString.copyFromUtf8(fileName).toByteArray();
             if(file_hash.length!=requestHash.length) return false;
 
+            int compareWithInf = compare(file_hash, request.getInfHash().toByteArray());
+            if(notAlone && compareWithInf != -1) return false;
+
             int compareWithDestHash = compare(file_hash, requestHash);
+            int compareWithMyHash     = compare(file_hash, this.my_hash);
 
-            if(){
+            return (compareWithMyHash == 1 && destServerBiggerThanMe && compareWithDestHash == -1)
+                    ||
+                    (compareWithMyHash != 1 && !destServerBiggerThanMe && compareWithDestHash == -1);
 
-            }
-
-        }) //flatMap(fileName -> openFileToStream(fileName)
-                //.map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build())).subscribeOn(Schedulers.io());
+        }).flatMap(fileName -> openFileToStream(fileName)
+                .map(n -> FileMessage.newBuilder().setData(ByteString.copyFrom(n)).build())).subscribeOn(Schedulers.io());
     }
 
 }
