@@ -22,17 +22,16 @@ acceptor(LSock, Loop) ->
     spawn(fun() -> acceptor(LSock, Loop) end),
     data_server(Sock, Loop).
 
-binary_search([], _, _, _) -> {-1,0};   
-binary_search([{_, _, H} | _], Hash, _, _) when H >= Hash ->
-    {-1, 1};
-binary_search(Servers, Hash, Left, Right) ->
-    {_, _, LastHash} = lists:nth(Right, Servers),
+binary_search([], _, _, _) -> {-1,0};       
+binary_search([FirstServer | Servers], Hash, Left, Right) ->
+    LastServer = lists:nth(Right, Servers),
     if
-        LastHash < Hash -> {Right, Right + 1};
+        element(3, FirstServer) >= Hash -> {LastServer, FirstServer, 0};
+        element(3, LastServer) < Hash -> {LastServer, FirstServer, Right};
         true -> binary_search_aux(Servers, Hash, Left, Right)
     end.
-binary_search_aux(_, _, Left, Right) when Right - Left =< 1 ->
-    {Left, Right};
+binary_search_aux(Servers, _, Left, Right) when Right - Left =< 1 ->
+    {lists:nth(Left, Servers), lists:nth(Right, Servers), Left};
 binary_search_aux(Servers, Hash, Left, Right) ->
     Mid = (Left + Right)/2,
     {_, _, Val} = lists:nth(Mid, Servers),
@@ -43,8 +42,9 @@ binary_search_aux(Servers, Hash, Left, Right) ->
 
 handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
     Hash = crypto:hash(<<IP/binary, PORT/binary>>),
-    {_, Right} = binary_search(DataServers, Hash, 0, lists:length(DataServers)-1),
-    {FirstHalf, SecondHalf} = lists:split(Right, DataServers),
+    {LeftServer, RightServer, IndexToAdd} = binary_search(DataServers, Hash, 1, lists:length(DataServers)),
+    {FirstHalf, SecondHalf} = lists:split(IndexToAdd, DataServers),
+    %warn server of its location
     FirstHalf ++ [{IP, PORT, Hash}] ++ SecondHalf.
 
 loop(MainLoop, DataServers) ->
