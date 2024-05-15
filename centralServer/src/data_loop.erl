@@ -1,6 +1,7 @@
 -module(data_loop).
 -export([start/3]).
 -define(ACTIVE_TIMES, 10).
+-include("proto_generated/message.hrl").
 
 
 start(Port, Central, MainLoop) ->
@@ -23,7 +24,6 @@ acceptor(LSock, Loop) ->
     spawn(fun() -> acceptor(LSock, Loop) end),
     data_server(Sock, Loop).
 
-binary_search([], _, _, _) -> {-1,0};       
 binary_search([FirstServer | Servers], Hash, Left, Right) ->
     LastServer = lists:nth(Right, Servers),
     if
@@ -41,8 +41,13 @@ binary_search_aux(Servers, Hash, Left, Right) ->
         true -> binary_search_aux(Servers, Hash, Mid, Right)
     end.
 
-handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
+handler({join, IP, PORT}, {MainLoop, []}, From) -> 
     Hash = crypto:hash(<<IP/binary, PORT/binary>>),
+    From ! {Hash, self()},
+    [{IP, PORT, Hash}];
+handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
+    BinPORT = list_to_binary(integer_to_list(PORT)),
+    Hash = crypto:hash(<<IP, BinPORT/binary>>),
     {InfServer, TopServer, IndexToAdd} = binary_search(DataServers, Hash, 1, lists:length(DataServers)),
     {FirstHalf, SecondHalf} = lists:split(IndexToAdd, DataServers),
     From ! {InfServer, TopServer, Hash, self()},
@@ -75,6 +80,13 @@ data_server(Sock, Loop) ->
     {ok, {MyIP, MyPORT}} = inet:peername(Sock),
     Loop ! {{join, string:join([integer_to_list(I) || I <- tuple_to_list(MyIP)], "."), MyPORT}, self()},
     receive
+        {Hash, Loop} ->
+            inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
+            Data = message:encode_msg(#'ServerInfo'{
+                my_hash = Hash
+            }),
+            Size = byte_size(Data),
+            gen_tcp:send(Sock, <<Size:8/integer, Data/binary>>);
         {{_, _, InfHash}, {IP, PORT, _}, Hash, Loop} -> 
             inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
             Data = message:encode_msg(#'ServerInfo'{
@@ -84,7 +96,7 @@ data_server(Sock, Loop) ->
                 inf_hash = InfHash
             }),
             Size = byte_size(Data),
-            gen_tcp:send(Sock, <<<<Size:8/integer>>, Data/binary>>)
+            gen_tcp:send(Sock, <<Size:8/integer, Data/binary>>)
     end,
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->

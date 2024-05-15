@@ -5,6 +5,7 @@ import (
 	pb "main/CentralServerComunication/CentralServerProtoBuf"
 	dataservers "main/DataServers"
 	"main/crdt"
+	"sync"
 	"time"
 
 	proto "google.golang.org/protobuf/proto"
@@ -119,7 +120,7 @@ func createCrdtMessage(state SessionState) *pb.Crdt {
 		crdtFiles[filename] = &pb.FileInfo{
 			Votes:    crdtVotes,
 			DotSet:   crdtDotSet,
-            FileHash: string(fileInfo.FileHash[:]),
+			FileHash: string(fileInfo.FileHash[:]),
 		}
 	}
 
@@ -183,5 +184,5 @@ func parseProtoReplica(msg *pb.Crdt) crdt.Replica {
 		}
 	}
 
-	return crdt.Replica{Files: crdtFiles, GroupUsers: crdtGroupUsers, VersionVector: msg.VersionVector, CurrentID: msg.Id}
+	return crdt.Replica{Files: crdtFiles, GroupUsers: crdtGroupUsers, VersionVector: msg.VersionVector, CurrentID: msg.Id, Mutex: &sync.Mutex{}}
 }
