@@ -1,5 +1,6 @@
 -module(data_loop).
 -export([start/3]).
+-define(ACTIVE_TIMES, 10).
 
 
 start(Port, Central, MainLoop) ->
@@ -82,7 +83,8 @@ data_server(Sock, Loop) ->
                 my_hash = Hash,
                 inf_hash = InfHash
             }),
-            gen_tcp:send(Sock, <<<<byte_size(Data):8/integer>>, Data/binary>>)
+            Size = byte_size(Data),
+            gen_tcp:send(Sock, <<<<Size:8/integer>>, Data/binary>>)
     end,
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
