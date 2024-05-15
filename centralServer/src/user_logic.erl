@@ -157,8 +157,15 @@ send_reply(Status, Sock) ->
     }),
     gen_tcp:send(Sock, Data).
 
-user_handler({login_ok, UserName, MainLoop}, Sock, MainLoop) ->
-    send_reply("login_ok", Sock),
+user_handler({login_ok, UserName, DataServers, MainLoop}, Sock, MainLoop) ->
+    Data = message:encode_msg(#'Message'{
+            type = 2,
+            msg =
+                {m6, #login_reply{
+                    dataServers = DataServers
+                }}
+        }),
+    send(Data, Sock),
     auth_user(Sock, MainLoop, UserName);
 user_handler({Status, MainLoop}, Sock, MainLoop) when
     Status =:= login_error;

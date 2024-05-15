@@ -24,7 +24,7 @@ handler({register, {Username, Passwd}}, {UserMap, Metadata, DataServers} = State
 handler({login, {Username, Passwd}}, {UserMap, Metadata, DataServers} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, {offline, Passwd}} ->
-            From ! {login_ok, Username, self()},
+            From ! {login_ok, Username, DataServers, self()},
             {maps:update(Username, {online, Passwd}, UserMap), Metadata, DataServers};
 
         _ ->
@@ -72,12 +72,13 @@ handler({end_session, AlbumName}, {Users, AlbumMap, DataServers}=State, From) ->
     end;
 
 handler({addServer, IP, PORT}, {Users, AlbumMap, {From, Servers}}=_State, From) ->
+    %maps:foreach(fun(UserName, {Status, _}))
     {Users, AlbumMap, {From, [{IP, PORT} | Servers]}}.
 
 mainLoop({Users, Albums}, Central) ->
     receive
         {DataLoop, Central} ->
-            mainLoop({Users, Albums, {DataLoop, []}}) 
+            mainLoop({Users, Albums, {DataLoop, []}})
     end.
 
 mainLoop(State) ->

@@ -33,19 +33,17 @@
         }).
 -endif.
 
--ifndef('GET_ALBUM_PB_H').
--define('GET_ALBUM_PB_H', true).
--record(get_album,
-        {albumName = []         :: unicode:chardata() | undefined, % = 1, optional
-         ip = []                :: unicode:chardata() | undefined, % = 2, optional
-         port = 0               :: integer() | undefined % = 3, optional, 64 bits
-        }).
--endif.
-
 -ifndef('REPLY_MESSAGE_PB_H').
 -define('REPLY_MESSAGE_PB_H', true).
 -record(reply_message,
         {status = []            :: unicode:chardata() | undefined % = 1, optional
+        }).
+-endif.
+
+-ifndef('LOGIN_REPLY_PB_H').
+-define('LOGIN_REPLY_PB_H', true).
+-record(login_reply,
+        {dataServers = []       :: [message:peerInfo()] | undefined % = 1, repeated
         }).
 -endif.
 
@@ -142,8 +140,8 @@
 -ifndef('MESSAGE_PB_H').
 -define('MESSAGE_PB_H', true).
 -record('Message',
-        {type = register        :: register | login | create | get | send | quit | reply | new_peer | peer_left | integer() | undefined, % = 1, optional, enum Type
-         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:get_album()} | {m7, message:newPeer()} | undefined % oneof
+        {type = register        :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | integer() | undefined, % = 1, optional, enum Type
+         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:login_reply()} | {m7, message:newPeer()} | undefined % oneof
         }).
 -endif.
 
