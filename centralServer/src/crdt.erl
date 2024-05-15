@@ -229,16 +229,18 @@ causalContextUnion(VersionVector, [{ID, NewVersion} | VVTail]) ->
     causalContextUnion(NewVV, VVTail).
 
 clearState({Files, GroupUsers, _VersionVector}) ->
+    %Reset GroupUser DotSet to 0=>0 for every User
     NewGroupUsers = maps:map(
         fun(_UserName, _DotSet) ->
             #{{0,0}=>true}
         end,
         GroupUsers
     ),
+    %Reset Files DotSet to 0=>0 AND VoteMap to one singular User for every File
     NewFiles = maps:map(
         fun(_FileName, {FileHash, VoteMap, _DotSet}) ->
             NewVoteMap = #{0=>maps:fold(
-                fun(_Id, {Sum, Count}, {TotalSum, TotalCount}) ->
+                fun(_UserId, {Sum, Count}, {TotalSum, TotalCount}) ->
                     {TotalSum + Sum, TotalCount + Count}
                 end, 
                 {0,0},
@@ -247,5 +249,6 @@ clearState({Files, GroupUsers, _VersionVector}) ->
         end,
         Files
     ),
+    %Causal Context reset to 0=>0
     NewVersionVector = #{0=>0},
     {NewFiles, NewGroupUsers, NewVersionVector}.
