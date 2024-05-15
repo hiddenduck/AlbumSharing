@@ -16,7 +16,7 @@ message album {
   string albumName = 1;
 }
 
-message get_album {
+message get_album { // deprecated
   string albumName = 1;
   string ip        = 2;
   int64  port      = 3;
@@ -91,7 +91,7 @@ message Message {
     sessionStart        m3 = 4;
     quitMessage         m4 = 5;
     reply_message       m5 = 6;
-    get_album           m6 = 7;
+    get_album           m6 = 7; // deprecated
     newPeer             m7 = 8;
   }
 }
@@ -100,7 +100,7 @@ enum Type {
   register  = 0; // registerLoginFormat
   login     = 1; // registerLoginFormat
   create    = 3; // album
-  get       = 4; // get_album
+  get       = 4; // album
   send      = 5; // sessionStart
   quit      = 6; // quitMessage
   reply     = 7; // reply

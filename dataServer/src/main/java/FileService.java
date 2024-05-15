@@ -23,7 +23,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     private byte[] my_hash;
 
 
-    public FileService(Boolean isInitial, int port, String central_Ip, int central_port) throws IOException, InvalidTargetServerException {
+    public FileService(int port, String central_Ip, int central_port) throws IOException, InvalidTargetServerException {
         this.folder = String.valueOf(port);
         File directory = new File(folder);
 
@@ -31,7 +31,6 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
             directory.mkdir();
         }
 
-        if(!isInitial) {
             file.ServerInfo serverInfo = null;
             try (Socket s = new Socket(central_Ip, central_port)) {
                 // Waiting join response...
@@ -45,39 +44,39 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
             }
             if(serverInfo== null) throw new InvalidTargetServerException("Target Server values are null");
 
-            var connection = ManagedChannelBuilder.forAddress(serverInfo.getIp(), serverInfo.getPort())
-                    .usePlaintext()
-                    .build();
+            if(!serverInfo.getIp().equals("")) {
+                var connection = ManagedChannelBuilder.forAddress(serverInfo.getIp(), serverInfo.getPort())
+                        .usePlaintext()
+                        .build();
 
-            var stub = Rx3FileGrpc.newRxStub(connection);
+                var stub = Rx3FileGrpc.newRxStub(connection);
 
-            file.TransferMessage request = file.TransferMessage.newBuilder()
-                    .setHashKey(serverInfo.getMyHash())
-                    .setInfHash(serverInfo.getInfHash())
-                    .build();
+                file.TransferMessage request = file.TransferMessage.newBuilder()
+                        .setHashKey(serverInfo.getMyHash())
+                        .setInfHash(serverInfo.getInfHash())
+                        .build();
 
-            this.my_hash = serverInfo.getMyHash().toByteArray();
+                this.my_hash = serverInfo.getMyHash().toByteArray();
 
-            stub.transfer(request).blockingSubscribe(
-                    fileMessage -> {
-                        byte[] data = fileMessage.getData().toByteArray();
-                        String hash = fileMessage.getHashKey().toStringUtf8();
+                stub.transfer(request).blockingSubscribe(
+                        fileMessage -> {
+                            byte[] data = fileMessage.getData().toByteArray();
+                            String hash = fileMessage.getHashKey().toStringUtf8();
 
-                        try (FileOutputStream writer = new FileOutputStream(hash, true)) {
-                            writer.write(data);
-                            writer.flush();
-                        } catch (IOException e) {
-                            new File(hash).delete();
-                            throw new ErrorInTransferException("Error while transfering file with hash: " + hash);
-                        }
-                    },
-                    throwable -> {
-                        throw new ErrorInTransferException(throwable.getMessage());
-                    },
-                    () -> System.out.println("File transfer completed! :)")
-            );
-
-        }
+                            try (FileOutputStream writer = new FileOutputStream(hash, true)) {
+                                writer.write(data);
+                                writer.flush();
+                            } catch (IOException e) {
+                                new File(hash).delete();
+                                throw new ErrorInTransferException("Error while transfering file with hash: " + hash);
+                            }
+                        },
+                        throwable -> {
+                            throw new ErrorInTransferException(throwable.getMessage());
+                        },
+                        () -> System.out.println("File transfer completed! :)")
+                );
+            }
 
     }
 
