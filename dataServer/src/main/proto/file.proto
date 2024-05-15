@@ -7,7 +7,7 @@ option java_multiple_files = true;
 service File {
   rpc Download(DownloadMessage) returns (stream FileMessage) {};
   rpc Upload(stream FileMessage) returns (stream UploadMessage) {};
-  rpc Transfer(DownloadMessage) returns (stream FileMessage){};
+  rpc Transfer(TransferMessage) returns (stream FileMessage){};
 }
 
 message DownloadMessage {
@@ -28,6 +28,11 @@ message ServerInfo {
   int32  port = 2;
   bytes  my_hash = 3;
   bytes  inf_hash = 4;
+}
+
+message TransferMessage {
+  bytes hash_key = 1;
+  bytes inf_hash = 2;
 }
 
 /*
