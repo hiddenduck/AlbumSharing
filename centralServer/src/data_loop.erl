@@ -44,6 +44,7 @@ handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a str
     Hash = crypto:hash(<<IP/binary, PORT/binary>>),
     {LeftServer, RightServer, IndexToAdd} = binary_search(DataServers, Hash, 1, lists:length(DataServers)),
     {FirstHalf, SecondHalf} = lists:split(IndexToAdd, DataServers),
+    From ! {LeftServer, RightServer, Hash, From},
     %warn server of its location
     FirstHalf ++ [{IP, PORT, Hash}] ++ SecondHalf.
 
@@ -71,10 +72,14 @@ message_handler(
 -endif().
 
 data_server(Sock, Loop) ->
+    {ok, {IP, PORT}} = inet:peername(Sock),
+    Loop ! {{join, IP, PORT}, self()},
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
             ok
-        %{tcp, _, Msg} ->
+        {{_, _, LowerHash}, {IP, PORT, _}, Hash, Loop} -> 
+            
+         %{tcp, _, Msg} ->
          %   Message = message:decode_msg(Msg, 'Message'),
           %  message_handler(Message#'Message'.type, Message#'Message'.msg, Sock, MainLoop);
         %Msg ->

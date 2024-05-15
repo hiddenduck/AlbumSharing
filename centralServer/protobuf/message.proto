@@ -1,5 +1,12 @@
 syntax = "proto3";
 
+message ServerInfo {
+  string ip   = 1;
+  int32  port = 2;
+  bytes  my_hash = 3;
+  bytes  inf_hash = 4;
+}
+
 message registerLoginFormat {
   string userName = 1;
   string password = 2;
