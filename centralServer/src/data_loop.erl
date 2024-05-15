@@ -3,7 +3,6 @@
 -define(ACTIVE_TIMES, 10).
 -include("proto_generated/message.hrl").
 
-
 start(Port, Central, MainLoop) ->
     register(?MODULE, spawn(fun() -> start_loop(Port, Central, MainLoop) end)),
     ok.
@@ -24,7 +23,8 @@ acceptor(LSock, Loop) ->
     spawn(fun() -> acceptor(LSock, Loop) end),
     data_server(Sock, Loop).
 
-binary_search([FirstServer | Servers], Hash, Left, Right) ->
+binary_search(Servers, Hash, Left, Right) ->
+    [FirstServer | _] = Servers,
     LastServer = lists:nth(Right, Servers),
     if
         element(3, FirstServer) >= Hash -> {LastServer, FirstServer, 0};
@@ -34,7 +34,7 @@ binary_search([FirstServer | Servers], Hash, Left, Right) ->
 binary_search_aux(Servers, _, Left, Right) when Right - Left =< 1 ->
     {lists:nth(Left, Servers), lists:nth(Right, Servers), Left};
 binary_search_aux(Servers, Hash, Left, Right) ->
-    Mid = (Left + Right)/2,
+    Mid = (Left + Right) div 2,
     {_, _, Val} = lists:nth(Mid, Servers),
     if 
         Val >= Hash -> binary_search_aux(Servers, Hash, Left, Mid);
@@ -44,13 +44,16 @@ binary_search_aux(Servers, Hash, Left, Right) ->
 handler({join, IP, PORT}, {MainLoop, []}, From) -> 
     Hash = crypto:hash(<<IP/binary, PORT/binary>>),
     From ! {Hash, self()},
+    MainLoop ! {{addServer, IP, PORT}, self()},
     [{IP, PORT, Hash}];
+
 handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
     BinPORT = list_to_binary(integer_to_list(PORT)),
     Hash = crypto:hash(<<IP, BinPORT/binary>>),
     {InfServer, TopServer, IndexToAdd} = binary_search(DataServers, Hash, 1, lists:length(DataServers)),
     {FirstHalf, SecondHalf} = lists:split(IndexToAdd, DataServers),
     From ! {InfServer, TopServer, Hash, self()},
+    MainLoop ! {{addServer, IP, PORT}, self()},
     FirstHalf ++ [{IP, PORT, Hash}] ++ SecondHalf.
 
 loop(MainLoop, DataServers) ->
@@ -83,6 +86,7 @@ data_server(Sock, Loop) ->
         {Hash, Loop} ->
             inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
             Data = message:encode_msg(#'ServerInfo'{
+                ip = "",
                 my_hash = Hash
             }),
             Size = byte_size(Data),
