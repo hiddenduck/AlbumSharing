@@ -6,7 +6,7 @@ createAlbum(UserName) ->
     % and DotPair = {Id,Version}
     Files = #{},
 
-    %GroupUsers    map[string]DotMap
+    %GroupUsers    map[string]DotSet
     GroupUsers = maps:put(UserName, #{}, #{}),
 
     % VersionVector map[uint32]uint64
@@ -228,5 +228,24 @@ causalContextUnion(VersionVector, [{ID, NewVersion} | VVTail]) ->
     end,
     causalContextUnion(NewVV, VVTail).
 
-clearState({Files, GroupUsers, VersionVector}) ->
-    {todo, todo, todo}.
+clearState({Files, GroupUsers, _VersionVector}) ->
+    NewGroupUsers = maps:map(
+        fun(_UserName, _DotSet) ->
+            #{{0,0}=>true}
+        end,
+        GroupUsers
+    ),
+    NewFiles = maps:map(
+        fun(_FileName, {FileHash, VoteMap, _DotSet}) ->
+            NewVoteMap = #{0=>maps:fold(
+                fun(_Id, {Sum, Count}, {TotalSum, TotalCount}) ->
+                    {TotalSum + Sum, TotalCount + Count}
+                end, 
+                {0,0},
+                VoteMap)},
+            {FileHash, NewVoteMap, #{{0,0}=>true}}
+        end,
+        Files
+    ),
+    NewVersionVector = #{0=>0},
+    {NewFiles, NewGroupUsers, NewVersionVector}.
