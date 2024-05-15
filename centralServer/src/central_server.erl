@@ -22,10 +22,11 @@ start_server(Port, DataLoopPort) ->
     {ok, LSock} = gen_tcp:listen(Port, [binary, {active, once}, {packet, raw},
                                       {reuseaddr, true}]),
     
-    MainLoop = spawn(fun() -> main_loop:mainLoop(createState()) end),
+    MainLoop = spawn(fun() -> main_loop:mainLoop(createState(), self()) end),
     DataLoop = spawn(fun() -> data_loop:start(DataLoopPort, self(), MainLoop) end),
+    MainLoop ! {DataLoop, self()},
     spawn(fun() -> acceptor(LSock, MainLoop) end),
-
+    
     receive
         stop ->
             DataLoop ! {stop, self()},
