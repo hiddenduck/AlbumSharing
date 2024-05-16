@@ -30,10 +30,6 @@ func CreateClientState() (clientState ClientState) {
 
 	conn := centralservercomunication.ConnectToCentralServer()
 
-	if err != nil {
-		panic(err)
-	}
-
 	clientState = ClientState{
 		CommandMap:              CreateCommandsMap(),
 		IsInSession:             false,
@@ -51,7 +47,7 @@ func CreateSessionState(clientId uint32) (sessionState SessionState) {
 	voteMap := make(map[string]bool)
 
 	connector := chat.Make_ConnectorInfo()
-	
+
 	causalBI := chat.InitCausalBroadCast(clientId, &connector)
 
 	messageHandlers := CreateMessageHandlers()
