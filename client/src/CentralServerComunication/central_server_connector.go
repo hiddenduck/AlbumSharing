@@ -40,13 +40,13 @@ func CentralServerListener(connection net.Conn, handlers Handlers) {
 
         //non blocking chanel
 		if ok {
-            ch <- msg
-            fmt.Printf("Sent to peep\n")
-			// select {
-   //          case ch <- msg:
-   //              fmt.Printf("sent message %+v\n", msg)
-   //          default:
-   //          }
+            // ch <- msg
+            // fmt.Printf("Sent to peep\n")
+			select {
+            case ch <- msg:
+                fmt.Printf("sent message %+v\n", msg)
+            default:
+            }
         }
 
 	}

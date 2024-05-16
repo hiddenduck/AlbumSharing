@@ -93,6 +93,11 @@ func register(msg []string, state ClientState) {
 
 	fmt.Printf("Started Register\n")
 
+    if len(msg) != 2 {
+        fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+        return
+    }
+
 	username := msg[0]
 	password := msg[1]
 
@@ -141,6 +146,11 @@ func register(msg []string, state ClientState) {
 func login(msg []string, state ClientState) {
 
 	fmt.Printf("Started Login\n")
+
+    if len(msg) != 2 {
+        fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+        return
+    }
 
 	username := msg[0]
 	password := msg[1]
