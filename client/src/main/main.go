@@ -1,20 +1,18 @@
 package main
 
-import "main/client"
+import (
+	"bufio"
+	"fmt"
+	"main/client"
+	"os"
+	"strings"
+)
 
 func main() {
 
 	is_in_Album := true
 
-	state := client.CreateSessionState()
-
-	state.Replica.AddFile("lmao", "hash0")
-
-	go client.HeartBeat(state)
-
-	go client.PeerListen(state)
-
-	commandMap := client.CreateCommandsMap()
+	state := client.CreateClientState()
 
 	for {
 
@@ -30,7 +28,7 @@ func main() {
 
 		if input[0] == '/' {
 
-			client.ExecuteCommand(strings.Split(input[1:], " "), commandMap, state)
+			client.ExecuteCommand(strings.Split(input[1:], " "), state)
 
 			continue
 		}
@@ -41,7 +39,7 @@ func main() {
 			continue
 		}
 
-		state.CausalBroadcastInfo.CausalBroadcast([]byte(input))
+		state.SessionState.CausalBroadcastInfo.CausalBroadcast([]byte(input))
 
 		//fmt.Println(input)
 		//state.Connector.Send_to_Peers("chat", []byte(input))

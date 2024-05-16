@@ -5,7 +5,6 @@ import (
 	centralservercomunication "main/CentralServerComunication"
 	pb "main/CentralServerComunication/CentralServerProtobuf"
 	dataservers "main/DataServers"
-	connectionmanagement "main/connection_management"
 	"strconv"
 
 	"google.golang.org/protobuf/proto"
@@ -196,6 +195,10 @@ func getAlbum(msg []string, state ClientState){
         isAlone = false
     }
 
+    connector.SetIdentity(string(message.Id))
+
+	connector.BindSocket(msg[1])
+
     for name, peerInfo := range message.SessionPeers {
 
         connector.Add_Peer(string(peerInfo.Id), name, peerInfo.Ip, peerInfo.Port)
@@ -210,6 +213,11 @@ func getAlbum(msg []string, state ClientState){
 	messageHandlers["requestVV"] = SendCbcastVV
 
 	go state.SessionState.CausalBroadcastInfo.CausalReceive(isAlone)
+
+	go HeartBeat(state.SessionState)
+
+    go PeerListen(state.SessionState)
+
 }
 
 func CreateCommandsMap() CommandMap {

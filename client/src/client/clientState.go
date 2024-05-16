@@ -47,14 +47,7 @@ func CreateSessionState(clientId uint32) (sessionState SessionState) {
 	voteMap := make(map[string]bool)
 
 	connector := chat.Make_ConnectorInfo()
-
-	connector.SetIdentity(string(clientId))
-	//
-	connector.BindSocket("1111")
-	//
-	// connector.Add_Peer("PEER2", "Emanueldo Gonçalves Faria 2", "localhost", "2222")
-	// connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
-
+	
 	causalBI := chat.InitCausalBroadCast(clientId, &connector)
 
 	messageHandlers := CreateMessageHandlers()
