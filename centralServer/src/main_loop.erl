@@ -1,5 +1,5 @@
 -module(main_loop).
--export([mainLoop/2]).
+-export([mainLoop/1]).
 
 handler({log_out, UserName}, {UserMap, Metadata, DataServers} = State) ->
     case maps:find(UserName, UserMap) of
@@ -17,6 +17,7 @@ handler({register, {Username, Passwd}}, {UserMap, Metadata, DataServers} = State
             State;
 
         error ->
+            io:format("worked"),
             From ! {register_ok, self()},
             {maps:put(Username, {offline, Passwd}, UserMap), Metadata, DataServers}
     end;
@@ -77,11 +78,11 @@ handler({addServer, IP, PORT}, {Users, AlbumMap, {From, Servers}}=_State, From) 
         end, Users),
     {Users, AlbumMap, {From, [{IP, PORT} | Servers]}}.
 
-mainLoop({Users, Albums}, Central) ->
+mainLoop({Users, Albums}) ->
     receive
-        {DataLoop, Central} ->
-            mainLoop({Users, Albums, {DataLoop, []}})
-    end.
+        DataLoop ->
+            mainLoop({Users, Albums, {DataLoop, []}})   
+    end;
 
 mainLoop(State) ->
     receive
