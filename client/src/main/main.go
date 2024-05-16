@@ -1,6 +1,8 @@
 package main
 
-import "main/client"
+import (
+	"main/client"
+)
 
 func main() {
 	state := client.CreateClientState()
