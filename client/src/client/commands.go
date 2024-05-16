@@ -93,10 +93,10 @@ func register(msg []string, state ClientState) {
 
 	fmt.Printf("Started Register\n")
 
-    if len(msg) != 2 {
-        fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
-        return
-    }
+	if len(msg) != 2 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
 
 	username := msg[0]
 	password := msg[1]
@@ -126,9 +126,9 @@ func register(msg []string, state ClientState) {
 
 	// state.CentralServerConnection.Read(buff)
 
-    reply := <-state.CentralServerMessageHandlers[pb.Type_reply]
+	reply := <-state.CentralServerMessageHandlers[pb.Type_reply]
 
-    fmt.Printf("reply.Type: %v\n", reply.Type)
+	fmt.Printf("reply.Type: %v\n", reply.Type)
 
 	fmt.Printf("Received reply from Central Server\n")
 
@@ -147,10 +147,10 @@ func login(msg []string, state ClientState) {
 
 	fmt.Printf("Started Login\n")
 
-    if len(msg) != 2 {
-        fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
-        return
-    }
+	if len(msg) != 2 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
 
 	username := msg[0]
 	password := msg[1]
@@ -181,13 +181,15 @@ func login(msg []string, state ClientState) {
 
 	// buff := make([]byte, 1024)
 
-    reply := <-state.CentralServerMessageHandlers[pb.Type_loginReply]
+	reply := <-state.CentralServerMessageHandlers[pb.Type_loginReply]
 
 	fmt.Printf("Received login from Central Server\n")
 
 	// proto.Unmarshal(buff, reply)
 
-	if reply.Type == pb.Type_loginReply {
+	status := reply.GetM6().Status
+
+	if status == "login_ok" {
 		for _, info := range reply.GetM6().DataServers {
 			state.DataServers.AddServer(info.Ip, info.Port)
 		}
