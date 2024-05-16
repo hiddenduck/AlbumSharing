@@ -288,6 +288,7 @@ func sessionStart(albumName string, conn net.Conn, state ClientState) *pb.Sessio
 		Msg: &pb.Message_M2{
 			M2: &pb.Album{
 				AlbumName: albumName,
+				Port:      state.RouterPort,
 			},
 		},
 	}
