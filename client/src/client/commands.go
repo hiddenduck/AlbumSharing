@@ -188,6 +188,49 @@ func login(msg []string, state ClientState) {
 
 }
 
+func createAlbum(msg []string, state ClientState) {
+
+	albumName := msg[0]
+
+	createAlbumMessage := &pb.Album{
+		AlbumName: albumName,
+	}
+
+	message := pb.Message{
+		Type: pb.Type_create,
+		Msg: &pb.Message_M2{
+			M2: createAlbumMessage,
+		},
+	}
+
+	data, err := proto.Marshal(&message)
+
+	if err != nil {
+		panic(err)
+	}
+
+	state.CentralServerConnection.Write(data)
+
+	fmt.Printf("Sent create to Central Server\n")
+
+	reply := &pb.Message{}
+
+	buff := make([]byte, 1024)
+
+	state.CentralServerConnection.Read(buff)
+
+	fmt.Printf("Received create from Central Server\n")
+
+	proto.Unmarshal(buff, reply)
+
+	if reply.Type == pb.Type_loginReply {
+
+		fmt.Printf("Created Album %v\n", albumName)
+	} else {
+		fmt.Println("Create failed, album name already exists!")
+	}
+}
+
 func getAlbum(msg []string, state ClientState) {
 
 	con := state.CentralServerConnection
@@ -249,6 +292,7 @@ func CreateCommandsMap() CommandMap {
 		"printVV":      printVV,
 		"login":        login,
 		"register":     register,
+		"createAlbum":  createAlbum,
 		"getAlbum":     getAlbum,
 	}
 }
