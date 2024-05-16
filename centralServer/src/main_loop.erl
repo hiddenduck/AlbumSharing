@@ -43,7 +43,7 @@ handler({create_album, Username, AlbumName}, State, From) ->
     end,
     State;
 
-handler({get_album, Username, AlbumName}, {Users, AlbumMap, DataServers} = State, From) ->
+handler({get_album, Username, Ip, Port, AlbumName}, {Users, AlbumMap, DataServers} = State, From) ->
     case maps:find(AlbumName, AlbumMap) of
         {ok, Pid} ->
             Pid ! {join, Username, From, self()},
@@ -52,7 +52,7 @@ handler({get_album, Username, AlbumName}, {Users, AlbumMap, DataServers} = State
         _ ->
             case sessionManager:start(AlbumName, Username, self()) of
                 {ok, Pid} ->
-                    Pid ! {join, From, self()},
+                    Pid ! {join, Username, Ip, Port, From, self()},
                     {Users, maps:put(AlbumName, Pid, AlbumMap), DataServers};
 
                 ErrorMsg ->

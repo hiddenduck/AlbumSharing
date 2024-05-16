@@ -2,9 +2,9 @@ package client
 
 import (
 	"fmt"
-	centralservercomunication "main/CentralServerComunication"
 	pb "main/CentralServerComunication/CentralServerProtobuf"
 	dataservers "main/DataServers"
+	"net"
 	"strconv"
 
 	"google.golang.org/protobuf/proto"
@@ -245,11 +245,46 @@ func createAlbum(msg []string, state ClientState) {
 	}
 }
 
+func sessionStart(albumName string, conn net.Conn, state ClientState) *pb.SessionStart {
+
+	message := &pb.Message{
+		Type: pb.Type_get,
+		Msg: &pb.Message_M2{
+			M2: &pb.Album{
+				AlbumName: albumName,
+			},
+		},
+	}
+
+	data, err := proto.Marshal(message)
+
+	if err != nil {
+		panic(err)
+	}
+
+	conn.Write(data)
+
+	fmt.Printf("Sent request to session to Central Server\n")
+
+	reply := <-state.CentralServerMessageHandlers[pb.Type_get]
+
+	fmt.Printf("Received session from Central Server\n")
+
+	m3 := reply.GetM3()
+
+	return m3
+}
+
 func getAlbum(msg []string, state ClientState) {
+
+	if len(msg) != 1 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
 
 	con := state.CentralServerConnection
 
-	message := centralservercomunication.SessionStart(msg[0], con)
+	message := sessionStart(msg[0], con, state)
 
 	state.SessionState = CreateSessionState(message.Id)
 
@@ -266,7 +301,7 @@ func getAlbum(msg []string, state ClientState) {
 		isAlone = false
 	}
 
-	connector.SetIdentity(fmt.Sprintf("PEER%v",message.Id))
+	connector.SetIdentity(fmt.Sprintf("PEER%v", message.Id))
 
 	connector.BindSocket(msg[1])
 

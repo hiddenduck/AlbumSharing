@@ -21,7 +21,7 @@ func CentralServerListener(connection net.Conn, handlers Handlers) {
 
 	for {
 
-        buff := make([]byte, BUFFER_SIZE)
+		buff := make([]byte, BUFFER_SIZE)
 
 		_, err := connection.Read(buff)
 
@@ -33,21 +33,20 @@ func CentralServerListener(connection net.Conn, handlers Handlers) {
 
 		proto.Unmarshal(buff, msg)
 
-
-        fmt.Printf("msg.Type: %v\n", msg.Type)
+		fmt.Printf("msg.Type: %v\n", msg.Type)
 
 		ch, ok := handlers[msg.Type]
 
-        //non blocking chanel
+		//non blocking chanel
 		if ok {
-            // ch <- msg
-            // fmt.Printf("Sent to peep\n")
+			// ch <- msg
+			// fmt.Printf("Sent to peep\n")
 			select {
-            case ch <- msg:
-                fmt.Printf("sent message %+v\n", msg)
-            default:
-            }
-        }
+			case ch <- msg:
+				fmt.Printf("sent message %+v\n", msg)
+			default:
+			}
+		}
 
 	}
 
@@ -64,36 +63,4 @@ func ConnectToCentralServer() (connection net.Conn) {
 	}
 
 	return
-}
-
-func SessionStart(albumName string, conn net.Conn) *pb.SessionStart {
-
-	message := &pb.Message{
-		Type: pb.Type_get,
-		Msg: &pb.Message_M2{
-			M2: &pb.Album{
-				AlbumName: albumName,
-			},
-		},
-	}
-
-	data, err := proto.Marshal(message)
-
-	if err != nil {
-		panic(err)
-	}
-
-	conn.Write(data)
-
-	buf := make([]byte, 1024)
-
-	reply := &pb.Message{}
-	conn.Read(buf)
-
-	proto.Unmarshal(buf, reply)
-
-	m3 := reply.GetM3()
-
-	return m3
-
 }

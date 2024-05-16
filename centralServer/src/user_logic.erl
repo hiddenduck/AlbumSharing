@@ -134,8 +134,9 @@ auth_user_handler(_, Sock, MainLoop, UserName) ->
 auth_message_handler(create, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{create_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
-auth_message_handler(get, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
-    MainLoop ! {{get_album, UserName, AlbumName}, self()},
+auth_message_handler(get, {m2, #album{albumName = AlbumName, port = PORT}}, Sock, MainLoop, UserName) ->
+    {ok, {IP, _}} = inet:peername(Sock),
+    MainLoop ! {{get_album, UserName, IP, PORT, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
 auth_message_handler(
     _, _, Sock, MainLoop, UserName

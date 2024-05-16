@@ -9,6 +9,7 @@ message registerLoginFormat {
 
 message album {
     string albumName = 1;
+    string port      = 2;
 }
 
 message login_reply {

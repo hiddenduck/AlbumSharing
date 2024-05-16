@@ -29,7 +29,8 @@
 -ifndef('ALBUM_PB_H').
 -define('ALBUM_PB_H', true).
 -record(album,
-        {albumName = []         :: unicode:chardata() | undefined % = 1, optional
+        {albumName = []         :: unicode:chardata() | undefined, % = 1, optional
+         port = []              :: unicode:chardata() | undefined % = 2, optional
         }).
 -endif.
 

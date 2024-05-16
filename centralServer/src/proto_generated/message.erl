@@ -218,14 +218,24 @@ encode_msg_registerLoginFormat(#registerLoginFormat{userName = F1, password = F2
 encode_msg_album(Msg, TrUserData) -> encode_msg_album(Msg, <<>>, TrUserData).
 
 
-encode_msg_album(#album{albumName = F1}, Bin, TrUserData) ->
-    if F1 == undefined -> Bin;
+encode_msg_album(#album{albumName = F1, port = F2}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+            true ->
+                begin
+                    TrF1 = id(F1, TrUserData),
+                    case is_empty_string(TrF1) of
+                        true -> Bin;
+                        false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+                    end
+                end
+         end,
+    if F2 == undefined -> B1;
        true ->
            begin
-               TrF1 = id(F1, TrUserData),
-               case is_empty_string(TrF1) of
-                   true -> Bin;
-                   false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+               TrF2 = id(F2, TrUserData),
+               case is_empty_string(TrF2) of
+                   true -> B1;
+                   false -> e_type_string(TrF2, <<B1/binary, 18>>, TrUserData)
                end
            end
     end.
@@ -1074,49 +1084,56 @@ skip_32_registerLoginFormat(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUser
 
 skip_64_registerLoginFormat(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_registerLoginFormat(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-decode_msg_album(Bin, TrUserData) -> dfp_read_field_def_album(Bin, 0, 0, 0, id([], TrUserData), TrUserData).
+decode_msg_album(Bin, TrUserData) -> dfp_read_field_def_album(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), TrUserData).
 
-dfp_read_field_def_album(<<10, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> d_field_album_albumName(Rest, Z1, Z2, F, F@_1, TrUserData);
-dfp_read_field_def_album(<<>>, 0, 0, _, F@_1, _) -> #album{albumName = F@_1};
-dfp_read_field_def_album(Other, Z1, Z2, F, F@_1, TrUserData) -> dg_read_field_def_album(Other, Z1, Z2, F, F@_1, TrUserData).
+dfp_read_field_def_album(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_album_albumName(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_album(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_album_port(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_album(<<>>, 0, 0, _, F@_1, F@_2, _) -> #album{albumName = F@_1, port = F@_2};
+dfp_read_field_def_album(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_album(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-dg_read_field_def_album(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_album(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-dg_read_field_def_album(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, TrUserData) ->
+dg_read_field_def_album(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_album(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+dg_read_field_def_album(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_album_albumName(Rest, 0, 0, 0, F@_1, TrUserData);
+        10 -> d_field_album_albumName(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        18 -> d_field_album_port(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_album(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                1 -> skip_64_album(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                2 -> skip_length_delimited_album(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                3 -> skip_group_album(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                5 -> skip_32_album(Rest, 0, 0, Key bsr 3, F@_1, TrUserData)
+                0 -> skip_varint_album(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                1 -> skip_64_album(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                2 -> skip_length_delimited_album(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                3 -> skip_group_album(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                5 -> skip_32_album(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
             end
     end;
-dg_read_field_def_album(<<>>, 0, 0, _, F@_1, _) -> #album{albumName = F@_1}.
+dg_read_field_def_album(<<>>, 0, 0, _, F@_1, F@_2, _) -> #album{albumName = F@_1, port = F@_2}.
 
-d_field_album_albumName(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> d_field_album_albumName(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-d_field_album_albumName(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, TrUserData) ->
+d_field_album_albumName(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_album_albumName(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_album_albumName(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_album(RestF, 0, 0, F, NewFValue, TrUserData).
+    dfp_read_field_def_album(RestF, 0, 0, F, NewFValue, F@_2, TrUserData).
 
-skip_varint_album(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> skip_varint_album(Rest, Z1, Z2, F, F@_1, TrUserData);
-skip_varint_album(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_album(Rest, Z1, Z2, F, F@_1, TrUserData).
+d_field_album_port(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_album_port(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_album_port(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_album(RestF, 0, 0, F, F@_1, NewFValue, TrUserData).
 
-skip_length_delimited_album(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> skip_length_delimited_album(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-skip_length_delimited_album(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) ->
+skip_varint_album(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> skip_varint_album(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+skip_varint_album(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_album(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+skip_length_delimited_album(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_album(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+skip_length_delimited_album(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_album(Rest2, 0, 0, F, F@_1, TrUserData).
+    dfp_read_field_def_album(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
 
-skip_group_album(Bin, _, Z2, FNum, F@_1, TrUserData) ->
+skip_group_album(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_album(Rest, 0, Z2, FNum, F@_1, TrUserData).
+    dfp_read_field_def_album(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
 
-skip_32_album(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_album(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_32_album(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_album(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-skip_64_album(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_album(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_64_album(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_album(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
 decode_msg_reply_message(Bin, TrUserData) -> dfp_read_field_def_reply_message(Bin, 0, 0, 0, id([], TrUserData), TrUserData).
 
@@ -2522,10 +2539,14 @@ merge_msg_registerLoginFormat(#registerLoginFormat{userName = PFuserName, passwo
                              end}.
 
 -compile({nowarn_unused_function,merge_msg_album/3}).
-merge_msg_album(#album{albumName = PFalbumName}, #album{albumName = NFalbumName}, _) ->
+merge_msg_album(#album{albumName = PFalbumName, port = PFport}, #album{albumName = NFalbumName, port = NFport}, _) ->
     #album{albumName =
                if NFalbumName =:= undefined -> PFalbumName;
                   true -> NFalbumName
+               end,
+           port =
+               if NFport =:= undefined -> PFport;
+                  true -> NFport
                end}.
 
 -compile({nowarn_unused_function,merge_msg_reply_message/3}).
@@ -2791,9 +2812,12 @@ v_submsg_album(Msg, Path, TrUserData) -> v_msg_album(Msg, Path, TrUserData).
 
 -compile({nowarn_unused_function,v_msg_album/3}).
 -dialyzer({nowarn_function,v_msg_album/3}).
-v_msg_album(#album{albumName = F1}, Path, TrUserData) ->
+v_msg_album(#album{albumName = F1, port = F2}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [albumName | Path], TrUserData)
+    end,
+    if F2 == undefined -> ok;
+       true -> v_type_string(F2, [port | Path], TrUserData)
     end,
     ok;
 v_msg_album(X, Path, _TrUserData) -> mk_type_error({expected_msg, album}, X, Path).
@@ -3372,7 +3396,7 @@ get_msg_defs() ->
        #field{name = my_hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []},
        #field{name = inf_hash, fnum = 4, rnum = 5, type = bytes, occurrence = optional, opts = []}]},
      {{msg, registerLoginFormat}, [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
-     {{msg, album}, [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
+     {{msg, album}, [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
      {{msg, reply_message}, [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
      {{msg, login_reply}, [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = dataServers, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = repeated, opts = []}]},
      {{msg, voteValue}, [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
@@ -3449,7 +3473,7 @@ find_msg_def('ServerInfo') ->
      #field{name = my_hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []},
      #field{name = inf_hash, fnum = 4, rnum = 5, type = bytes, occurrence = optional, opts = []}];
 find_msg_def(registerLoginFormat) -> [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
-find_msg_def(album) -> [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
+find_msg_def(album) -> [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
 find_msg_def(reply_message) -> [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
 find_msg_def(login_reply) -> [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = dataServers, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = repeated, opts = []}];
 find_msg_def(voteValue) -> [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
