@@ -34,11 +34,12 @@ handler({login, {Username, Passwd}}, {UserMap, Metadata, {_, Servers}=DataServer
 
 handler({create_album, Username, AlbumName}, State, From) ->
     case sessionManager:create_album(AlbumName, Username) of
-        Msg when Msg =:= file_exists; Msg =:= error ->
-            From ! {create_album_error, self()};
-
         ok ->
-            From ! {create_album_ok, self()}
+            From ! {create_album_ok, self()};
+
+        _ ->
+            From ! {create_album_error, self()}
+
     end,
     State;
 

@@ -204,6 +204,11 @@ func login(msg []string, state ClientState) {
 
 func createAlbum(msg []string, state ClientState) {
 
+	if len(msg) != 1 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
+
 	albumName := msg[0]
 
 	createAlbumMessage := &pb.Album{
@@ -227,18 +232,13 @@ func createAlbum(msg []string, state ClientState) {
 
 	fmt.Printf("Sent create to Central Server\n")
 
-	reply := &pb.Message{}
-
-	buff := make([]byte, 1024)
-
-	state.CentralServerConnection.Read(buff)
+	reply := <-state.CentralServerMessageHandlers[pb.Type_reply]
 
 	fmt.Printf("Received create from Central Server\n")
 
-	proto.Unmarshal(buff, reply)
+	status := reply.GetM5().Status
 
-	if reply.Type == pb.Type_loginReply {
-
+	if status == "create_album_ok" {
 		fmt.Printf("Created Album %v\n", albumName)
 	} else {
 		fmt.Println("Create failed, album name already exists!")

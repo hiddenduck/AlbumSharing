@@ -7,8 +7,6 @@ create_album(AlbumName, UserName) ->
     case file:read_file_info(AlbumName) of
         {ok, _} ->
             file_exists;
-        {error, _} ->
-            error;
         _ ->
             Album = crdt:createAlbum(UserName),
             AlbumBin = term_to_binary(Album),
