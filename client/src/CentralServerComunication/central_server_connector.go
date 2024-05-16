@@ -1,6 +1,7 @@
 package centralservercomunication
 
 import (
+	"fmt"
 	pb "main/CentralServerComunication/CentralServerProtobuf"
 	"net"
 
@@ -15,7 +16,9 @@ const (
 
 func ConnectToCentralServer() (connection net.Conn) {
 
+    fmt.Printf("Dialing Central Server on port: %v\n", SERVER_PORT)
 	connection, err := net.Dial(SERVER_TYPE, SERVER_HOST+":"+SERVER_PORT)
+    fmt.Printf("Connected to Central Server with connection: %v\n", connection)
 
     if err != nil{
         panic(err)

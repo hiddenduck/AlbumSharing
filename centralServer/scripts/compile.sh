@@ -10,9 +10,9 @@ erlc ./sessionManager.erl
 erlc ./data_loop.erl
 
 if [ -z $1 ]; then
-    erl -eval "Server = central_server:start(1234)"
+    erl -eval "Server = central_server:start(8888, 8889)"
 else
-    erl -eval "Server = central_server:start($1)"
+    erl -eval "Server = central_server:start($1, $2)"
 fi
 
 cd ../scripts/

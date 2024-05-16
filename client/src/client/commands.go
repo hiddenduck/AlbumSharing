@@ -91,6 +91,8 @@ func printVV(msg []string, state ClientState) {
 
 func register(msg []string, state ClientState) {
 
+    fmt.Printf("Started Register\n")
+
 	username := msg[0]
 	password := msg[1]
 
@@ -113,12 +115,15 @@ func register(msg []string, state ClientState) {
 	}
 
 	state.CentralServerConnection.Write(data)
+    fmt.Printf("Sent register to Central Server\n")
 
 	reply := &pb.Message{}
 
 	buff := make([]byte, 1024)
 
 	state.CentralServerConnection.Read(buff)
+
+    fmt.Printf("Received reply from Central Server\n")
 
 	proto.Unmarshal(buff, reply)
 

@@ -53,8 +53,9 @@ message voteInfo {
 }
 
 message fileInfo {
-    map<uint32, voteInfo> votes  = 1;
-    repeated dotPair      dotSet = 2;
+    map<uint32, voteInfo> votes    = 1;
+    repeated dotPair      dotSet   = 2;
+    string                fileHash = 3;
 }
 
 message groupInfo {
@@ -65,6 +66,7 @@ message crdt {
     map<uint32, uint64>    versionVector = 1;
     map<string, fileInfo>  files         = 2;
     map<string, groupInfo> groupUsers    = 3;
+    uint32                 id            = 4;
 }
 
 message sessionStart {
