@@ -43,7 +43,8 @@
 -ifndef('LOGIN_REPLY_PB_H').
 -define('LOGIN_REPLY_PB_H', true).
 -record(login_reply,
-        {dataServers = []       :: [message:peerInfo()] | undefined % = 1, repeated
+        {status = []            :: unicode:chardata() | undefined, % = 1, optional
+         dataServers = []       :: [message:peerInfo()] | undefined % = 2, repeated
         }).
 -endif.
 

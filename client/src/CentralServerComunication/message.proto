@@ -12,7 +12,8 @@ message album {
 }
 
 message login_reply {
-    repeated peerInfo dataServers = 1; // using peerInfo Message but it's not a peer, it's the dataservers
+    string status                 = 1;
+    repeated peerInfo dataServers = 2; // using peerInfo Message but it's not a peer, it's the dataservers
 }
 
 message get_album {

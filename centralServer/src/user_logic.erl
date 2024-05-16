@@ -175,11 +175,24 @@ user_handler({login_ok, UserName, DataServers, MainLoop}, Sock, MainLoop) ->
             type = 2,
             msg =
                 {m6, #login_reply{
+                    status = "login_ok",
                     dataServers = DataServers
                 }}
         }),
     send(Data, Sock),
     auth_user(Sock, MainLoop, UserName);
+
+user_handler({login_error, MainLoop}, Sock, MainLoop) ->
+    Data = message:encode_msg(#'Message'{
+            type = 2,
+            msg =
+                {m6, #login_reply{
+                    status = "login_error"
+                }}
+        }),
+    send(Data, Sock),
+    user(Sock, MainLoop);
+
 user_handler({Status, MainLoop}, Sock, MainLoop) when
     Status =:= login_error;
     Status =:= register_ok;

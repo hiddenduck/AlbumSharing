@@ -248,11 +248,21 @@ encode_msg_reply_message(#reply_message{status = F1}, Bin, TrUserData) ->
 encode_msg_login_reply(Msg, TrUserData) -> encode_msg_login_reply(Msg, <<>>, TrUserData).
 
 
-encode_msg_login_reply(#login_reply{dataServers = F1}, Bin, TrUserData) ->
+encode_msg_login_reply(#login_reply{status = F1, dataServers = F2}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+            true ->
+                begin
+                    TrF1 = id(F1, TrUserData),
+                    case is_empty_string(TrF1) of
+                        true -> Bin;
+                        false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+                    end
+                end
+         end,
     begin
-        TrF1 = id(F1, TrUserData),
-        if TrF1 == [] -> Bin;
-           true -> e_field_login_reply_dataServers(TrF1, Bin, TrUserData)
+        TrF2 = id(F2, TrUserData),
+        if TrF2 == [] -> B1;
+           true -> e_field_login_reply_dataServers(TrF2, B1, TrUserData)
         end
     end.
 
@@ -563,7 +573,7 @@ e_mfield_login_reply_dataServers(Msg, Bin, TrUserData) ->
     <<Bin2/binary, SubBin/binary>>.
 
 e_field_login_reply_dataServers([Elem | Rest], Bin, TrUserData) ->
-    Bin2 = <<Bin/binary, 10>>,
+    Bin2 = <<Bin/binary, 18>>,
     Bin3 = e_mfield_login_reply_dataServers(id(Elem, TrUserData), Bin2, TrUserData),
     e_field_login_reply_dataServers(Rest, Bin3, TrUserData);
 e_field_login_reply_dataServers([], Bin, _TrUserData) -> Bin.
@@ -1152,49 +1162,56 @@ skip_32_reply_message(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp
 
 skip_64_reply_message(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_reply_message(Rest, Z1, Z2, F, F@_1, TrUserData).
 
-decode_msg_login_reply(Bin, TrUserData) -> dfp_read_field_def_login_reply(Bin, 0, 0, 0, id([], TrUserData), TrUserData).
+decode_msg_login_reply(Bin, TrUserData) -> dfp_read_field_def_login_reply(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), TrUserData).
 
-dfp_read_field_def_login_reply(<<10, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> d_field_login_reply_dataServers(Rest, Z1, Z2, F, F@_1, TrUserData);
-dfp_read_field_def_login_reply(<<>>, 0, 0, _, R1, TrUserData) -> #login_reply{dataServers = lists_reverse(R1, TrUserData)};
-dfp_read_field_def_login_reply(Other, Z1, Z2, F, F@_1, TrUserData) -> dg_read_field_def_login_reply(Other, Z1, Z2, F, F@_1, TrUserData).
+dfp_read_field_def_login_reply(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_login_reply_status(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_login_reply(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_login_reply_dataServers(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_login_reply(<<>>, 0, 0, _, F@_1, R1, TrUserData) -> #login_reply{status = F@_1, dataServers = lists_reverse(R1, TrUserData)};
+dfp_read_field_def_login_reply(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_login_reply(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-dg_read_field_def_login_reply(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_login_reply(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-dg_read_field_def_login_reply(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, TrUserData) ->
+dg_read_field_def_login_reply(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_login_reply(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+dg_read_field_def_login_reply(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_login_reply_dataServers(Rest, 0, 0, 0, F@_1, TrUserData);
+        10 -> d_field_login_reply_status(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        18 -> d_field_login_reply_dataServers(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_login_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                1 -> skip_64_login_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                2 -> skip_length_delimited_login_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                3 -> skip_group_login_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData);
-                5 -> skip_32_login_reply(Rest, 0, 0, Key bsr 3, F@_1, TrUserData)
+                0 -> skip_varint_login_reply(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                1 -> skip_64_login_reply(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                2 -> skip_length_delimited_login_reply(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                3 -> skip_group_login_reply(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                5 -> skip_32_login_reply(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
             end
     end;
-dg_read_field_def_login_reply(<<>>, 0, 0, _, R1, TrUserData) -> #login_reply{dataServers = lists_reverse(R1, TrUserData)}.
+dg_read_field_def_login_reply(<<>>, 0, 0, _, F@_1, R1, TrUserData) -> #login_reply{status = F@_1, dataServers = lists_reverse(R1, TrUserData)}.
 
-d_field_login_reply_dataServers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> d_field_login_reply_dataServers(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-d_field_login_reply_dataServers(<<0:1, X:7, Rest/binary>>, N, Acc, F, Prev, TrUserData) ->
+d_field_login_reply_status(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_login_reply_status(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_login_reply_status(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_login_reply(RestF, 0, 0, F, NewFValue, F@_2, TrUserData).
+
+d_field_login_reply_dataServers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_login_reply_dataServers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_login_reply_dataServers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_peerInfo(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_login_reply(RestF, 0, 0, F, cons(NewFValue, Prev, TrUserData), TrUserData).
+    dfp_read_field_def_login_reply(RestF, 0, 0, F, F@_1, cons(NewFValue, Prev, TrUserData), TrUserData).
 
-skip_varint_login_reply(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> skip_varint_login_reply(Rest, Z1, Z2, F, F@_1, TrUserData);
-skip_varint_login_reply(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_login_reply(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_varint_login_reply(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> skip_varint_login_reply(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+skip_varint_login_reply(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_login_reply(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-skip_length_delimited_login_reply(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) when N < 57 -> skip_length_delimited_login_reply(Rest, N + 7, X bsl N + Acc, F, F@_1, TrUserData);
-skip_length_delimited_login_reply(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, TrUserData) ->
+skip_length_delimited_login_reply(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_login_reply(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+skip_length_delimited_login_reply(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_login_reply(Rest2, 0, 0, F, F@_1, TrUserData).
+    dfp_read_field_def_login_reply(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
 
-skip_group_login_reply(Bin, _, Z2, FNum, F@_1, TrUserData) ->
+skip_group_login_reply(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_login_reply(Rest, 0, Z2, FNum, F@_1, TrUserData).
+    dfp_read_field_def_login_reply(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
 
-skip_32_login_reply(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_login_reply(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_32_login_reply(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_login_reply(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-skip_64_login_reply(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_login_reply(Rest, Z1, Z2, F, F@_1, TrUserData).
+skip_64_login_reply(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_login_reply(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
 decode_msg_voteValue(Bin, TrUserData) -> dfp_read_field_def_voteValue(Bin, 0, 0, 0, id(0, TrUserData), id(0, TrUserData), TrUserData).
 
@@ -2519,8 +2536,12 @@ merge_msg_reply_message(#reply_message{status = PFstatus}, #reply_message{status
                        end}.
 
 -compile({nowarn_unused_function,merge_msg_login_reply/3}).
-merge_msg_login_reply(#login_reply{dataServers = PFdataServers}, #login_reply{dataServers = NFdataServers}, TrUserData) ->
-    #login_reply{dataServers =
+merge_msg_login_reply(#login_reply{status = PFstatus, dataServers = PFdataServers}, #login_reply{status = NFstatus, dataServers = NFdataServers}, TrUserData) ->
+    #login_reply{status =
+                     if NFstatus =:= undefined -> PFstatus;
+                        true -> NFstatus
+                     end,
+                 dataServers =
                      if PFdataServers /= undefined, NFdataServers /= undefined -> 'erlang_++'(PFdataServers, NFdataServers, TrUserData);
                         PFdataServers == undefined -> NFdataServers;
                         NFdataServers == undefined -> PFdataServers
@@ -2796,11 +2817,14 @@ v_submsg_login_reply(Msg, Path, TrUserData) -> v_msg_login_reply(Msg, Path, TrUs
 
 -compile({nowarn_unused_function,v_msg_login_reply/3}).
 -dialyzer({nowarn_function,v_msg_login_reply/3}).
-v_msg_login_reply(#login_reply{dataServers = F1}, Path, TrUserData) ->
-    if is_list(F1) ->
-           _ = [v_submsg_peerInfo(Elem, [dataServers | Path], TrUserData) || Elem <- F1],
+v_msg_login_reply(#login_reply{status = F1, dataServers = F2}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_string(F1, [status | Path], TrUserData)
+    end,
+    if is_list(F2) ->
+           _ = [v_submsg_peerInfo(Elem, [dataServers | Path], TrUserData) || Elem <- F2],
            ok;
-       true -> mk_type_error({invalid_list_of, {msg, peerInfo}}, F1, [dataServers | Path])
+       true -> mk_type_error({invalid_list_of, {msg, peerInfo}}, F2, [dataServers | Path])
     end,
     ok;
 v_msg_login_reply(X, Path, _TrUserData) -> mk_type_error({expected_msg, login_reply}, X, Path).
@@ -3350,7 +3374,7 @@ get_msg_defs() ->
      {{msg, registerLoginFormat}, [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
      {{msg, album}, [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
      {{msg, reply_message}, [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
-     {{msg, login_reply}, [#field{name = dataServers, fnum = 1, rnum = 2, type = {msg, peerInfo}, occurrence = repeated, opts = []}]},
+     {{msg, login_reply}, [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = dataServers, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = repeated, opts = []}]},
      {{msg, voteValue}, [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
      {{msg, voteMap}, [#field{name = map, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteValue}}, occurrence = repeated, opts = []}]},
      {{msg, peerInfo},
@@ -3427,7 +3451,7 @@ find_msg_def('ServerInfo') ->
 find_msg_def(registerLoginFormat) -> [#field{name = userName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = password, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
 find_msg_def(album) -> [#field{name = albumName, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
 find_msg_def(reply_message) -> [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
-find_msg_def(login_reply) -> [#field{name = dataServers, fnum = 1, rnum = 2, type = {msg, peerInfo}, occurrence = repeated, opts = []}];
+find_msg_def(login_reply) -> [#field{name = status, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = dataServers, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = repeated, opts = []}];
 find_msg_def(voteValue) -> [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
 find_msg_def(voteMap) -> [#field{name = map, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteValue}}, occurrence = repeated, opts = []}];
 find_msg_def(peerInfo) ->
