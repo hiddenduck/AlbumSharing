@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	pb "main/CentralServerComunication/CentralServerProtoBuf"
+	pb "main/CentralServerComunication/CentralServerProtobuf"
 	dataservers "main/DataServers"
 	"main/crdt"
 	"sync"

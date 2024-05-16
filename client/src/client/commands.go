@@ -210,6 +210,7 @@ func login(msg []string, state *ClientState) {
 	}
 }
 
+// 1º Argumento: Nome do álbum
 func getAlbum(msg []string, state *ClientState) {
 
 	con := state.CentralServerConnection
