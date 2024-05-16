@@ -266,7 +266,7 @@ func getAlbum(msg []string, state ClientState) {
 		isAlone = false
 	}
 
-	connector.SetIdentity(string(message.Id))
+	connector.SetIdentity(fmt.Sprintf("PEER%v",message.Id))
 
 	connector.BindSocket(msg[1])
 
