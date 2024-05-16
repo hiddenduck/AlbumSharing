@@ -105,4 +105,5 @@ enum Type {
   reply     = 7; // reply
   new_peer  = 8; // newPeer
   peer_left = 9; // reply
+  newServer = 10; // new Server
 }

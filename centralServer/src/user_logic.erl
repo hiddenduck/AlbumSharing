@@ -85,6 +85,19 @@ auth_user_handler(Status, Sock, MainLoop, UserName) when
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
+
+auth_user_handler({new_server, IP, PORT, MainLoop}, Sock, MainLoop, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 2,
+        msg =
+            {m7, #newPeer{
+                ip = IP,
+                port = PORT
+            }}
+    }),
+    send(Data, Sock),
+    auth_user(Sock, MainLoop, UserName);
+
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok;

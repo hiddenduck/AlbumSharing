@@ -3,7 +3,7 @@
 
 handler({log_out, UserName}, {UserMap, Metadata, DataServers} = State) ->
     case maps:find(UserName, UserMap) of
-        {ok, {online, Passwd}} ->
+        {ok, {From, Passwd}} when From =/= offline ->
             {maps:update(UserName, {offline, Passwd}, UserMap), Metadata, DataServers};
 
         _ ->
@@ -25,7 +25,7 @@ handler({login, {Username, Passwd}}, {UserMap, Metadata, DataServers} = State, F
     case maps:find(Username, UserMap) of
         {ok, {offline, Passwd}} ->
             From ! {login_ok, Username, DataServers, self()},
-            {maps:update(Username, {online, Passwd}, UserMap), Metadata, DataServers};
+            {maps:update(Username, {From, Passwd}, UserMap), Metadata, DataServers};
 
         _ ->
             From ! {login_error, self()},
@@ -72,7 +72,9 @@ handler({end_session, AlbumName}, {Users, AlbumMap, DataServers}=State, From) ->
     end;
 
 handler({addServer, IP, PORT}, {Users, AlbumMap, {From, Servers}}=_State, From) ->
-    %maps:foreach(fun(UserName, {Status, _}))
+    maps:foreach(fun(_UserName, {Pid, _Password}) ->
+            Pid ! {{new_server, IP, PORT}, self()}
+        end, Users),
     {Users, AlbumMap, {From, [{IP, PORT} | Servers]}}.
 
 mainLoop({Users, Albums}, Central) ->
