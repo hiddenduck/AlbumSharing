@@ -4,7 +4,7 @@ import (
 	centralservercomunication "main/CentralServerComunication"
 	chat "main/connection_management"
 	"main/crdt"
-    "net"
+	"net"
 )
 
 type CommandMap map[string]interface{}
@@ -18,27 +18,31 @@ type SessionState struct {
 }
 
 type ClientState struct {
-    CommandMap CommandMap
-    IsInSession bool
-    IsLoggedIn bool
-    UserName string
-    SessionState SessionState
-    CentralServerConnection net.Conn
+	CommandMap              CommandMap
+	IsInSession             bool
+	IsLoggedIn              bool
+	UserName                string
+	SessionState            SessionState
+	CentralServerConnection net.Conn
 }
 
 func CreateClientState() (clientState ClientState) {
 
-    conn := centralservercomunication.ConnectToCentralServer()
+	conn := centralservercomunication.ConnectToCentralServer()
 
-    clientState = ClientState{
-        CommandMap: CreateCommandsMap(),
-        IsInSession: false,
-        IsLoggedIn: false,
-        UserName: "",
-        SessionState: SessionState{},
-        CentralServerConnection: conn,
-    }
-    return
+	if err != nil {
+		panic(err)
+	}
+
+	clientState = ClientState{
+		CommandMap:              CreateCommandsMap(),
+		IsInSession:             false,
+		IsLoggedIn:              false,
+		UserName:                "",
+		SessionState:            SessionState{},
+		CentralServerConnection: conn,
+	}
+	return
 }
 
 func CreateSessionState(clientId uint32) (sessionState SessionState) {
@@ -64,12 +68,20 @@ func CreateSessionState(clientId uint32) (sessionState SessionState) {
 
 	go causalBI.CausalReceive(true)
 
-    sessionState = SessionState{
-        Replica: &replica,
-        VoteMap: &voteMap,
-        Connector: &connector,
-        CausalBroadcastInfo: &causalBI,
-        MessageHandlers: messageHandlers,
-    }
-    return
+	sessionState = SessionState{
+		Replica:             &replica,
+		VoteMap:             &voteMap,
+		Connector:           &connector,
+		CausalBroadcastInfo: &causalBI,
+		MessageHandlers:     messageHandlers,
+	}
+
+	go HeartBeat(sessionState)
+	go PeerListen(sessionState)
+
+	return
+}
+
+func (sessionState SessionState) EndSession() {
+	sessionState.Connector.Close()
 }
