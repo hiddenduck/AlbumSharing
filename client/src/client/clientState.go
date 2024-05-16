@@ -1,15 +1,10 @@
 package client
 
 import (
+	centralservercomunication "main/CentralServerComunication"
 	chat "main/connection_management"
 	"main/crdt"
-	"net"
-)
-
-const (
-	SERVER_HOST = "localhost"
-	SERVER_PORT = "8888"
-	SERVER_TYPE = "tcp"
+    "net"
 )
 
 type CommandMap map[string]interface{}
@@ -33,11 +28,7 @@ type ClientState struct {
 
 func CreateClientState() (clientState ClientState) {
 
-    conn, err := net.Dial(SERVER_TYPE, SERVER_HOST + ":" + SERVER_PORT)
-
-    if err != nil{
-        panic(err)
-    }
+    conn := centralservercomunication.ConnectToCentralServer()
 
     clientState = ClientState{
         CommandMap: CreateCommandsMap(),
@@ -57,14 +48,12 @@ func CreateSessionState(clientId uint32) (sessionState SessionState) {
 
 	connector := chat.Make_ConnectorInfo()
 
-	connector.SetIdentity("PEER1")
-
+	connector.SetIdentity(string(clientId))
+	//
 	connector.BindSocket("1111")
-
-	connector.Add_Peer("PEER2", "Emanueldo Gonçalves Faria 2", "localhost", "2222")
-	connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
-
-	connector.Connect_to_Peers()
+	//
+	// connector.Add_Peer("PEER2", "Emanueldo Gonçalves Faria 2", "localhost", "2222")
+	// connector.Add_Peer("PEER3", "Emanueldo Gonçalves Faria 3", "localhost", "3333")
 
 	causalBI := chat.InitCausalBroadCast(clientId, &connector)
 

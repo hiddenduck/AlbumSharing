@@ -2,8 +2,10 @@ package client
 
 import (
 	"fmt"
-	pb "main/CentralServerComunication/CentralServerProtoBuf"
+	centralservercomunication "main/CentralServerComunication"
+	pb "main/CentralServerComunication/CentralServerProtobuf"
 	dataservers "main/DataServers"
+	connectionmanagement "main/connection_management"
 	"strconv"
 
 	"google.golang.org/protobuf/proto"
@@ -11,7 +13,7 @@ import (
 
 func ExecuteCommand(list []string, state ClientState) {
 
-    commandMap := state.CommandMap
+	commandMap := state.CommandMap
 
 	function, ok := commandMap[list[0]]
 
@@ -43,7 +45,7 @@ func removeFile(msg []string, state ClientState) {
 }
 
 func rateFile(msg []string, client_state ClientState) {
-    state := client_state.SessionState
+	state := client_state.SessionState
 	classification, err := strconv.ParseUint(msg[1], 10, 64)
 	if err == nil {
 		if classification > 5 || classification < 1 {
@@ -76,7 +78,6 @@ func listFiles(msg []string, state ClientState) {
 }
 
 func listReplica(msg []string, state ClientState) {
-    
 	state.SessionState.Replica.ListReplica()
 }
 
@@ -91,89 +92,125 @@ func printVV(msg []string, state ClientState) {
 
 func register(msg []string, state ClientState) {
 
-    username := msg[0]
-    password := msg[1]
+	username := msg[0]
+	password := msg[1]
 
-    registerMessage := &pb.RegisterLoginFormat{
-        UserName: username,
-        Password: password,
-    }
+	registerMessage := &pb.RegisterLoginFormat{
+		UserName: username,
+		Password: password,
+	}
 
-    message := pb.Message{
-        Type: pb.Type_register,
-        Msg: &pb.Message_M1{
-            M1: registerMessage,
-        },
-    }
+	message := pb.Message{
+		Type: pb.Type_register,
+		Msg: &pb.Message_M1{
+			M1: registerMessage,
+		},
+	}
 
-    data, err := proto.Marshal(&message)
+	data, err := proto.Marshal(&message)
 
-    if err != nil{
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 
-    state.CentralServerConnection.Write(data)
+	state.CentralServerConnection.Write(data)
 
-    reply := &pb.Message{}
+	reply := &pb.Message{}
 
-    buff := make([]byte, 1024)
+	buff := make([]byte, 1024)
 
-    state.CentralServerConnection.Read(buff)
+	state.CentralServerConnection.Read(buff)
 
-    proto.Unmarshal(buff, reply)
+	proto.Unmarshal(buff, reply)
 
-    status := reply.GetM5().Status
+	status := reply.GetM5().Status
 
-    if status == "register_ok" {
-        fmt.Println("Register Success")
-    }else {
-        fmt.Println("Register failed, because NO")
-    }
+	if status == "register_ok" {
+		fmt.Println("Register Success")
+	} else {
+		fmt.Println("Register failed, because NO")
+	}
 }
 
 func login(msg []string, state ClientState) {
 
-    username := msg[0]
-    password := msg[1]
+	username := msg[0]
+	password := msg[1]
 
-    loginMessage := &pb.RegisterLoginFormat{
-        UserName: username,
-        Password: password,
-    }
+	loginMessage := &pb.RegisterLoginFormat{
+		UserName: username,
+		Password: password,
+	}
 
-    message := pb.Message{
-        Type: pb.Type_login,
-        Msg: &pb.Message_M1{
-            M1: loginMessage,
-        },
-    }
+	message := pb.Message{
+		Type: pb.Type_login,
+		Msg: &pb.Message_M1{
+			M1: loginMessage,
+		},
+	}
 
-    data, err := proto.Marshal(&message)
+	data, err := proto.Marshal(&message)
 
-    if err != nil{
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 
-    state.CentralServerConnection.Write(data)
+	state.CentralServerConnection.Write(data)
 
-    reply := &pb.Message{}
+	reply := &pb.Message{}
 
-    buff := make([]byte, 1024)
+	buff := make([]byte, 1024)
 
-    state.CentralServerConnection.Read(buff)
+	state.CentralServerConnection.Read(buff)
 
-    proto.Unmarshal(buff, reply)
+	proto.Unmarshal(buff, reply)
 
-    status := reply.GetM5().Status
+	status := reply.GetM5().Status
 
-    if status == "login_ok" {
-        state.IsLoggedIn = true
-        fmt.Println("Loggin Success")
-    }else {
-        fmt.Println("Login failed, invalid credentials")
-    }
+	if status == "login_ok" {
+		state.IsLoggedIn = true
+		fmt.Println("Loggin Success")
+	} else {
+		fmt.Println("Login failed, invalid credentials")
+	}
 }
 
+func getAlbum(msg []string, state ClientState){
+
+    con := state.CentralServerConnection
+
+    message := centralservercomunication.SessionStart(msg[0], con)
+
+    state.SessionState = CreateSessionState(message.Id)
+
+    *state.SessionState.Replica = ParseProtoReplica(message.Crdt)//???????
+    state.SessionState.VoteMap = &message.VoteTable
+
+    connector := state.SessionState.CausalBroadcastInfo.ConnectorInfo
+
+    var isAlone bool
+
+    if len(message.SessionPeers) == 0 {
+        isAlone = true
+    }else{
+        isAlone = false
+    }
+
+    for name, peerInfo := range message.SessionPeers {
+
+        connector.Add_Peer(string(peerInfo.Id), name, peerInfo.Ip, peerInfo.Port)
+
+    }
+
+	connector.Connect_to_Peers()
+
+	messageHandlers := CreateMessageHandlers()
+
+	messageHandlers["chat"] = ReceiveMsg
+	messageHandlers["requestVV"] = SendCbcastVV
+
+	go state.SessionState.CausalBroadcastInfo.CausalReceive(isAlone)
+}
 
 func CreateCommandsMap() CommandMap {
 	return map[string]interface{}{
@@ -190,5 +227,6 @@ func CreateCommandsMap() CommandMap {
 		"printVV":      printVV,
 		"login":        login,
 		"register":     register,
+		"getAlbum":     getAlbum,
 	}
 }

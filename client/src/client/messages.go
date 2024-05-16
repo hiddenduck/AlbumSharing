@@ -54,7 +54,7 @@ func joinCrdt(msg []string, state SessionState) {
 	protoMsg := pb.Crdt{}
 	proto.Unmarshal([]byte(msg[2]), &protoMsg)
 
-	peerReplica := parseProtoReplica(&protoMsg)
+	peerReplica := ParseProtoReplica(&protoMsg)
 
 	//fmt.Printf("Recebido Heartbeat do CRDT do nodo %v\n", protoMsg.Id)
 
@@ -148,7 +148,7 @@ func createCrdtMessage(state SessionState) *pb.Crdt {
 	return p
 }
 
-func parseProtoReplica(msg *pb.Crdt) crdt.Replica {
+func ParseProtoReplica(msg *pb.Crdt) crdt.Replica {
 	crdtFiles := make(map[string]crdt.FileInfo)
 	for filename := range msg.Files {
 		fileInfo := msg.Files[filename]

@@ -1,8 +1,7 @@
 package centralservercomunication
 
 import (
-	"fmt"
-	pb "main/CentralServerComunication/CentralServerProtoBuf"
+	pb "main/CentralServerComunication/CentralServerProtobuf"
 	"net"
 
 	proto "google.golang.org/protobuf/proto"
@@ -10,47 +9,51 @@ import (
 
 const (
 	SERVER_HOST = "localhost"
-	SERVER_PORT = "9988"
+	SERVER_PORT = "8888"
 	SERVER_TYPE = "tcp"
 )
 
-func test() {
+func ConnectToCentralServer() (connection net.Conn) {
 
-	data := &pb.Message{
-		Type: pb.Type_register,
-		Msg: &pb.Message_M1{
-			M1: &pb.RegisterLoginFormat{
-				UserName: "UserName",
-				Password: "Password",
-			},
-		},
-	}
-
-	out, err := proto.Marshal(data)
-
-	if err != nil {
-		panic("lmao")
-	}
-
-	//establish connection
 	connection, err := net.Dial(SERVER_TYPE, SERVER_HOST+":"+SERVER_PORT)
-	if err != nil {
-		panic(err)
-	}
 
-	///send some data
-	_, err = connection.Write(out)
+    if err != nil{
+        panic(err)
+    }
 
-	buffer := make([]byte, 1024)
+    return 
+}
 
-	connection.Read(buffer)
+func SessionStart(albumName string, conn net.Conn) (*pb.SessionStart) {
 
-    data_out := &pb.Message{}
+    message := &pb.Message{
+        Type: pb.Type_get,
+        Msg: &pb.Message_M2{
+            M2: &pb.Album{
+                AlbumName: albumName,
+            },
+        },
+    }
 
-    proto.Unmarshal(buffer, data_out)
+    data, err := proto.Marshal(message)
 
-    fmt.Println(data_out.Type)
+    if err != nil{
+        panic(err)
+    }
 
-	defer connection.Close()
+    conn.Write(data)
+
+
+    buf := make([]byte, 1024)
+
+    reply := &pb.Message{}
+    conn.Read(buf)
+
+    proto.Unmarshal(buf, reply)
+
+    m3 := reply.GetM3()
+
+    return m3
 
 }
+

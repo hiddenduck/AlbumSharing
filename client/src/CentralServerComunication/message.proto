@@ -1,105 +1,105 @@
 syntax = "proto3";
 
-option go_package = "CentralServerProtoBuf/";
+option go_package = "CentralServerProtobuf/";
 
 message registerLoginFormat {
-  string userName = 1;
-  string password = 2;
+    string userName = 1;
+    string password = 2;
 }
 
 message album {
-  string albumName = 1;
-}
-
-message reply_message {
-  string status = 1;
-}
-
-message voteValue {
-  int64 sum   = 1;
-  int64 count = 2;
-}
-
-message voteMap {
-  map<uint32, voteValue> map = 1;
-}
-
-message peerInfo {
-  string ip   = 1;
-  string port = 2;
-}
-
-message dotPair {
-  uint32 id      = 1;
-  uint64 version = 2;
-}
-
-message voteInfo {
-  uint64 sum   = 1;
-  uint64 count = 2;
-}
-
-message fileInfo {
-  map<uint32, voteInfo> votes    = 1;
-  repeated dotPair      dotSet   = 2;
-  string                fileHash = 3;
-}
-
-message groupInfo {
-  repeated dotPair      dotSet = 1;
-}
-
-message crdt {
-  map<uint32, uint64>    versionVector = 1;
-  map<string, fileInfo>  files         = 2;
-  map<string, groupInfo> groupUsers    = 3;
-  uint32                 id            = 4;
-}
-
-message sessionStart {
-  crdt            crdt           = 1;
-  map<string, peerInfo> sessionPeers = 2;
-  map<string, bool> voteTable    = 3;
-}
-
-message quitMessage {
-  crdt            crdt        = 1;
-  map<string, bool> voteTable = 2;
+    string albumName = 1;
 }
 
 message get_album {
-  string albumName = 1;
-  string ip        = 2;
-  int64  port      = 3;
+    string albumName = 1;
+    string ip        = 2;
+    int64  port      = 3;
+}
+
+message reply_message {
+    string status = 1;
+}
+
+message voteValue {
+    int64 sum   = 1;
+    int64 count = 2;
+}
+
+message voteMap {
+    map<uint32, voteValue> map = 1;
+}
+
+message peerInfo {
+    string ip   = 1;
+    string port = 2;
+    string id   = 3;
 }
 
 message newPeer {
-  string name = 1;
-  string ip   = 2;
-  string port = 3;
+    string name = 1;
+    string ip   = 2;
+    string port = 3;
+}
+
+message dotPair {
+    uint32 id      = 1;
+    uint64 version = 2;
+}
+
+message voteInfo {
+    uint64 sum   = 1;
+    uint64 count = 2;
+}
+
+message fileInfo {
+    map<uint32, voteInfo> votes  = 1;
+    repeated dotPair      dotSet = 2;
+}
+
+message groupInfo {
+    repeated dotPair dotSet = 1;
+}
+
+message crdt {
+    map<uint32, uint64>    versionVector = 1;
+    map<string, fileInfo>  files         = 2;
+    map<string, groupInfo> groupUsers    = 3;
+}
+
+message sessionStart {
+    uint32                id           = 1;
+    crdt                  crdt         = 2;
+    map<string, peerInfo> sessionPeers = 3;
+    map<string, bool>     voteTable    = 4;
+}
+
+message quitMessage {
+    crdt              crdt      = 1;
+    map<string, bool> voteTable = 2;
 }
 
 message Message {
-  Type type = 1;
-  oneof msg {
-    registerLoginFormat m1 = 2;
-    album               m2 = 3;
-    sessionStart        m3 = 4;
-    quitMessage         m4 = 5;
-    reply_message       m5 = 6;
-    get_album           m6 = 7;
-    newPeer             m7 = 8;
-  }
+    Type  type = 1;
+    oneof msg {
+        registerLoginFormat m1 = 2;
+        album               m2 = 3;
+        sessionStart        m3 = 4;
+        quitMessage         m4 = 5;
+        reply_message       m5 = 6;
+        get_album           m6 = 7;
+        newPeer             m7 = 8;
+    }
 }
 
 enum Type {
-  register  = 0; // registerLoginFormat
-  login     = 1; // registerLoginFormat
-  create    = 3; // album
-  get       = 4; // get_album
-  send      = 5; // sessionStart
-  quit      = 6; // quitMessage
-  reply     = 7; // reply
-  new_peer  = 8; // newPeer
-  peer_left = 9; // reply
+    register  = 0; // registerLoginFormat
+    login     = 1; // registerLoginFormat
+    create    = 3; // album
+    get       = 4; // get_album
+    send      = 5; // sessionStart
+    quit      = 6; // quitMessage
+    reply     = 7; // reply
+    new_peer  = 8; // newPeer
+    peer_left = 9; // reply
 }
