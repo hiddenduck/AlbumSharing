@@ -8,9 +8,9 @@ import (
 )
 
 type ClientInfo struct {
-	Ip_Addres string
-	Port      string
-	Id        string
+	Ip_Address string
+	Port       string
+	Id         string
 }
 
 type ConnectorInfo struct {
@@ -34,9 +34,9 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 func (connectorInfo ConnectorInfo) Add_Peer(id string, name string, ip string, port string) {
 
 	clientInfo := ClientInfo{
-		Ip_Addres: ip,
-		Port:      port,
-		Id:        id,
+		Ip_Address: ip,
+		Port:       port,
+		Id:         id,
 	}
 
 	connectorInfo.PeerMap[name] = clientInfo
@@ -55,7 +55,7 @@ func (connectorInfo ConnectorInfo) Connect_to_Peers() {
 
 	for _, clientInfo := range connectorInfo.PeerMap {
 
-		ip := clientInfo.Ip_Addres
+		ip := clientInfo.Ip_Address
 		port := clientInfo.Port
 
 		connectorInfo.RouterSocket.Connect("tcp://" + ip + ":" + port)

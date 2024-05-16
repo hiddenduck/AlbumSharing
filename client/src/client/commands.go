@@ -1,16 +1,52 @@
 package client
 
 import (
+	"bufio"
 	"fmt"
 	pb "main/CentralServerComunication/CentralServerProtobuf"
 	dataservers "main/DataServers"
 	"net"
+	"os"
 	"strconv"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 )
 
-func ExecuteCommand(list []string, state ClientState) {
+func CommandListen(state *ClientState) {
+	for {
+
+		reader := bufio.NewReader(os.Stdin)
+
+		input, _ := reader.ReadString('\n')
+
+		if input == "\n" {
+			continue
+		}
+
+		input = strings.TrimSuffix(input, "\n")
+
+		if input[0] == '/' {
+
+			ExecuteCommand(strings.Split(input[1:], " "), state)
+
+			continue
+		}
+
+		if !state.IsInSession {
+			fmt.Printf("Not associated with an album\n")
+
+			continue
+		}
+
+		state.SessionState.CausalBroadcastInfo.CausalBroadcast([]byte(input))
+
+		//fmt.Println(input)
+		//state.Connector.Send_to_Peers("chat", []byte(input))
+	}
+}
+
+func ExecuteCommand(list []string, state *ClientState) {
 
 	commandMap := state.CommandMap
 
@@ -19,31 +55,31 @@ func ExecuteCommand(list []string, state ClientState) {
 	if ok {
 		//TODO não necessariamente fazer o lock aqui, é só para não me esquecer de fazer em todos os comandos
 		//Não mata ninguém deixar aqui, só deixa comandos tipo salas mais lentos
-		function.(func([]string, ClientState))(list[1:], state)
+		function.(func([]string, *ClientState))(list[1:], state)
 	} else {
 		fmt.Printf("\"%v\"; not a valid command!\n", list[0])
 	}
 }
 
-func addUser(msg []string, state ClientState) {
+func addUser(msg []string, state *ClientState) {
 	state.SessionState.Replica.AddUser(msg[0])
 }
 
-func removeUser(msg []string, state ClientState) {
+func removeUser(msg []string, state *ClientState) {
 	state.SessionState.Replica.RemoveUser(msg[0])
 }
 
-func addFile(msg []string, state ClientState) {
+func addFile(msg []string, state *ClientState) {
 	fileHash := dataservers.HashFile(msg[0])
 	//TODO enviar para o dataserver
 	state.SessionState.Replica.AddFile(msg[0], fileHash)
 }
 
-func removeFile(msg []string, state ClientState) {
+func removeFile(msg []string, state *ClientState) {
 	state.SessionState.Replica.RemoveFile(msg[0])
 }
 
-func rateFile(msg []string, client_state ClientState) {
+func rateFile(msg []string, client_state *ClientState) {
 	state := client_state.SessionState
 	classification, err := strconv.ParseUint(msg[1], 10, 64)
 	if err == nil {
@@ -62,34 +98,34 @@ func rateFile(msg []string, client_state ClientState) {
 	}
 }
 
-func test(msg []string, state ClientState) {
+func test(msg []string, state *ClientState) {
 	for i, x := range msg {
 		fmt.Printf("frame %v: %v\n", i, x)
 	}
 }
 
-func listUsers(msg []string, state ClientState) {
+func listUsers(msg []string, state *ClientState) {
 	state.SessionState.Replica.ListUsers()
 }
 
-func listFiles(msg []string, state ClientState) {
+func listFiles(msg []string, state *ClientState) {
 	state.SessionState.Replica.ListFiles()
 }
 
-func listReplica(msg []string, state ClientState) {
+func listReplica(msg []string, state *ClientState) {
 	state.SessionState.Replica.ListReplica()
 }
 
-func downloadFile(msg []string, state ClientState) {
+func downloadFile(msg []string, state *ClientState) {
 	//TODO download do ficheiro
 	fmt.Printf("Undefined command.")
 }
 
-func printVV(msg []string, state ClientState) {
+func printVV(msg []string, state *ClientState) {
 	state.SessionState.CausalBroadcastInfo.PrintVV()
 }
 
-func register(msg []string, state ClientState) {
+func register(msg []string, state *ClientState) {
 
 	fmt.Printf("Started Register\n")
 
@@ -143,7 +179,7 @@ func register(msg []string, state ClientState) {
 	}
 }
 
-func login(msg []string, state ClientState) {
+func login(msg []string, state *ClientState) {
 
 	fmt.Printf("Started Login\n")
 
@@ -202,7 +238,7 @@ func login(msg []string, state ClientState) {
 
 }
 
-func createAlbum(msg []string, state ClientState) {
+func createAlbum(msg []string, state *ClientState) {
 
 	if len(msg) != 1 {
 		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
@@ -303,7 +339,7 @@ func getAlbum(msg []string, state ClientState) {
 
 	connector.SetIdentity(fmt.Sprintf("PEER%v", message.Id))
 
-	connector.BindSocket(msg[1])
+	connector.BindSocket(state.RouterPort)
 
 	for name, peerInfo := range message.SessionPeers {
 
@@ -313,12 +349,12 @@ func getAlbum(msg []string, state ClientState) {
 
 	connector.Connect_to_Peers()
 
-	messageHandlers := CreateMessageHandlers()
-
-	messageHandlers["chat"] = ReceiveMsg
-	messageHandlers["requestVV"] = SendCbcastVV
-
 	go state.SessionState.CausalBroadcastInfo.CausalReceive(isAlone)
+
+	if isAlone {
+		state.SessionState.MessageHandlers["chat"] = ReceiveMsg
+		state.SessionState.MessageHandlers["requestVV"] = SendCbcastVV
+	}
 
 	go HeartBeat(state.SessionState)
 

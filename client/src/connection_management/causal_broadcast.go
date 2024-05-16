@@ -260,7 +260,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 		causalBroadcastInfo.versionVector[causalBroadcastInfo.self] = 0
 
 	} else {
-		time.Sleep(5 * time.Second)
+		//time.Sleep(5 * time.Second)
 		causalBroadcastInfo.RequestVV()
 	}
 

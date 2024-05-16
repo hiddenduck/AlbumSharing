@@ -27,9 +27,11 @@ type ClientState struct {
 	CentralServerConnection      net.Conn
 	DataServers                  ds.DataServers
 	CentralServerMessageHandlers centralserver.Handlers
+	CentralServerPort            string
+	RouterPort                   string
 }
 
-func CreateClientState() (clientState ClientState) {
+func CreateClientState(routerPort string) (clientState ClientState) {
 
 	conn := centralserver.ConnectToCentralServer()
 
@@ -42,6 +44,7 @@ func CreateClientState() (clientState ClientState) {
 		CentralServerConnection:      conn,
 		DataServers:                  ds.InitDataServer(),
 		CentralServerMessageHandlers: CreateCentralServerMessageHandlers(),
+		RouterPort:                   routerPort,
 	}
 	return
 }
@@ -57,11 +60,6 @@ func CreateSessionState(clientId uint32) (sessionState SessionState) {
 	causalBI := chat.InitCausalBroadCast(clientId, &connector)
 
 	messageHandlers := CreateMessageHandlers()
-
-	messageHandlers["chat"] = ReceiveMsg
-	messageHandlers["requestVV"] = SendCbcastVV
-
-	go causalBI.CausalReceive(true)
 
 	sessionState = SessionState{
 		Replica:             &replica,
