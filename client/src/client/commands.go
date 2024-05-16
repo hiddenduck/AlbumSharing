@@ -117,15 +117,17 @@ func register(msg []string, state ClientState) {
 	state.CentralServerConnection.Write(data)
 	fmt.Printf("Sent register to Central Server\n")
 
-	reply := &pb.Message{}
+	// buff := make([]byte, 1024)
 
-	buff := make([]byte, 1024)
+	// state.CentralServerConnection.Read(buff)
 
-	state.CentralServerConnection.Read(buff)
+    reply := <-state.CentralServerMessageHandlers[pb.Type_reply]
+
+    fmt.Printf("reply.Type: %v\n", reply.Type)
 
 	fmt.Printf("Received reply from Central Server\n")
 
-	proto.Unmarshal(buff, reply)
+	// proto.Unmarshal(buff, reply)
 
 	status := reply.GetM5().Status
 
@@ -165,15 +167,15 @@ func login(msg []string, state ClientState) {
 
 	fmt.Printf("Sent login to Central Server\n")
 
-	reply := &pb.Message{}
+	// reply := &pb.Message{}
 
-	buff := make([]byte, 1024)
+	// buff := make([]byte, 1024)
 
-	state.CentralServerConnection.Read(buff)
+    reply := <-state.CentralServerMessageHandlers[pb.Type_loginReply]
 
 	fmt.Printf("Received login from Central Server\n")
 
-	proto.Unmarshal(buff, reply)
+	// proto.Unmarshal(buff, reply)
 
 	if reply.Type == pb.Type_loginReply {
 		for _, info := range reply.GetM6().DataServers {

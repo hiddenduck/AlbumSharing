@@ -1,7 +1,7 @@
 package client
 
 import (
-	centralservercomunication "main/CentralServerComunication"
+	centralserver "main/CentralServerComunication"
 	ds "main/DataServers"
 	chat "main/connection_management"
 	"main/crdt"
@@ -19,27 +19,29 @@ type SessionState struct {
 }
 
 type ClientState struct {
-	CommandMap              CommandMap
-	IsInSession             bool
-	IsLoggedIn              bool
-	UserName                string
-	SessionState            SessionState
-	CentralServerConnection net.Conn
-	DataServers             ds.DataServers
+	CommandMap                   CommandMap
+	IsInSession                  bool
+	IsLoggedIn                   bool
+	UserName                     string
+	SessionState                 SessionState
+	CentralServerConnection      net.Conn
+	DataServers                  ds.DataServers
+	CentralServerMessageHandlers centralserver.Handlers
 }
 
 func CreateClientState() (clientState ClientState) {
 
-	conn := centralservercomunication.ConnectToCentralServer()
+	conn := centralserver.ConnectToCentralServer()
 
 	clientState = ClientState{
-		CommandMap:              CreateCommandsMap(),
-		IsInSession:             false,
-		IsLoggedIn:              false,
-		UserName:                "",
-		SessionState:            SessionState{},
-		CentralServerConnection: conn,
-		DataServers:             ds.InitDataServer(),
+		CommandMap:                   CreateCommandsMap(),
+		IsInSession:                  false,
+		IsLoggedIn:                   false,
+		UserName:                     "",
+		SessionState:                 SessionState{},
+		CentralServerConnection:      conn,
+		DataServers:                  ds.InitDataServer(),
+		CentralServerMessageHandlers: CreateCentralServerMessageHandlers(),
 	}
 	return
 }

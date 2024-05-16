@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	cs "main/CentralServerComunication"
 	"main/client"
 	"os"
 	"strings"
@@ -13,6 +14,8 @@ func main() {
 	is_in_Album := true
 
 	state := client.CreateClientState()
+
+    go cs.CentralServerListener(state.CentralServerConnection, state.CentralServerMessageHandlers)
 
 	for {
 
