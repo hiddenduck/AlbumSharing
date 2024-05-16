@@ -47,6 +47,7 @@ func CreateClientState() (clientState ClientState) {
 }
 
 func CreateSessionState(clientId uint32) (sessionState SessionState) {
+
 	//receive replica, votemap and clientId from central_server
 	replica := crdt.CreateReplica(clientId)
 	voteMap := make(map[string]bool)
