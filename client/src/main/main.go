@@ -8,7 +8,7 @@ import (
 
 func main() {
 
-	state := client.CreateClientState(os.Args[0])
+	state := client.CreateClientState(os.Args[1])
 
 	go cs.CentralServerListener(state.CentralServerConnection, state.CentralServerMessageHandlers)
 
