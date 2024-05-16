@@ -281,7 +281,7 @@ func createAlbum(msg []string, state *ClientState) {
 	}
 }
 
-func sessionStart(albumName string, conn net.Conn, state ClientState) *pb.SessionStart {
+func sessionStart(albumName string, conn net.Conn, state *ClientState) *pb.SessionStart {
 
 	message := &pb.Message{
 		Type: pb.Type_get,
@@ -312,7 +312,7 @@ func sessionStart(albumName string, conn net.Conn, state ClientState) *pb.Sessio
 	return m3
 }
 
-func getAlbum(msg []string, state ClientState) {
+func getAlbum(msg []string, state *ClientState) {
 
 	if len(msg) != 1 {
 		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
