@@ -39,6 +39,7 @@ func CreateClientState() (clientState ClientState) {
 		UserName:                "",
 		SessionState:            SessionState{},
 		CentralServerConnection: conn,
+		DataServers:             ds.InitDataServer(),
 	}
 	return
 }

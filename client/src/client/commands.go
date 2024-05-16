@@ -176,7 +176,7 @@ func login(msg []string, state ClientState) {
 	proto.Unmarshal(buff, reply)
 
 	if reply.Type == pb.Type_loginReply {
-		for info := range reply.GetM6().DataServers {
+		for _, info := range reply.GetM6().DataServers {
 			state.DataServers.AddServer(info.Ip, info.Port)
 		}
 
