@@ -91,7 +91,7 @@ func printVV(msg []string, state ClientState) {
 
 func register(msg []string, state ClientState) {
 
-    fmt.Printf("Started Register\n")
+	fmt.Printf("Started Register\n")
 
 	username := msg[0]
 	password := msg[1]
@@ -115,7 +115,7 @@ func register(msg []string, state ClientState) {
 	}
 
 	state.CentralServerConnection.Write(data)
-    fmt.Printf("Sent register to Central Server\n")
+	fmt.Printf("Sent register to Central Server\n")
 
 	reply := &pb.Message{}
 
@@ -123,7 +123,7 @@ func register(msg []string, state ClientState) {
 
 	state.CentralServerConnection.Read(buff)
 
-    fmt.Printf("Received reply from Central Server\n")
+	fmt.Printf("Received reply from Central Server\n")
 
 	proto.Unmarshal(buff, reply)
 
@@ -137,6 +137,8 @@ func register(msg []string, state ClientState) {
 }
 
 func login(msg []string, state ClientState) {
+
+	fmt.Printf("Started Login\n")
 
 	username := msg[0]
 	password := msg[1]
@@ -161,54 +163,61 @@ func login(msg []string, state ClientState) {
 
 	state.CentralServerConnection.Write(data)
 
+	fmt.Printf("Sent login to Central Server\n")
+
 	reply := &pb.Message{}
 
 	buff := make([]byte, 1024)
 
 	state.CentralServerConnection.Read(buff)
 
+	fmt.Printf("Received login from Central Server\n")
+
 	proto.Unmarshal(buff, reply)
 
-	status := reply.GetM5().Status
+	if reply.Type == pb.Type_loginReply {
+		for info := range reply.GetM6().DataServers {
+			state.DataServers.AddServer(info.Ip, info.Port)
+		}
 
-	if status == "login_ok" {
 		state.IsLoggedIn = true
 		fmt.Println("Loggin Success")
 	} else {
 		fmt.Println("Login failed, invalid credentials")
 	}
+
 }
 
-func getAlbum(msg []string, state ClientState){
+func getAlbum(msg []string, state ClientState) {
 
-    con := state.CentralServerConnection
+	con := state.CentralServerConnection
 
-    message := centralservercomunication.SessionStart(msg[0], con)
+	message := centralservercomunication.SessionStart(msg[0], con)
 
-    state.SessionState = CreateSessionState(message.Id)
+	state.SessionState = CreateSessionState(message.Id)
 
-    *state.SessionState.Replica = ParseProtoReplica(message.Crdt)//???????
-    state.SessionState.VoteMap = &message.VoteTable
+	*state.SessionState.Replica = ParseProtoReplica(message.Crdt) //???????
+	state.SessionState.VoteMap = &message.VoteTable
 
-    connector := state.SessionState.CausalBroadcastInfo.ConnectorInfo
+	connector := state.SessionState.CausalBroadcastInfo.ConnectorInfo
 
-    var isAlone bool
+	var isAlone bool
 
-    if len(message.SessionPeers) == 0 {
-        isAlone = true
-    }else{
-        isAlone = false
-    }
+	if len(message.SessionPeers) == 0 {
+		isAlone = true
+	} else {
+		isAlone = false
+	}
 
-    connector.SetIdentity(string(message.Id))
+	connector.SetIdentity(string(message.Id))
 
 	connector.BindSocket(msg[1])
 
-    for name, peerInfo := range message.SessionPeers {
+	for name, peerInfo := range message.SessionPeers {
 
-        connector.Add_Peer(string(peerInfo.Id), name, peerInfo.Ip, peerInfo.Port)
+		connector.Add_Peer(string(peerInfo.Id), name, peerInfo.Ip, peerInfo.Port)
 
-    }
+	}
 
 	connector.Connect_to_Peers()
 
@@ -221,7 +230,7 @@ func getAlbum(msg []string, state ClientState){
 
 	go HeartBeat(state.SessionState)
 
-    go PeerListen(state.SessionState)
+	go PeerListen(state.SessionState)
 
 }
 

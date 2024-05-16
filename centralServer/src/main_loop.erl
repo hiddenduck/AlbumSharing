@@ -17,7 +17,6 @@ handler({register, {Username, Passwd}}, {UserMap, Metadata, DataServers} = State
             State;
 
         error ->
-            io:format("worked"),
             From ! {register_ok, self()},
             {maps:put(Username, {offline, Passwd}, UserMap), Metadata, DataServers}
     end;
