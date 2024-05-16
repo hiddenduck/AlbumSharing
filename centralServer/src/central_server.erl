@@ -34,6 +34,7 @@ start_server(Port, DataLoopPort) ->
     end.
 
 acceptor(LSock, MainLoop) ->
+    io:format("New client connected ~n"),
     {ok, Sock} = gen_tcp:accept(LSock),
     spawn(fun() -> acceptor(LSock, MainLoop) end),
     user_logic:user(Sock, MainLoop).

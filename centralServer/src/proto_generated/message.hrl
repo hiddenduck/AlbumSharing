@@ -66,7 +66,8 @@
 -define('PEERINFO_PB_H', true).
 -record(peerInfo,
         {ip = []                :: unicode:chardata() | undefined, % = 1, optional
-         port = []              :: unicode:chardata() | undefined % = 2, optional
+         port = []              :: unicode:chardata() | undefined, % = 2, optional
+         id = []                :: unicode:chardata() | undefined % = 3, optional
         }).
 -endif.
 
@@ -99,7 +100,8 @@
 -define('FILEINFO_PB_H', true).
 -record(fileInfo,
         {votes = []             :: [{non_neg_integer(), message:voteInfo()}] | undefined, % = 1
-         dotSet = []            :: [message:dotPair()] | undefined % = 2, repeated
+         dotSet = []            :: [message:dotPair()] | undefined, % = 2, repeated
+         fileHash = []          :: unicode:chardata() | undefined % = 3, optional
         }).
 -endif.
 
@@ -115,7 +117,8 @@
 -record(crdt,
         {versionVector = []     :: [{non_neg_integer(), non_neg_integer()}] | undefined, % = 1
          files = []             :: [{unicode:chardata(), message:fileInfo()}] | undefined, % = 2
-         groupUsers = []        :: [{unicode:chardata(), message:groupInfo()}] | undefined % = 3
+         groupUsers = []        :: [{unicode:chardata(), message:groupInfo()}] | undefined, % = 3
+         id = 0                 :: non_neg_integer() | undefined % = 4, optional, 32 bits
         }).
 -endif.
 
@@ -140,7 +143,7 @@
 -ifndef('MESSAGE_PB_H').
 -define('MESSAGE_PB_H', true).
 -record('Message',
-        {type = register        :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | integer() | undefined, % = 1, optional, enum Type
+        {type = register        :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | newServer | integer() | undefined, % = 1, optional, enum Type
          msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:login_reply()} | {m7, message:newPeer()} | undefined % oneof
         }).
 -endif.

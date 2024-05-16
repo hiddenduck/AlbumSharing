@@ -52,7 +52,7 @@
 -include("gpb.hrl").
 
 %% enumerated types
--type 'Type'() :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left.
+-type 'Type'() :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | newServer.
 -export_type(['Type'/0]).
 
 %% message types
@@ -293,7 +293,7 @@ encode_msg_voteMap(#voteMap{map = F1}, Bin, TrUserData) ->
 encode_msg_peerInfo(Msg, TrUserData) -> encode_msg_peerInfo(Msg, <<>>, TrUserData).
 
 
-encode_msg_peerInfo(#peerInfo{ip = F1, port = F2}, Bin, TrUserData) ->
+encode_msg_peerInfo(#peerInfo{ip = F1, port = F2, id = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
             true ->
                 begin
@@ -304,13 +304,23 @@ encode_msg_peerInfo(#peerInfo{ip = F1, port = F2}, Bin, TrUserData) ->
                     end
                 end
          end,
-    if F2 == undefined -> B1;
+    B2 = if F2 == undefined -> B1;
+            true ->
+                begin
+                    TrF2 = id(F2, TrUserData),
+                    case is_empty_string(TrF2) of
+                        true -> B1;
+                        false -> e_type_string(TrF2, <<B1/binary, 18>>, TrUserData)
+                    end
+                end
+         end,
+    if F3 == undefined -> B2;
        true ->
            begin
-               TrF2 = id(F2, TrUserData),
-               case is_empty_string(TrF2) of
-                   true -> B1;
-                   false -> e_type_string(TrF2, <<B1/binary, 18>>, TrUserData)
+               TrF3 = id(F3, TrUserData),
+               case is_empty_string(TrF3) of
+                   true -> B2;
+                   false -> e_type_string(TrF3, <<B2/binary, 26>>, TrUserData)
                end
            end
     end.
@@ -399,18 +409,28 @@ encode_msg_voteInfo(#voteInfo{sum = F1, count = F2}, Bin, TrUserData) ->
 encode_msg_fileInfo(Msg, TrUserData) -> encode_msg_fileInfo(Msg, <<>>, TrUserData).
 
 
-encode_msg_fileInfo(#fileInfo{votes = F1, dotSet = F2}, Bin, TrUserData) ->
+encode_msg_fileInfo(#fileInfo{votes = F1, dotSet = F2, fileHash = F3}, Bin, TrUserData) ->
     B1 = begin
              TrF1 = id(F1, TrUserData),
              if TrF1 == [] -> Bin;
                 true -> e_field_fileInfo_votes(TrF1, Bin, TrUserData)
              end
          end,
-    begin
-        TrF2 = id(F2, TrUserData),
-        if TrF2 == [] -> B1;
-           true -> e_field_fileInfo_dotSet(TrF2, B1, TrUserData)
-        end
+    B2 = begin
+             TrF2 = id(F2, TrUserData),
+             if TrF2 == [] -> B1;
+                true -> e_field_fileInfo_dotSet(TrF2, B1, TrUserData)
+             end
+         end,
+    if F3 == undefined -> B2;
+       true ->
+           begin
+               TrF3 = id(F3, TrUserData),
+               case is_empty_string(TrF3) of
+                   true -> B2;
+                   false -> e_type_string(TrF3, <<B2/binary, 26>>, TrUserData)
+               end
+           end
     end.
 
 encode_msg_groupInfo(Msg, TrUserData) -> encode_msg_groupInfo(Msg, <<>>, TrUserData).
@@ -427,7 +447,7 @@ encode_msg_groupInfo(#groupInfo{dotSet = F1}, Bin, TrUserData) ->
 encode_msg_crdt(Msg, TrUserData) -> encode_msg_crdt(Msg, <<>>, TrUserData).
 
 
-encode_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3}, Bin, TrUserData) ->
+encode_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3, id = F4}, Bin, TrUserData) ->
     B1 = begin
              TrF1 = id(F1, TrUserData),
              if TrF1 == [] -> Bin;
@@ -440,11 +460,20 @@ encode_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3}, Bin, TrU
                 true -> e_field_crdt_files(TrF2, B1, TrUserData)
              end
          end,
-    begin
-        TrF3 = id(F3, TrUserData),
-        if TrF3 == [] -> B2;
-           true -> e_field_crdt_groupUsers(TrF3, B2, TrUserData)
-        end
+    B3 = begin
+             TrF3 = id(F3, TrUserData),
+             if TrF3 == [] -> B2;
+                true -> e_field_crdt_groupUsers(TrF3, B2, TrUserData)
+             end
+         end,
+    if F4 == undefined -> B3;
+       true ->
+           begin
+               TrF4 = id(F4, TrUserData),
+               if TrF4 =:= 0 -> B3;
+                  true -> e_varint(TrF4, <<B3/binary, 32>>, TrUserData)
+               end
+           end
     end.
 
 encode_msg_sessionStart(Msg, TrUserData) -> encode_msg_sessionStart(Msg, <<>>, TrUserData).
@@ -757,6 +786,7 @@ e_enum_Type(quit, Bin, _TrUserData) -> <<Bin/binary, 6>>;
 e_enum_Type(reply, Bin, _TrUserData) -> <<Bin/binary, 7>>;
 e_enum_Type(new_peer, Bin, _TrUserData) -> <<Bin/binary, 8>>;
 e_enum_Type(peer_left, Bin, _TrUserData) -> <<Bin/binary, 9>>;
+e_enum_Type(newServer, Bin, _TrUserData) -> <<Bin/binary, 10>>;
 e_enum_Type(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 -compile({nowarn_unused_function,e_type_sint/3}).
@@ -1261,56 +1291,63 @@ skip_32_voteMap(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_
 
 skip_64_voteMap(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_voteMap(Rest, Z1, Z2, F, F@_1, TrUserData).
 
-decode_msg_peerInfo(Bin, TrUserData) -> dfp_read_field_def_peerInfo(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_peerInfo(Bin, TrUserData) -> dfp_read_field_def_peerInfo(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
 
-dfp_read_field_def_peerInfo(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_peerInfo_ip(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
-dfp_read_field_def_peerInfo(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_peerInfo_port(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
-dfp_read_field_def_peerInfo(<<>>, 0, 0, _, F@_1, F@_2, _) -> #peerInfo{ip = F@_1, port = F@_2};
-dfp_read_field_def_peerInfo(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_peerInfo(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
+dfp_read_field_def_peerInfo(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_peerInfo_ip(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_peerInfo(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_peerInfo_port(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_peerInfo(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_peerInfo_id(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_peerInfo(<<>>, 0, 0, _, F@_1, F@_2, F@_3, _) -> #peerInfo{ip = F@_1, port = F@_2, id = F@_3};
+dfp_read_field_def_peerInfo(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_peerInfo(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_peerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_peerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-dg_read_field_def_peerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
+dg_read_field_def_peerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_peerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_peerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_peerInfo_ip(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
-        18 -> d_field_peerInfo_port(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        10 -> d_field_peerInfo_ip(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        18 -> d_field_peerInfo_port(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        26 -> d_field_peerInfo_id(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                1 -> skip_64_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                2 -> skip_length_delimited_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                3 -> skip_group_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                5 -> skip_32_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
+                0 -> skip_varint_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                1 -> skip_64_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                2 -> skip_length_delimited_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                3 -> skip_group_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                5 -> skip_32_peerInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData)
             end
     end;
-dg_read_field_def_peerInfo(<<>>, 0, 0, _, F@_1, F@_2, _) -> #peerInfo{ip = F@_1, port = F@_2}.
+dg_read_field_def_peerInfo(<<>>, 0, 0, _, F@_1, F@_2, F@_3, _) -> #peerInfo{ip = F@_1, port = F@_2, id = F@_3}.
 
-d_field_peerInfo_ip(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_peerInfo_ip(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-d_field_peerInfo_ip(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, TrUserData) ->
+d_field_peerInfo_ip(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_peerInfo_ip(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_peerInfo_ip(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_peerInfo(RestF, 0, 0, F, NewFValue, F@_2, TrUserData).
+    dfp_read_field_def_peerInfo(RestF, 0, 0, F, NewFValue, F@_2, F@_3, TrUserData).
 
-d_field_peerInfo_port(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_peerInfo_port(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-d_field_peerInfo_port(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, TrUserData) ->
+d_field_peerInfo_port(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_peerInfo_port(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_peerInfo_port(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_peerInfo(RestF, 0, 0, F, F@_1, NewFValue, TrUserData).
+    dfp_read_field_def_peerInfo(RestF, 0, 0, F, F@_1, NewFValue, F@_3, TrUserData).
 
-skip_varint_peerInfo(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> skip_varint_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
-skip_varint_peerInfo(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+d_field_peerInfo_id(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_peerInfo_id(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_peerInfo_id(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_peerInfo(RestF, 0, 0, F, F@_1, F@_2, NewFValue, TrUserData).
 
-skip_length_delimited_peerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_peerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-skip_length_delimited_peerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
+skip_varint_peerInfo(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_peerInfo(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+
+skip_length_delimited_peerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_peerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_peerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_peerInfo(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
+    dfp_read_field_def_peerInfo(Rest2, 0, 0, F, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_peerInfo(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
+skip_group_peerInfo(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_peerInfo(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
+    dfp_read_field_def_peerInfo(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_peerInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+skip_32_peerInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_peerInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+skip_64_peerInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
 decode_msg_newPeer(Bin, TrUserData) -> dfp_read_field_def_newPeer(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
 
@@ -1472,56 +1509,63 @@ skip_32_voteInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> df
 
 skip_64_voteInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_voteInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-decode_msg_fileInfo(Bin, TrUserData) -> dfp_read_field_def_fileInfo(Bin, 0, 0, 0, 'tr_decode_init_default_fileInfo.votes'([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_fileInfo(Bin, TrUserData) -> dfp_read_field_def_fileInfo(Bin, 0, 0, 0, 'tr_decode_init_default_fileInfo.votes'([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
 
-dfp_read_field_def_fileInfo(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_fileInfo_votes(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
-dfp_read_field_def_fileInfo(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_fileInfo_dotSet(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
-dfp_read_field_def_fileInfo(<<>>, 0, 0, _, R1, R2, TrUserData) -> #fileInfo{votes = 'tr_decode_repeated_finalize_fileInfo.votes'(R1, TrUserData), dotSet = lists_reverse(R2, TrUserData)};
-dfp_read_field_def_fileInfo(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_fileInfo(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
+dfp_read_field_def_fileInfo(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_fileInfo_votes(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_fileInfo(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_fileInfo_dotSet(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_fileInfo(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_fileInfo_fileHash(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_fileInfo(<<>>, 0, 0, _, R1, R2, F@_3, TrUserData) -> #fileInfo{votes = 'tr_decode_repeated_finalize_fileInfo.votes'(R1, TrUserData), dotSet = lists_reverse(R2, TrUserData), fileHash = F@_3};
+dfp_read_field_def_fileInfo(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_fileInfo(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_fileInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_fileInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-dg_read_field_def_fileInfo(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
+dg_read_field_def_fileInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_fileInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_fileInfo(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_fileInfo_votes(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
-        18 -> d_field_fileInfo_dotSet(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        10 -> d_field_fileInfo_votes(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        18 -> d_field_fileInfo_dotSet(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        26 -> d_field_fileInfo_fileHash(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                1 -> skip_64_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                2 -> skip_length_delimited_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                3 -> skip_group_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
-                5 -> skip_32_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
+                0 -> skip_varint_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                1 -> skip_64_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                2 -> skip_length_delimited_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                3 -> skip_group_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
+                5 -> skip_32_fileInfo(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData)
             end
     end;
-dg_read_field_def_fileInfo(<<>>, 0, 0, _, R1, R2, TrUserData) -> #fileInfo{votes = 'tr_decode_repeated_finalize_fileInfo.votes'(R1, TrUserData), dotSet = lists_reverse(R2, TrUserData)}.
+dg_read_field_def_fileInfo(<<>>, 0, 0, _, R1, R2, F@_3, TrUserData) -> #fileInfo{votes = 'tr_decode_repeated_finalize_fileInfo.votes'(R1, TrUserData), dotSet = lists_reverse(R2, TrUserData), fileHash = F@_3}.
 
-d_field_fileInfo_votes(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_fileInfo_votes(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-d_field_fileInfo_votes(<<0:1, X:7, Rest/binary>>, N, Acc, F, Prev, F@_2, TrUserData) ->
+d_field_fileInfo_votes(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_fileInfo_votes(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_fileInfo_votes(<<0:1, X:7, Rest/binary>>, N, Acc, F, Prev, F@_2, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id('decode_msg_map<uint32,voteInfo>'(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_fileInfo(RestF, 0, 0, F, 'tr_decode_repeated_add_elem_fileInfo.votes'(NewFValue, Prev, TrUserData), F@_2, TrUserData).
+    dfp_read_field_def_fileInfo(RestF, 0, 0, F, 'tr_decode_repeated_add_elem_fileInfo.votes'(NewFValue, Prev, TrUserData), F@_2, F@_3, TrUserData).
 
-d_field_fileInfo_dotSet(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_fileInfo_dotSet(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-d_field_fileInfo_dotSet(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
+d_field_fileInfo_dotSet(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_fileInfo_dotSet(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_fileInfo_dotSet(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_dotPair(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_fileInfo(RestF, 0, 0, F, F@_1, cons(NewFValue, Prev, TrUserData), TrUserData).
+    dfp_read_field_def_fileInfo(RestF, 0, 0, F, F@_1, cons(NewFValue, Prev, TrUserData), F@_3, TrUserData).
 
-skip_varint_fileInfo(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> skip_varint_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
-skip_varint_fileInfo(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+d_field_fileInfo_fileHash(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_fileInfo_fileHash(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+d_field_fileInfo_fileHash(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_fileInfo(RestF, 0, 0, F, F@_1, F@_2, NewFValue, TrUserData).
 
-skip_length_delimited_fileInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_fileInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
-skip_length_delimited_fileInfo(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
+skip_varint_fileInfo(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_fileInfo(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+
+skip_length_delimited_fileInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_fileInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_fileInfo(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_fileInfo(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
+    dfp_read_field_def_fileInfo(Rest2, 0, 0, F, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_fileInfo(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
+skip_group_fileInfo(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_fileInfo(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
+    dfp_read_field_def_fileInfo(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_fileInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+skip_32_fileInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_fileInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+skip_64_fileInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_fileInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
 decode_msg_groupInfo(Bin, TrUserData) -> dfp_read_field_def_groupInfo(Bin, 0, 0, 0, id([], TrUserData), TrUserData).
 
@@ -1568,65 +1612,72 @@ skip_32_groupInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_rea
 skip_64_groupInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_groupInfo(Rest, Z1, Z2, F, F@_1, TrUserData).
 
 decode_msg_crdt(Bin, TrUserData) ->
-    dfp_read_field_def_crdt(Bin, 0, 0, 0, 'tr_decode_init_default_crdt.versionVector'([], TrUserData), 'tr_decode_init_default_crdt.files'([], TrUserData), 'tr_decode_init_default_crdt.groupUsers'([], TrUserData), TrUserData).
+    dfp_read_field_def_crdt(Bin, 0, 0, 0, 'tr_decode_init_default_crdt.versionVector'([], TrUserData), 'tr_decode_init_default_crdt.files'([], TrUserData), 'tr_decode_init_default_crdt.groupUsers'([], TrUserData), id(0, TrUserData), TrUserData).
 
-dfp_read_field_def_crdt(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_crdt_versionVector(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_crdt(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_crdt_files(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_crdt(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_crdt_groupUsers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_crdt(<<>>, 0, 0, _, R1, R2, R3, TrUserData) ->
-    #crdt{versionVector = 'tr_decode_repeated_finalize_crdt.versionVector'(R1, TrUserData), files = 'tr_decode_repeated_finalize_crdt.files'(R2, TrUserData), groupUsers = 'tr_decode_repeated_finalize_crdt.groupUsers'(R3, TrUserData)};
-dfp_read_field_def_crdt(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_crdt(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+dfp_read_field_def_crdt(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_crdt_versionVector(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_crdt(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_crdt_files(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_crdt(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_crdt_groupUsers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_crdt(<<32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_crdt_id(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_crdt(<<>>, 0, 0, _, R1, R2, R3, F@_4, TrUserData) ->
+    #crdt{versionVector = 'tr_decode_repeated_finalize_crdt.versionVector'(R1, TrUserData), files = 'tr_decode_repeated_finalize_crdt.files'(R2, TrUserData), groupUsers = 'tr_decode_repeated_finalize_crdt.groupUsers'(R3, TrUserData), id = F@_4};
+dfp_read_field_def_crdt(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dg_read_field_def_crdt(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
-dg_read_field_def_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-dg_read_field_def_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, TrUserData) ->
+dg_read_field_def_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 32 - 7 -> dg_read_field_def_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dg_read_field_def_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_crdt_versionVector(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-        18 -> d_field_crdt_files(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-        26 -> d_field_crdt_groupUsers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        10 -> d_field_crdt_versionVector(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        18 -> d_field_crdt_files(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        26 -> d_field_crdt_groupUsers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        32 -> d_field_crdt_id(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                1 -> skip_64_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                2 -> skip_length_delimited_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                3 -> skip_group_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                5 -> skip_32_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData)
+                0 -> skip_varint_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                1 -> skip_64_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                2 -> skip_length_delimited_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                3 -> skip_group_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
+                5 -> skip_32_crdt(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData)
             end
     end;
-dg_read_field_def_crdt(<<>>, 0, 0, _, R1, R2, R3, TrUserData) ->
-    #crdt{versionVector = 'tr_decode_repeated_finalize_crdt.versionVector'(R1, TrUserData), files = 'tr_decode_repeated_finalize_crdt.files'(R2, TrUserData), groupUsers = 'tr_decode_repeated_finalize_crdt.groupUsers'(R3, TrUserData)}.
+dg_read_field_def_crdt(<<>>, 0, 0, _, R1, R2, R3, F@_4, TrUserData) ->
+    #crdt{versionVector = 'tr_decode_repeated_finalize_crdt.versionVector'(R1, TrUserData), files = 'tr_decode_repeated_finalize_crdt.files'(R2, TrUserData), groupUsers = 'tr_decode_repeated_finalize_crdt.groupUsers'(R3, TrUserData), id = F@_4}.
 
-d_field_crdt_versionVector(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_crdt_versionVector(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-d_field_crdt_versionVector(<<0:1, X:7, Rest/binary>>, N, Acc, F, Prev, F@_2, F@_3, TrUserData) ->
+d_field_crdt_versionVector(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_crdt_versionVector(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_crdt_versionVector(<<0:1, X:7, Rest/binary>>, N, Acc, F, Prev, F@_2, F@_3, F@_4, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id('decode_msg_map<uint32,uint64>'(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_crdt(RestF, 0, 0, F, 'tr_decode_repeated_add_elem_crdt.versionVector'(NewFValue, Prev, TrUserData), F@_2, F@_3, TrUserData).
+    dfp_read_field_def_crdt(RestF, 0, 0, F, 'tr_decode_repeated_add_elem_crdt.versionVector'(NewFValue, Prev, TrUserData), F@_2, F@_3, F@_4, TrUserData).
 
-d_field_crdt_files(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_crdt_files(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-d_field_crdt_files(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3, TrUserData) ->
+d_field_crdt_files(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_crdt_files(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_crdt_files(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3, F@_4, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id('decode_msg_map<string,fileInfo>'(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_crdt(RestF, 0, 0, F, F@_1, 'tr_decode_repeated_add_elem_crdt.files'(NewFValue, Prev, TrUserData), F@_3, TrUserData).
+    dfp_read_field_def_crdt(RestF, 0, 0, F, F@_1, 'tr_decode_repeated_add_elem_crdt.files'(NewFValue, Prev, TrUserData), F@_3, F@_4, TrUserData).
 
-d_field_crdt_groupUsers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_crdt_groupUsers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-d_field_crdt_groupUsers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, TrUserData) ->
+d_field_crdt_groupUsers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_crdt_groupUsers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_crdt_groupUsers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, F@_4, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id('decode_msg_map<string,groupInfo>'(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_crdt(RestF, 0, 0, F, F@_1, F@_2, 'tr_decode_repeated_add_elem_crdt.groupUsers'(NewFValue, Prev, TrUserData), TrUserData).
+    dfp_read_field_def_crdt(RestF, 0, 0, F, F@_1, F@_2, 'tr_decode_repeated_add_elem_crdt.groupUsers'(NewFValue, Prev, TrUserData), F@_4, TrUserData).
 
-skip_varint_crdt(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-skip_varint_crdt(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+d_field_crdt_id(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_crdt_id(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_crdt_id(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, _, TrUserData) ->
+    {NewFValue, RestF} = {id((X bsl N + Acc) band 4294967295, TrUserData), Rest},
+    dfp_read_field_def_crdt(RestF, 0, 0, F, F@_1, F@_2, F@_3, NewFValue, TrUserData).
 
-skip_length_delimited_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-skip_length_delimited_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) ->
+skip_varint_crdt(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> skip_varint_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+skip_varint_crdt(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_length_delimited_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> skip_length_delimited_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
+skip_length_delimited_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_crdt(Rest2, 0, 0, F, F@_1, F@_2, F@_3, TrUserData).
+    dfp_read_field_def_crdt(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
-skip_group_crdt(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, TrUserData) ->
+skip_group_crdt(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_crdt(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, TrUserData).
+    dfp_read_field_def_crdt(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
-skip_32_crdt(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+skip_32_crdt(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
-skip_64_crdt(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+skip_64_crdt(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
 decode_msg_sessionStart(Bin, TrUserData) ->
     dfp_read_field_def_sessionStart(Bin, 0, 0, 0, id(0, TrUserData), id(undefined, TrUserData), 'tr_decode_init_default_sessionStart.sessionPeers'([], TrUserData), 'tr_decode_init_default_sessionStart.voteTable'([], TrUserData), TrUserData).
@@ -2335,6 +2386,7 @@ d_enum_Type(6) -> quit;
 d_enum_Type(7) -> reply;
 d_enum_Type(8) -> new_peer;
 d_enum_Type(9) -> peer_left;
+d_enum_Type(10) -> newServer;
 d_enum_Type(V) -> V.
 
 read_group(Bin, FieldNum) ->
@@ -2494,7 +2546,7 @@ merge_msg_voteMap(#voteMap{map = PFmap}, #voteMap{map = NFmap}, TrUserData) ->
                  end}.
 
 -compile({nowarn_unused_function,merge_msg_peerInfo/3}).
-merge_msg_peerInfo(#peerInfo{ip = PFip, port = PFport}, #peerInfo{ip = NFip, port = NFport}, _) ->
+merge_msg_peerInfo(#peerInfo{ip = PFip, port = PFport, id = PFid}, #peerInfo{ip = NFip, port = NFport, id = NFid}, _) ->
     #peerInfo{ip =
                   if NFip =:= undefined -> PFip;
                      true -> NFip
@@ -2502,6 +2554,10 @@ merge_msg_peerInfo(#peerInfo{ip = PFip, port = PFport}, #peerInfo{ip = NFip, por
               port =
                   if NFport =:= undefined -> PFport;
                      true -> NFport
+                  end,
+              id =
+                  if NFid =:= undefined -> PFid;
+                     true -> NFid
                   end}.
 
 -compile({nowarn_unused_function,merge_msg_newPeer/3}).
@@ -2542,7 +2598,7 @@ merge_msg_voteInfo(#voteInfo{sum = PFsum, count = PFcount}, #voteInfo{sum = NFsu
                   end}.
 
 -compile({nowarn_unused_function,merge_msg_fileInfo/3}).
-merge_msg_fileInfo(#fileInfo{votes = PFvotes, dotSet = PFdotSet}, #fileInfo{votes = NFvotes, dotSet = NFdotSet}, TrUserData) ->
+merge_msg_fileInfo(#fileInfo{votes = PFvotes, dotSet = PFdotSet, fileHash = PFfileHash}, #fileInfo{votes = NFvotes, dotSet = NFdotSet, fileHash = NFfileHash}, TrUserData) ->
     #fileInfo{votes =
                   if PFvotes /= undefined, NFvotes /= undefined -> 'tr_merge_fileInfo.votes'(PFvotes, NFvotes, TrUserData);
                      PFvotes == undefined -> NFvotes;
@@ -2552,6 +2608,10 @@ merge_msg_fileInfo(#fileInfo{votes = PFvotes, dotSet = PFdotSet}, #fileInfo{vote
                   if PFdotSet /= undefined, NFdotSet /= undefined -> 'erlang_++'(PFdotSet, NFdotSet, TrUserData);
                      PFdotSet == undefined -> NFdotSet;
                      NFdotSet == undefined -> PFdotSet
+                  end,
+              fileHash =
+                  if NFfileHash =:= undefined -> PFfileHash;
+                     true -> NFfileHash
                   end}.
 
 -compile({nowarn_unused_function,merge_msg_groupInfo/3}).
@@ -2563,7 +2623,7 @@ merge_msg_groupInfo(#groupInfo{dotSet = PFdotSet}, #groupInfo{dotSet = NFdotSet}
                    end}.
 
 -compile({nowarn_unused_function,merge_msg_crdt/3}).
-merge_msg_crdt(#crdt{versionVector = PFversionVector, files = PFfiles, groupUsers = PFgroupUsers}, #crdt{versionVector = NFversionVector, files = NFfiles, groupUsers = NFgroupUsers}, TrUserData) ->
+merge_msg_crdt(#crdt{versionVector = PFversionVector, files = PFfiles, groupUsers = PFgroupUsers, id = PFid}, #crdt{versionVector = NFversionVector, files = NFfiles, groupUsers = NFgroupUsers, id = NFid}, TrUserData) ->
     #crdt{versionVector =
               if PFversionVector /= undefined, NFversionVector /= undefined -> 'tr_merge_crdt.versionVector'(PFversionVector, NFversionVector, TrUserData);
                  PFversionVector == undefined -> NFversionVector;
@@ -2578,6 +2638,10 @@ merge_msg_crdt(#crdt{versionVector = PFversionVector, files = PFfiles, groupUser
               if PFgroupUsers /= undefined, NFgroupUsers /= undefined -> 'tr_merge_crdt.groupUsers'(PFgroupUsers, NFgroupUsers, TrUserData);
                  PFgroupUsers == undefined -> NFgroupUsers;
                  NFgroupUsers == undefined -> PFgroupUsers
+              end,
+          id =
+              if NFid =:= undefined -> PFid;
+                 true -> NFid
               end}.
 
 -compile({nowarn_unused_function,merge_msg_sessionStart/3}).
@@ -2770,12 +2834,15 @@ v_submsg_peerInfo(Msg, Path, TrUserData) -> v_msg_peerInfo(Msg, Path, TrUserData
 
 -compile({nowarn_unused_function,v_msg_peerInfo/3}).
 -dialyzer({nowarn_function,v_msg_peerInfo/3}).
-v_msg_peerInfo(#peerInfo{ip = F1, port = F2}, Path, TrUserData) ->
+v_msg_peerInfo(#peerInfo{ip = F1, port = F2, id = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [ip | Path], TrUserData)
     end,
     if F2 == undefined -> ok;
        true -> v_type_string(F2, [port | Path], TrUserData)
+    end,
+    if F3 == undefined -> ok;
+       true -> v_type_string(F3, [id | Path], TrUserData)
     end,
     ok;
 v_msg_peerInfo(X, Path, _TrUserData) -> mk_type_error({expected_msg, peerInfo}, X, Path).
@@ -2837,12 +2904,15 @@ v_submsg_fileInfo(Msg, Path, TrUserData) -> v_msg_fileInfo(Msg, Path, TrUserData
 
 -compile({nowarn_unused_function,v_msg_fileInfo/3}).
 -dialyzer({nowarn_function,v_msg_fileInfo/3}).
-v_msg_fileInfo(#fileInfo{votes = F1, dotSet = F2}, Path, TrUserData) ->
+v_msg_fileInfo(#fileInfo{votes = F1, dotSet = F2, fileHash = F3}, Path, TrUserData) ->
     'v_map<uint32,voteInfo>'(F1, [votes | Path], TrUserData),
     if is_list(F2) ->
            _ = [v_submsg_dotPair(Elem, [dotSet | Path], TrUserData) || Elem <- F2],
            ok;
        true -> mk_type_error({invalid_list_of, {msg, dotPair}}, F2, [dotSet | Path])
+    end,
+    if F3 == undefined -> ok;
+       true -> v_type_string(F3, [fileHash | Path], TrUserData)
     end,
     ok;
 v_msg_fileInfo(X, Path, _TrUserData) -> mk_type_error({expected_msg, fileInfo}, X, Path).
@@ -2868,10 +2938,13 @@ v_submsg_crdt(Msg, Path, TrUserData) -> v_msg_crdt(Msg, Path, TrUserData).
 
 -compile({nowarn_unused_function,v_msg_crdt/3}).
 -dialyzer({nowarn_function,v_msg_crdt/3}).
-v_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3}, Path, TrUserData) ->
+v_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3, id = F4}, Path, TrUserData) ->
     'v_map<uint32,uint64>'(F1, [versionVector | Path], TrUserData),
     'v_map<string,fileInfo>'(F2, [files | Path], TrUserData),
     'v_map<string,groupInfo>'(F3, [groupUsers | Path], TrUserData),
+    if F4 == undefined -> ok;
+       true -> v_type_uint32(F4, [id | Path], TrUserData)
+    end,
     ok;
 v_msg_crdt(X, Path, _TrUserData) -> mk_type_error({expected_msg, crdt}, X, Path).
 
@@ -2939,6 +3012,7 @@ v_enum_Type(quit, _Path, _TrUserData) -> ok;
 v_enum_Type(reply, _Path, _TrUserData) -> ok;
 v_enum_Type(new_peer, _Path, _TrUserData) -> ok;
 v_enum_Type(peer_left, _Path, _TrUserData) -> ok;
+v_enum_Type(newServer, _Path, _TrUserData) -> ok;
 v_enum_Type(V, _Path, _TrUserData) when -2147483648 =< V, V =< 2147483647, is_integer(V) -> ok;
 v_enum_Type(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'Type'}, X, Path).
 
@@ -3267,7 +3341,7 @@ mt_merge_maptuples_r(L1, L2) -> dict:to_list(dict:merge(fun (_Key, _V1, V2) -> V
 
 
 get_msg_defs() ->
-    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}]},
+    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {newServer, 10}]},
      {{msg, 'ServerInfo'},
       [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
        #field{name = port, fnum = 2, rnum = 3, type = int32, occurrence = optional, opts = []},
@@ -3279,19 +3353,26 @@ get_msg_defs() ->
      {{msg, login_reply}, [#field{name = dataServers, fnum = 1, rnum = 2, type = {msg, peerInfo}, occurrence = repeated, opts = []}]},
      {{msg, voteValue}, [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
      {{msg, voteMap}, [#field{name = map, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteValue}}, occurrence = repeated, opts = []}]},
-     {{msg, peerInfo}, [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
+     {{msg, peerInfo},
+      [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
+       #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
+       #field{name = id, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
      {{msg, newPeer},
       [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
        #field{name = ip, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = port, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
      {{msg, dotPair}, [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []}, #field{name = version, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}]},
      {{msg, voteInfo}, [#field{name = sum, fnum = 1, rnum = 2, type = uint64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}]},
-     {{msg, fileInfo}, [#field{name = votes, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteInfo}}, occurrence = repeated, opts = []}, #field{name = dotSet, fnum = 2, rnum = 3, type = {msg, dotPair}, occurrence = repeated, opts = []}]},
+     {{msg, fileInfo},
+      [#field{name = votes, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteInfo}}, occurrence = repeated, opts = []},
+       #field{name = dotSet, fnum = 2, rnum = 3, type = {msg, dotPair}, occurrence = repeated, opts = []},
+       #field{name = fileHash, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
      {{msg, groupInfo}, [#field{name = dotSet, fnum = 1, rnum = 2, type = {msg, dotPair}, occurrence = repeated, opts = []}]},
      {{msg, crdt},
       [#field{name = versionVector, fnum = 1, rnum = 2, type = {map, uint32, uint64}, occurrence = repeated, opts = []},
        #field{name = files, fnum = 2, rnum = 3, type = {map, string, {msg, fileInfo}}, occurrence = repeated, opts = []},
-       #field{name = groupUsers, fnum = 3, rnum = 4, type = {map, string, {msg, groupInfo}}, occurrence = repeated, opts = []}]},
+       #field{name = groupUsers, fnum = 3, rnum = 4, type = {map, string, {msg, groupInfo}}, occurrence = repeated, opts = []},
+       #field{name = id, fnum = 4, rnum = 5, type = uint32, occurrence = optional, opts = []}]},
      {{msg, sessionStart},
       [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
        #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
@@ -3349,19 +3430,26 @@ find_msg_def(reply_message) -> [#field{name = status, fnum = 1, rnum = 2, type =
 find_msg_def(login_reply) -> [#field{name = dataServers, fnum = 1, rnum = 2, type = {msg, peerInfo}, occurrence = repeated, opts = []}];
 find_msg_def(voteValue) -> [#field{name = sum, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
 find_msg_def(voteMap) -> [#field{name = map, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteValue}}, occurrence = repeated, opts = []}];
-find_msg_def(peerInfo) -> [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
+find_msg_def(peerInfo) ->
+    [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
+     #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
+     #field{name = id, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
 find_msg_def(newPeer) ->
     [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
      #field{name = ip, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = port, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
 find_msg_def(dotPair) -> [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []}, #field{name = version, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}];
 find_msg_def(voteInfo) -> [#field{name = sum, fnum = 1, rnum = 2, type = uint64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}];
-find_msg_def(fileInfo) -> [#field{name = votes, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteInfo}}, occurrence = repeated, opts = []}, #field{name = dotSet, fnum = 2, rnum = 3, type = {msg, dotPair}, occurrence = repeated, opts = []}];
+find_msg_def(fileInfo) ->
+    [#field{name = votes, fnum = 1, rnum = 2, type = {map, uint32, {msg, voteInfo}}, occurrence = repeated, opts = []},
+     #field{name = dotSet, fnum = 2, rnum = 3, type = {msg, dotPair}, occurrence = repeated, opts = []},
+     #field{name = fileHash, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
 find_msg_def(groupInfo) -> [#field{name = dotSet, fnum = 1, rnum = 2, type = {msg, dotPair}, occurrence = repeated, opts = []}];
 find_msg_def(crdt) ->
     [#field{name = versionVector, fnum = 1, rnum = 2, type = {map, uint32, uint64}, occurrence = repeated, opts = []},
      #field{name = files, fnum = 2, rnum = 3, type = {map, string, {msg, fileInfo}}, occurrence = repeated, opts = []},
-     #field{name = groupUsers, fnum = 3, rnum = 4, type = {map, string, {msg, groupInfo}}, occurrence = repeated, opts = []}];
+     #field{name = groupUsers, fnum = 3, rnum = 4, type = {map, string, {msg, groupInfo}}, occurrence = repeated, opts = []},
+     #field{name = id, fnum = 4, rnum = 5, type = uint32, occurrence = optional, opts = []}];
 find_msg_def(sessionStart) ->
     [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
      #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
@@ -3383,7 +3471,7 @@ find_msg_def('Message') ->
 find_msg_def(_) -> error.
 
 
-find_enum_def('Type') -> [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}];
+find_enum_def('Type') -> [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {newServer, 10}];
 find_enum_def(_) -> error.
 
 
@@ -3402,7 +3490,8 @@ enum_symbol_by_value_Type(5) -> send;
 enum_symbol_by_value_Type(6) -> quit;
 enum_symbol_by_value_Type(7) -> reply;
 enum_symbol_by_value_Type(8) -> new_peer;
-enum_symbol_by_value_Type(9) -> peer_left.
+enum_symbol_by_value_Type(9) -> peer_left;
+enum_symbol_by_value_Type(10) -> newServer.
 
 
 enum_value_by_symbol_Type(register) -> 0;
@@ -3414,7 +3503,8 @@ enum_value_by_symbol_Type(send) -> 5;
 enum_value_by_symbol_Type(quit) -> 6;
 enum_value_by_symbol_Type(reply) -> 7;
 enum_value_by_symbol_Type(new_peer) -> 8;
-enum_value_by_symbol_Type(peer_left) -> 9.
+enum_value_by_symbol_Type(peer_left) -> 9;
+enum_value_by_symbol_Type(newServer) -> 10.
 
 
 get_service_names() -> [].

@@ -185,6 +185,7 @@ user_handler({Status, MainLoop}, Sock, MainLoop) when
     Status =:= register_ok;
     Status =:= register_error
 ->
+    io:format("reply to non authenticated~n"),
     send_reply(atom_to_list(Status), Sock),
     user(Sock, MainLoop);
 user_handler(_, Sock, MainLoop) ->
@@ -193,6 +194,7 @@ user_handler(_, Sock, MainLoop) ->
 message_handler(
     register, {m1, #registerLoginFormat{userName = UserName, password = Password}}, Sock, MainLoop
 ) ->
+    io:format("Register request from ~p~n", [UserName]),
     MainLoop ! {{register, {UserName, Password}}, self()},
     user(Sock, MainLoop);
 message_handler(
