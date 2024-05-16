@@ -21,10 +21,10 @@ handler({register, {Username, Passwd}}, {UserMap, Metadata, DataServers} = State
             {maps:put(Username, {offline, Passwd}, UserMap), Metadata, DataServers}
     end;
 
-handler({login, {Username, Passwd}}, {UserMap, Metadata, DataServers} = State, From) ->
+handler({login, {Username, Passwd}}, {UserMap, Metadata, {_, Servers}=DataServers} = State, From) ->
     case maps:find(Username, UserMap) of
         {ok, {offline, Passwd}} ->
-            From ! {login_ok, Username, DataServers, self()},
+            From ! {login_ok, Username, Servers, self()},
             {maps:update(Username, {From, Passwd}, UserMap), Metadata, DataServers};
 
         _ ->
