@@ -45,6 +45,7 @@ updateMetaData(
     {NewFiles, NewGroupUsers, VV}.
 
 joinDotSet(VV, DotSet) ->
+    io:format("Joining: ~p ~p~n", [DotSet, VV]),
     NewDotSet = maps:filter(
         fun({ID, Version},_) ->
             case maps:find(ID, VV) of
@@ -61,6 +62,7 @@ joinDotSet(VV, DotSet) ->
         end,
         DotSet
     ),
+    io:format("JoinDotSet: ~p~n", [NewDotSet]),
     {NewDotSet, true}.
 
 joinDotSets(VV, PeerVV, DotSet, PeerDotSet) ->
@@ -185,7 +187,7 @@ joinMaps(Map, PeerMap, {JoinInfos, JoinInfo, VV, PeerVV}) ->
                 {ok, PeerInfo} ->
                     {NewInfo, Ok} = JoinInfos(VV, PeerVV, Info, PeerInfo);
                 _ ->
-                    {NewInfo, Ok} = JoinInfo(VV, Info)
+                    {NewInfo, Ok} = JoinInfo(PeerVV, Info)
             end,
             case Ok of
                 true ->
@@ -203,7 +205,7 @@ joinMaps(Map, PeerMap, {JoinInfos, JoinInfo, VV, PeerVV}) ->
                 {ok, _} ->
                     ACC;
                 _ ->
-                    {NewInfo, Ok} = JoinInfo(PeerVV, Info),
+                    {NewInfo, Ok} = JoinInfo(VV, Info),
                     case Ok of
                         true ->
                             maps:put(User, NewInfo, ACC);
