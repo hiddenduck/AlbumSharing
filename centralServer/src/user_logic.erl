@@ -30,12 +30,17 @@ session_user_handler(
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
-session_user_handler({peer_left, PeerUserName, SessionLoop}, Sock, SessionLoop, UserName) ->
+session_user_handler({peer_left, {Ip, PORT, PeerUserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 9,
         msg =
-            {m5, #reply_message{
-                status = PeerUserName
+            {m7, #peer{
+                name = PeerUserName,
+                peerInfo = #peerInfo{
+                    ip = Ip,
+                    port = PORT,
+                    id = PeerId
+                }
             }}
     }),
     send(Data, Sock),

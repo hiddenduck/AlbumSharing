@@ -115,6 +115,6 @@ enum Type {
   quit       = 6;  // quitMessage
   reply      = 7;  // reply
   new_peer   = 8;  // newPeer
-  peer_left  = 9;  // reply
+  peer_left  = 9;  // peer
   new_server  = 10;
 }

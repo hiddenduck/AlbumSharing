@@ -100,18 +100,19 @@ handler(
             io:format("~p~n", [Crdt]),
             NewAlbumMetaData = crdt:updateMetaData(Crdt, AlbumMetaData),
             NewUserMap = maps:update(UserName, Votetable, UserMap),
-            {_, _, Id, _} = maps:get(UserName, SessionUsers),
+            %{IP, Port, PeerId, Pid}
+            {Leaver_IP, Leaver_Port, Id, _} = maps:get(UserName, SessionUsers),
             NewSessionUsers = maps:remove(UserName, SessionUsers),
             Client ! {put_album_ok, MainLoop, self()},
-            case NewSessionUsers of
-                #{} ->
+            case map_size(NewSessionUsers) of
+                0 ->
                     MainLoop ! {{end_session, AlbumName}, self()},
                     saveState(AlbumName, NewAlbumMetaData, NewUserMap),
                     end_loop();
 
                 _ ->
                     maps:foreach(fun(_, {_, _, _, PID}) ->
-                            PID ! {peer_left, UserName, self()}
+                            PID ! {peer_left, {Leaver_IP, Leaver_Port, UserName, Id}, self()}
                         end,
                         NewSessionUsers),
                     loop(AlbumName,{NewAlbumMetaData, {[Id | IdPool], IdCounter}, NewSessionUsers, NewUserMap,
