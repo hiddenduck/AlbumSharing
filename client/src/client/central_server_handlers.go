@@ -63,7 +63,7 @@ func CreateCentralServerMessageHandlers() (handlers cs.Handlers) {
 		pb.Type_reply,
 		pb.Type_new_peer,
 		pb.Type_peer_left,
-		pb.Type_newServer,
+		pb.Type_new_server,
 	}
 
 	for _, pbType := range typeList {
