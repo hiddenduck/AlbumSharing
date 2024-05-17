@@ -73,12 +73,27 @@
         }).
 -endif.
 
+-ifndef('PEER_PB_H').
+-define('PEER_PB_H', true).
+-record(peer,
+        {name = []              :: unicode:chardata() | undefined, % = 1, optional
+         peerInfo = undefined   :: message:peerInfo() | undefined % = 2, optional
+        }).
+-endif.
+
+-ifndef('NEWSERVER_PB_H').
+-define('NEWSERVER_PB_H', true).
+-record(newServer,
+        {ip = []                :: unicode:chardata() | undefined, % = 1, optional
+         port = []              :: unicode:chardata() | undefined % = 2, optional
+        }).
+-endif.
+
 -ifndef('NEWPEER_PB_H').
 -define('NEWPEER_PB_H', true).
 -record(newPeer,
         {name = []              :: unicode:chardata() | undefined, % = 1, optional
-         ip = []                :: unicode:chardata() | undefined, % = 2, optional
-         port = []              :: unicode:chardata() | undefined % = 3, optional
+         peerInfo = undefined   :: message:peerInfo() | undefined % = 2, optional
         }).
 -endif.
 
@@ -146,8 +161,8 @@
 -ifndef('MESSAGE_PB_H').
 -define('MESSAGE_PB_H', true).
 -record('Message',
-        {type = register        :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | newServer | integer() | undefined, % = 1, optional, enum Type
-         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:login_reply()} | {m7, message:newPeer()} | undefined % oneof
+        {type = register        :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | new_server | integer() | undefined, % = 1, optional, enum Type
+         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:login_reply()} | {m7, message:peer()} | {m8, message:newServer()} | undefined % oneof
         }).
 -endif.
 

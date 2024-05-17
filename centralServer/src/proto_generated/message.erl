@@ -52,7 +52,7 @@
 -include("gpb.hrl").
 
 %% enumerated types
--type 'Type'() :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | newServer.
+-type 'Type'() :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | new_server.
 -export_type(['Type'/0]).
 
 %% message types
@@ -72,6 +72,10 @@
 
 -type peerInfo() :: #peerInfo{}.
 
+-type peer() :: #peer{}.
+
+-type newServer() :: #newServer{}.
+
 -type newPeer() :: #newPeer{}.
 
 -type dotPair() :: #dotPair{}.
@@ -90,9 +94,9 @@
 
 -type 'Message'() :: #'Message'{}.
 
--export_type(['ServerInfo'/0, 'registerLoginFormat'/0, 'album'/0, 'reply_message'/0, 'login_reply'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'newPeer'/0, 'dotPair'/0, 'voteInfo'/0, 'fileInfo'/0, 'groupInfo'/0, 'crdt'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
--type '$msg_name'() :: 'ServerInfo' | registerLoginFormat | album | reply_message | login_reply | voteValue | voteMap | peerInfo | newPeer | dotPair | voteInfo | fileInfo | groupInfo | crdt | sessionStart | quitMessage | 'Message'.
--type '$msg'() :: 'ServerInfo'() | registerLoginFormat() | album() | reply_message() | login_reply() | voteValue() | voteMap() | peerInfo() | newPeer() | dotPair() | voteInfo() | fileInfo() | groupInfo() | crdt() | sessionStart() | quitMessage() | 'Message'().
+-export_type(['ServerInfo'/0, 'registerLoginFormat'/0, 'album'/0, 'reply_message'/0, 'login_reply'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'peer'/0, 'newServer'/0, 'newPeer'/0, 'dotPair'/0, 'voteInfo'/0, 'fileInfo'/0, 'groupInfo'/0, 'crdt'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
+-type '$msg_name'() :: 'ServerInfo' | registerLoginFormat | album | reply_message | login_reply | voteValue | voteMap | peerInfo | peer | newServer | newPeer | dotPair | voteInfo | fileInfo | groupInfo | crdt | sessionStart | quitMessage | 'Message'.
+-type '$msg'() :: 'ServerInfo'() | registerLoginFormat() | album() | reply_message() | login_reply() | voteValue() | voteMap() | peerInfo() | peer() | newServer() | newPeer() | dotPair() | voteInfo() | fileInfo() | groupInfo() | crdt() | sessionStart() | quitMessage() | 'Message'().
 -export_type(['$msg_name'/0, '$msg'/0]).
 
 -record('map<uint32,uint64>',{key, value}).
@@ -134,6 +138,8 @@ encode_msg(Msg, MsgName, Opts) ->
         voteValue -> encode_msg_voteValue(id(Msg, TrUserData), TrUserData);
         voteMap -> encode_msg_voteMap(id(Msg, TrUserData), TrUserData);
         peerInfo -> encode_msg_peerInfo(id(Msg, TrUserData), TrUserData);
+        peer -> encode_msg_peer(id(Msg, TrUserData), TrUserData);
+        newServer -> encode_msg_newServer(id(Msg, TrUserData), TrUserData);
         newPeer -> encode_msg_newPeer(id(Msg, TrUserData), TrUserData);
         dotPair -> encode_msg_dotPair(id(Msg, TrUserData), TrUserData);
         voteInfo -> encode_msg_voteInfo(id(Msg, TrUserData), TrUserData);
@@ -345,10 +351,10 @@ encode_msg_peerInfo(#peerInfo{ip = F1, port = F2, id = F3}, Bin, TrUserData) ->
            end
     end.
 
-encode_msg_newPeer(Msg, TrUserData) -> encode_msg_newPeer(Msg, <<>>, TrUserData).
+encode_msg_peer(Msg, TrUserData) -> encode_msg_peer(Msg, <<>>, TrUserData).
 
 
-encode_msg_newPeer(#newPeer{name = F1, ip = F2, port = F3}, Bin, TrUserData) ->
+encode_msg_peer(#peer{name = F1, peerInfo = F2}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
             true ->
                 begin
@@ -359,23 +365,61 @@ encode_msg_newPeer(#newPeer{name = F1, ip = F2, port = F3}, Bin, TrUserData) ->
                     end
                 end
          end,
-    B2 = if F2 == undefined -> B1;
+    if F2 == undefined -> B1;
+       true ->
+           begin
+               TrF2 = id(F2, TrUserData),
+               if TrF2 =:= undefined -> B1;
+                  true -> e_mfield_peer_peerInfo(TrF2, <<B1/binary, 18>>, TrUserData)
+               end
+           end
+    end.
+
+encode_msg_newServer(Msg, TrUserData) -> encode_msg_newServer(Msg, <<>>, TrUserData).
+
+
+encode_msg_newServer(#newServer{ip = F1, port = F2}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
             true ->
                 begin
-                    TrF2 = id(F2, TrUserData),
-                    case is_empty_string(TrF2) of
-                        true -> B1;
-                        false -> e_type_string(TrF2, <<B1/binary, 18>>, TrUserData)
+                    TrF1 = id(F1, TrUserData),
+                    case is_empty_string(TrF1) of
+                        true -> Bin;
+                        false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
                     end
                 end
          end,
-    if F3 == undefined -> B2;
+    if F2 == undefined -> B1;
        true ->
            begin
-               TrF3 = id(F3, TrUserData),
-               case is_empty_string(TrF3) of
-                   true -> B2;
-                   false -> e_type_string(TrF3, <<B2/binary, 26>>, TrUserData)
+               TrF2 = id(F2, TrUserData),
+               case is_empty_string(TrF2) of
+                   true -> B1;
+                   false -> e_type_string(TrF2, <<B1/binary, 18>>, TrUserData)
+               end
+           end
+    end.
+
+encode_msg_newPeer(Msg, TrUserData) -> encode_msg_newPeer(Msg, <<>>, TrUserData).
+
+
+encode_msg_newPeer(#newPeer{name = F1, peerInfo = F2}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+            true ->
+                begin
+                    TrF1 = id(F1, TrUserData),
+                    case is_empty_string(TrF1) of
+                        true -> Bin;
+                        false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+                    end
+                end
+         end,
+    if F2 == undefined -> B1;
+       true ->
+           begin
+               TrF2 = id(F2, TrUserData),
+               if TrF2 =:= undefined -> B1;
+                  true -> e_mfield_newPeer_peerInfo(TrF2, <<B1/binary, 18>>, TrUserData)
                end
            end
     end.
@@ -583,7 +627,8 @@ encode_msg_Message(#'Message'{type = F1, msg = F2}, Bin, TrUserData) ->
                {m4, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m4(TrTF2, <<B1/binary, 42>>, TrUserData) end;
                {m5, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m5(TrTF2, <<B1/binary, 50>>, TrUserData) end;
                {m6, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m6(TrTF2, <<B1/binary, 58>>, TrUserData) end;
-               {m7, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m7(TrTF2, <<B1/binary, 66>>, TrUserData) end
+               {m7, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m7(TrTF2, <<B1/binary, 66>>, TrUserData) end;
+               {m8, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m8(TrTF2, <<B1/binary, 74>>, TrUserData) end
            end
     end.
 
@@ -608,6 +653,16 @@ e_field_voteMap_map([Elem | Rest], Bin, TrUserData) ->
     Bin3 = e_mfield_voteMap_map('tr_encode_voteMap.map[x]'(Elem, TrUserData), Bin2, TrUserData),
     e_field_voteMap_map(Rest, Bin3, TrUserData);
 e_field_voteMap_map([], Bin, _TrUserData) -> Bin.
+
+e_mfield_peer_peerInfo(Msg, Bin, TrUserData) ->
+    SubBin = encode_msg_peerInfo(Msg, <<>>, TrUserData),
+    Bin2 = e_varint(byte_size(SubBin), Bin),
+    <<Bin2/binary, SubBin/binary>>.
+
+e_mfield_newPeer_peerInfo(Msg, Bin, TrUserData) ->
+    SubBin = encode_msg_peerInfo(Msg, <<>>, TrUserData),
+    Bin2 = e_varint(byte_size(SubBin), Bin),
+    <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_fileInfo_votes(Msg, Bin, TrUserData) ->
     SubBin = 'encode_msg_map<uint32,voteInfo>'(Msg, <<>>, TrUserData),
@@ -749,7 +804,12 @@ e_mfield_Message_m6(Msg, Bin, TrUserData) ->
     <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_Message_m7(Msg, Bin, TrUserData) ->
-    SubBin = encode_msg_newPeer(Msg, <<>>, TrUserData),
+    SubBin = encode_msg_peer(Msg, <<>>, TrUserData),
+    Bin2 = e_varint(byte_size(SubBin), Bin),
+    <<Bin2/binary, SubBin/binary>>.
+
+e_mfield_Message_m8(Msg, Bin, TrUserData) ->
+    SubBin = encode_msg_newServer(Msg, <<>>, TrUserData),
     Bin2 = e_varint(byte_size(SubBin), Bin),
     <<Bin2/binary, SubBin/binary>>.
 
@@ -816,7 +876,7 @@ e_enum_Type(quit, Bin, _TrUserData) -> <<Bin/binary, 6>>;
 e_enum_Type(reply, Bin, _TrUserData) -> <<Bin/binary, 7>>;
 e_enum_Type(new_peer, Bin, _TrUserData) -> <<Bin/binary, 8>>;
 e_enum_Type(peer_left, Bin, _TrUserData) -> <<Bin/binary, 9>>;
-e_enum_Type(newServer, Bin, _TrUserData) -> <<Bin/binary, 10>>;
+e_enum_Type(new_server, Bin, _TrUserData) -> <<Bin/binary, 10>>;
 e_enum_Type(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 -compile({nowarn_unused_function,e_type_sint/3}).
@@ -966,6 +1026,8 @@ decode_msg_2_doit(login_reply, Bin, TrUserData) -> id(decode_msg_login_reply(Bin
 decode_msg_2_doit(voteValue, Bin, TrUserData) -> id(decode_msg_voteValue(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(voteMap, Bin, TrUserData) -> id(decode_msg_voteMap(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(peerInfo, Bin, TrUserData) -> id(decode_msg_peerInfo(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(peer, Bin, TrUserData) -> id(decode_msg_peer(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(newServer, Bin, TrUserData) -> id(decode_msg_newServer(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(newPeer, Bin, TrUserData) -> id(decode_msg_newPeer(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(dotPair, Bin, TrUserData) -> id(decode_msg_dotPair(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(voteInfo, Bin, TrUserData) -> id(decode_msg_voteInfo(Bin, TrUserData), TrUserData);
@@ -1393,63 +1455,174 @@ skip_32_peerInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData)
 
 skip_64_peerInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_newPeer(Bin, TrUserData) -> dfp_read_field_def_newPeer(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_peer(Bin, TrUserData) -> dfp_read_field_def_peer(Bin, 0, 0, 0, id([], TrUserData), id(undefined, TrUserData), TrUserData).
 
-dfp_read_field_def_newPeer(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_newPeer_name(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_newPeer(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_newPeer_ip(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_newPeer(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> d_field_newPeer_port(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_newPeer(<<>>, 0, 0, _, F@_1, F@_2, F@_3, _) -> #newPeer{name = F@_1, ip = F@_2, port = F@_3};
-dfp_read_field_def_newPeer(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_newPeer(Other, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+dfp_read_field_def_peer(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_peer_name(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_peer(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_peer_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_peer(<<>>, 0, 0, _, F@_1, F@_2, _) -> #peer{name = F@_1, peerInfo = F@_2};
+dfp_read_field_def_peer(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_peer(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-dg_read_field_def_newPeer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_newPeer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-dg_read_field_def_newPeer(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, TrUserData) ->
+dg_read_field_def_peer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_peer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+dg_read_field_def_peer(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_newPeer_name(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-        18 -> d_field_newPeer_ip(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-        26 -> d_field_newPeer_port(Rest, 0, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+        10 -> d_field_peer_name(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        18 -> d_field_peer_peerInfo(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                1 -> skip_64_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                2 -> skip_length_delimited_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                3 -> skip_group_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData);
-                5 -> skip_32_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, TrUserData)
+                0 -> skip_varint_peer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                1 -> skip_64_peer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                2 -> skip_length_delimited_peer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                3 -> skip_group_peer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                5 -> skip_32_peer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
             end
     end;
-dg_read_field_def_newPeer(<<>>, 0, 0, _, F@_1, F@_2, F@_3, _) -> #newPeer{name = F@_1, ip = F@_2, port = F@_3}.
+dg_read_field_def_peer(<<>>, 0, 0, _, F@_1, F@_2, _) -> #peer{name = F@_1, peerInfo = F@_2}.
 
-d_field_newPeer_name(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_newPeer_name(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-d_field_newPeer_name(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, TrUserData) ->
+d_field_peer_name(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_peer_name(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_peer_name(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_newPeer(RestF, 0, 0, F, NewFValue, F@_2, F@_3, TrUserData).
+    dfp_read_field_def_peer(RestF, 0, 0, F, NewFValue, F@_2, TrUserData).
 
-d_field_newPeer_ip(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_newPeer_ip(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-d_field_newPeer_ip(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_newPeer(RestF, 0, 0, F, F@_1, NewFValue, F@_3, TrUserData).
+d_field_peer_peerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_peer_peerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_peer_peerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_peerInfo(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_peer(RestF,
+                            0,
+                            0,
+                            F,
+                            F@_1,
+                            if Prev == undefined -> NewFValue;
+                               true -> merge_msg_peerInfo(Prev, NewFValue, TrUserData)
+                            end,
+                            TrUserData).
 
-d_field_newPeer_port(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_newPeer_port(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-d_field_newPeer_port(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_newPeer(RestF, 0, 0, F, F@_1, F@_2, NewFValue, TrUserData).
+skip_varint_peer(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> skip_varint_peer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+skip_varint_peer(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_peer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-skip_varint_newPeer(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData);
-skip_varint_newPeer(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
-
-skip_length_delimited_newPeer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_newPeer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, TrUserData);
-skip_length_delimited_newPeer(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, TrUserData) ->
+skip_length_delimited_peer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_peer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+skip_length_delimited_peer(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_newPeer(Rest2, 0, 0, F, F@_1, F@_2, F@_3, TrUserData).
+    dfp_read_field_def_peer(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
 
-skip_group_newPeer(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, TrUserData) ->
+skip_group_peer(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_newPeer(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, TrUserData).
+    dfp_read_field_def_peer(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
 
-skip_32_newPeer(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+skip_32_peer(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_peer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
-skip_64_newPeer(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, TrUserData).
+skip_64_peer(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_peer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+decode_msg_newServer(Bin, TrUserData) -> dfp_read_field_def_newServer(Bin, 0, 0, 0, id([], TrUserData), id([], TrUserData), TrUserData).
+
+dfp_read_field_def_newServer(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_newServer_ip(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_newServer(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_newServer_port(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_newServer(<<>>, 0, 0, _, F@_1, F@_2, _) -> #newServer{ip = F@_1, port = F@_2};
+dfp_read_field_def_newServer(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_newServer(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+dg_read_field_def_newServer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_newServer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+dg_read_field_def_newServer(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+        10 -> d_field_newServer_ip(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        18 -> d_field_newServer_port(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        _ ->
+            case Key band 7 of
+                0 -> skip_varint_newServer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                1 -> skip_64_newServer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                2 -> skip_length_delimited_newServer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                3 -> skip_group_newServer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                5 -> skip_32_newServer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
+            end
+    end;
+dg_read_field_def_newServer(<<>>, 0, 0, _, F@_1, F@_2, _) -> #newServer{ip = F@_1, port = F@_2}.
+
+d_field_newServer_ip(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_newServer_ip(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_newServer_ip(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_newServer(RestF, 0, 0, F, NewFValue, F@_2, TrUserData).
+
+d_field_newServer_port(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_newServer_port(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_newServer_port(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_newServer(RestF, 0, 0, F, F@_1, NewFValue, TrUserData).
+
+skip_varint_newServer(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> skip_varint_newServer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+skip_varint_newServer(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_newServer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+skip_length_delimited_newServer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_newServer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+skip_length_delimited_newServer(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
+    Length = X bsl N + Acc,
+    <<_:Length/binary, Rest2/binary>> = Rest,
+    dfp_read_field_def_newServer(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
+
+skip_group_newServer(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
+    {_, Rest} = read_group(Bin, FNum),
+    dfp_read_field_def_newServer(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
+
+skip_32_newServer(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_newServer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+skip_64_newServer(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_newServer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+decode_msg_newPeer(Bin, TrUserData) -> dfp_read_field_def_newPeer(Bin, 0, 0, 0, id([], TrUserData), id(undefined, TrUserData), TrUserData).
+
+dfp_read_field_def_newPeer(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_newPeer_name(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_newPeer(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_newPeer_peerInfo(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_newPeer(<<>>, 0, 0, _, F@_1, F@_2, _) -> #newPeer{name = F@_1, peerInfo = F@_2};
+dfp_read_field_def_newPeer(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_newPeer(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+dg_read_field_def_newPeer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_newPeer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+dg_read_field_def_newPeer(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+        10 -> d_field_newPeer_name(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        18 -> d_field_newPeer_peerInfo(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        _ ->
+            case Key band 7 of
+                0 -> skip_varint_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                1 -> skip_64_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                2 -> skip_length_delimited_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                3 -> skip_group_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
+                5 -> skip_32_newPeer(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData)
+            end
+    end;
+dg_read_field_def_newPeer(<<>>, 0, 0, _, F@_1, F@_2, _) -> #newPeer{name = F@_1, peerInfo = F@_2}.
+
+d_field_newPeer_name(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_newPeer_name(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_newPeer_name(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_newPeer(RestF, 0, 0, F, NewFValue, F@_2, TrUserData).
+
+d_field_newPeer_peerInfo(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_newPeer_peerInfo(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_newPeer_peerInfo(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_peerInfo(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_newPeer(RestF,
+                               0,
+                               0,
+                               F,
+                               F@_1,
+                               if Prev == undefined -> NewFValue;
+                                  true -> merge_msg_peerInfo(Prev, NewFValue, TrUserData)
+                               end,
+                               TrUserData).
+
+skip_varint_newPeer(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> skip_varint_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+skip_varint_newPeer(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+skip_length_delimited_newPeer(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_newPeer(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+skip_length_delimited_newPeer(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) ->
+    Length = X bsl N + Acc,
+    <<_:Length/binary, Rest2/binary>> = Rest,
+    dfp_read_field_def_newPeer(Rest2, 0, 0, F, F@_1, F@_2, TrUserData).
+
+skip_group_newPeer(Bin, _, Z2, FNum, F@_1, F@_2, TrUserData) ->
+    {_, Rest} = read_group(Bin, FNum),
+    dfp_read_field_def_newPeer(Rest, 0, Z2, FNum, F@_1, F@_2, TrUserData).
+
+skip_32_newPeer(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
+
+skip_64_newPeer(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dfp_read_field_def_newPeer(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
 decode_msg_dotPair(Bin, TrUserData) -> dfp_read_field_def_dotPair(Bin, 0, 0, 0, id(0, TrUserData), id(0, TrUserData), TrUserData).
 
@@ -1887,6 +2060,7 @@ dfp_read_field_def_Message(<<42, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserDat
 dfp_read_field_def_Message(<<50, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m5(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
 dfp_read_field_def_Message(<<58, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m6(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
 dfp_read_field_def_Message(<<66, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m7(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_Message(<<74, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m8(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
 dfp_read_field_def_Message(<<>>, 0, 0, _, F@_1, F@_2, _) -> #'Message'{type = F@_1, msg = F@_2};
 dfp_read_field_def_Message(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_Message(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
@@ -1902,6 +2076,7 @@ dg_read_field_def_Message(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUs
         50 -> d_field_Message_m5(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         58 -> d_field_Message_m6(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         66 -> d_field_Message_m7(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        74 -> d_field_Message_m8(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         _ ->
             case Key band 7 of
                 0 -> skip_varint_Message(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
@@ -2010,7 +2185,7 @@ d_field_Message_m6(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData)
 
 d_field_Message_m7(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_Message_m7(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
 d_field_Message_m7(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_newPeer(Bs, TrUserData), TrUserData), Rest2} end,
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_peer(Bs, TrUserData), TrUserData), Rest2} end,
     dfp_read_field_def_Message(RestF,
                                0,
                                0,
@@ -2018,8 +2193,23 @@ d_field_Message_m7(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData)
                                F@_1,
                                case Prev of
                                    undefined -> id({m7, NewFValue}, TrUserData);
-                                   {m7, MVPrev} -> id({m7, merge_msg_newPeer(MVPrev, NewFValue, TrUserData)}, TrUserData);
+                                   {m7, MVPrev} -> id({m7, merge_msg_peer(MVPrev, NewFValue, TrUserData)}, TrUserData);
                                    _ -> id({m7, NewFValue}, TrUserData)
+                               end,
+                               TrUserData).
+
+d_field_Message_m8(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_Message_m8(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_Message_m8(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_newServer(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_Message(RestF,
+                               0,
+                               0,
+                               F,
+                               F@_1,
+                               case Prev of
+                                   undefined -> id({m8, NewFValue}, TrUserData);
+                                   {m8, MVPrev} -> id({m8, merge_msg_newServer(MVPrev, NewFValue, TrUserData)}, TrUserData);
+                                   _ -> id({m8, NewFValue}, TrUserData)
                                end,
                                TrUserData).
 
@@ -2447,7 +2637,7 @@ d_enum_Type(6) -> quit;
 d_enum_Type(7) -> reply;
 d_enum_Type(8) -> new_peer;
 d_enum_Type(9) -> peer_left;
-d_enum_Type(10) -> newServer;
+d_enum_Type(10) -> new_server;
 d_enum_Type(V) -> V.
 
 read_group(Bin, FieldNum) ->
@@ -2524,6 +2714,8 @@ merge_msgs(Prev, New, MsgName, Opts) ->
         voteValue -> merge_msg_voteValue(Prev, New, TrUserData);
         voteMap -> merge_msg_voteMap(Prev, New, TrUserData);
         peerInfo -> merge_msg_peerInfo(Prev, New, TrUserData);
+        peer -> merge_msg_peer(Prev, New, TrUserData);
+        newServer -> merge_msg_newServer(Prev, New, TrUserData);
         newPeer -> merge_msg_newPeer(Prev, New, TrUserData);
         dotPair -> merge_msg_dotPair(Prev, New, TrUserData);
         voteInfo -> merge_msg_voteInfo(Prev, New, TrUserData);
@@ -2629,19 +2821,39 @@ merge_msg_peerInfo(#peerInfo{ip = PFip, port = PFport, id = PFid}, #peerInfo{ip 
                      true -> NFid
                   end}.
 
+-compile({nowarn_unused_function,merge_msg_peer/3}).
+merge_msg_peer(#peer{name = PFname, peerInfo = PFpeerInfo}, #peer{name = NFname, peerInfo = NFpeerInfo}, TrUserData) ->
+    #peer{name =
+              if NFname =:= undefined -> PFname;
+                 true -> NFname
+              end,
+          peerInfo =
+              if PFpeerInfo /= undefined, NFpeerInfo /= undefined -> merge_msg_peerInfo(PFpeerInfo, NFpeerInfo, TrUserData);
+                 PFpeerInfo == undefined -> NFpeerInfo;
+                 NFpeerInfo == undefined -> PFpeerInfo
+              end}.
+
+-compile({nowarn_unused_function,merge_msg_newServer/3}).
+merge_msg_newServer(#newServer{ip = PFip, port = PFport}, #newServer{ip = NFip, port = NFport}, _) ->
+    #newServer{ip =
+                   if NFip =:= undefined -> PFip;
+                      true -> NFip
+                   end,
+               port =
+                   if NFport =:= undefined -> PFport;
+                      true -> NFport
+                   end}.
+
 -compile({nowarn_unused_function,merge_msg_newPeer/3}).
-merge_msg_newPeer(#newPeer{name = PFname, ip = PFip, port = PFport}, #newPeer{name = NFname, ip = NFip, port = NFport}, _) ->
+merge_msg_newPeer(#newPeer{name = PFname, peerInfo = PFpeerInfo}, #newPeer{name = NFname, peerInfo = NFpeerInfo}, TrUserData) ->
     #newPeer{name =
                  if NFname =:= undefined -> PFname;
                     true -> NFname
                  end,
-             ip =
-                 if NFip =:= undefined -> PFip;
-                    true -> NFip
-                 end,
-             port =
-                 if NFport =:= undefined -> PFport;
-                    true -> NFport
+             peerInfo =
+                 if PFpeerInfo /= undefined, NFpeerInfo /= undefined -> merge_msg_peerInfo(PFpeerInfo, NFpeerInfo, TrUserData);
+                    PFpeerInfo == undefined -> NFpeerInfo;
+                    NFpeerInfo == undefined -> PFpeerInfo
                  end}.
 
 -compile({nowarn_unused_function,merge_msg_dotPair/3}).
@@ -2767,7 +2979,8 @@ merge_msg_Message(#'Message'{type = PFtype, msg = PFmsg}, #'Message'{type = NFty
                        {{m4, OPFmsg}, {m4, ONFmsg}} -> {m4, merge_msg_quitMessage(OPFmsg, ONFmsg, TrUserData)};
                        {{m5, OPFmsg}, {m5, ONFmsg}} -> {m5, merge_msg_reply_message(OPFmsg, ONFmsg, TrUserData)};
                        {{m6, OPFmsg}, {m6, ONFmsg}} -> {m6, merge_msg_login_reply(OPFmsg, ONFmsg, TrUserData)};
-                       {{m7, OPFmsg}, {m7, ONFmsg}} -> {m7, merge_msg_newPeer(OPFmsg, ONFmsg, TrUserData)};
+                       {{m7, OPFmsg}, {m7, ONFmsg}} -> {m7, merge_msg_peer(OPFmsg, ONFmsg, TrUserData)};
+                       {{m8, OPFmsg}, {m8, ONFmsg}} -> {m8, merge_msg_newServer(OPFmsg, ONFmsg, TrUserData)};
                        {_, undefined} -> PFmsg;
                        _ -> NFmsg
                    end}.
@@ -2791,6 +3004,8 @@ verify_msg(Msg, MsgName, Opts) ->
         voteValue -> v_msg_voteValue(Msg, [MsgName], TrUserData);
         voteMap -> v_msg_voteMap(Msg, [MsgName], TrUserData);
         peerInfo -> v_msg_peerInfo(Msg, [MsgName], TrUserData);
+        peer -> v_msg_peer(Msg, [MsgName], TrUserData);
+        newServer -> v_msg_newServer(Msg, [MsgName], TrUserData);
         newPeer -> v_msg_newPeer(Msg, [MsgName], TrUserData);
         dotPair -> v_msg_dotPair(Msg, [MsgName], TrUserData);
         voteInfo -> v_msg_voteInfo(Msg, [MsgName], TrUserData);
@@ -2927,21 +3142,46 @@ v_msg_peerInfo(#peerInfo{ip = F1, port = F2, id = F3}, Path, TrUserData) ->
     ok;
 v_msg_peerInfo(X, Path, _TrUserData) -> mk_type_error({expected_msg, peerInfo}, X, Path).
 
--compile({nowarn_unused_function,v_submsg_newPeer/3}).
--dialyzer({nowarn_function,v_submsg_newPeer/3}).
-v_submsg_newPeer(Msg, Path, TrUserData) -> v_msg_newPeer(Msg, Path, TrUserData).
+-compile({nowarn_unused_function,v_submsg_peer/3}).
+-dialyzer({nowarn_function,v_submsg_peer/3}).
+v_submsg_peer(Msg, Path, TrUserData) -> v_msg_peer(Msg, Path, TrUserData).
 
--compile({nowarn_unused_function,v_msg_newPeer/3}).
--dialyzer({nowarn_function,v_msg_newPeer/3}).
-v_msg_newPeer(#newPeer{name = F1, ip = F2, port = F3}, Path, TrUserData) ->
+-compile({nowarn_unused_function,v_msg_peer/3}).
+-dialyzer({nowarn_function,v_msg_peer/3}).
+v_msg_peer(#peer{name = F1, peerInfo = F2}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [name | Path], TrUserData)
     end,
     if F2 == undefined -> ok;
-       true -> v_type_string(F2, [ip | Path], TrUserData)
+       true -> v_submsg_peerInfo(F2, [peerInfo | Path], TrUserData)
     end,
-    if F3 == undefined -> ok;
-       true -> v_type_string(F3, [port | Path], TrUserData)
+    ok;
+v_msg_peer(X, Path, _TrUserData) -> mk_type_error({expected_msg, peer}, X, Path).
+
+-compile({nowarn_unused_function,v_submsg_newServer/3}).
+-dialyzer({nowarn_function,v_submsg_newServer/3}).
+v_submsg_newServer(Msg, Path, TrUserData) -> v_msg_newServer(Msg, Path, TrUserData).
+
+-compile({nowarn_unused_function,v_msg_newServer/3}).
+-dialyzer({nowarn_function,v_msg_newServer/3}).
+v_msg_newServer(#newServer{ip = F1, port = F2}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_string(F1, [ip | Path], TrUserData)
+    end,
+    if F2 == undefined -> ok;
+       true -> v_type_string(F2, [port | Path], TrUserData)
+    end,
+    ok;
+v_msg_newServer(X, Path, _TrUserData) -> mk_type_error({expected_msg, newServer}, X, Path).
+
+-compile({nowarn_unused_function,v_msg_newPeer/3}).
+-dialyzer({nowarn_function,v_msg_newPeer/3}).
+v_msg_newPeer(#newPeer{name = F1, peerInfo = F2}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_string(F1, [name | Path], TrUserData)
+    end,
+    if F2 == undefined -> ok;
+       true -> v_submsg_peerInfo(F2, [peerInfo | Path], TrUserData)
     end,
     ok;
 v_msg_newPeer(X, Path, _TrUserData) -> mk_type_error({expected_msg, newPeer}, X, Path).
@@ -3077,7 +3317,8 @@ v_msg_Message(#'Message'{type = F1, msg = F2}, Path, TrUserData) ->
         {m4, OF2} -> v_submsg_quitMessage(OF2, [m4, msg | Path], TrUserData);
         {m5, OF2} -> v_submsg_reply_message(OF2, [m5, msg | Path], TrUserData);
         {m6, OF2} -> v_submsg_login_reply(OF2, [m6, msg | Path], TrUserData);
-        {m7, OF2} -> v_submsg_newPeer(OF2, [m7, msg | Path], TrUserData);
+        {m7, OF2} -> v_submsg_peer(OF2, [m7, msg | Path], TrUserData);
+        {m8, OF2} -> v_submsg_newServer(OF2, [m8, msg | Path], TrUserData);
         _ -> mk_type_error(invalid_oneof, F2, [msg | Path])
     end,
     ok;
@@ -3095,7 +3336,7 @@ v_enum_Type(quit, _Path, _TrUserData) -> ok;
 v_enum_Type(reply, _Path, _TrUserData) -> ok;
 v_enum_Type(new_peer, _Path, _TrUserData) -> ok;
 v_enum_Type(peer_left, _Path, _TrUserData) -> ok;
-v_enum_Type(newServer, _Path, _TrUserData) -> ok;
+v_enum_Type(new_server, _Path, _TrUserData) -> ok;
 v_enum_Type(V, _Path, _TrUserData) when -2147483648 =< V, V =< 2147483647, is_integer(V) -> ok;
 v_enum_Type(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'Type'}, X, Path).
 
@@ -3424,7 +3665,7 @@ mt_merge_maptuples_r(L1, L2) -> dict:to_list(dict:merge(fun (_Key, _V1, V2) -> V
 
 
 get_msg_defs() ->
-    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {newServer, 10}]},
+    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {new_server, 10}]},
      {{msg, 'ServerInfo'},
       [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
        #field{name = port, fnum = 2, rnum = 3, type = int32, occurrence = optional, opts = []},
@@ -3440,10 +3681,9 @@ get_msg_defs() ->
       [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
        #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = id, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
-     {{msg, newPeer},
-      [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
-       #field{name = ip, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
-       #field{name = port, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
+     {{msg, peer}, [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = peerInfo, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = optional, opts = []}]},
+     {{msg, newServer}, [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
+     {{msg, newPeer}, [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = peerInfo, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = optional, opts = []}]},
      {{msg, dotPair}, [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []}, #field{name = version, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}]},
      {{msg, voteInfo}, [#field{name = sum, fnum = 1, rnum = 2, type = uint64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}]},
      {{msg, fileInfo},
@@ -3473,17 +3713,18 @@ get_msg_defs() ->
                        #field{name = m4, fnum = 5, rnum = 3, type = {msg, quitMessage}, occurrence = optional, opts = []},
                        #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply_message}, occurrence = optional, opts = []},
                        #field{name = m6, fnum = 7, rnum = 3, type = {msg, login_reply}, occurrence = optional, opts = []},
-                       #field{name = m7, fnum = 8, rnum = 3, type = {msg, newPeer}, occurrence = optional, opts = []}],
+                       #field{name = m7, fnum = 8, rnum = 3, type = {msg, peer}, occurrence = optional, opts = []},
+                       #field{name = m8, fnum = 9, rnum = 3, type = {msg, newServer}, occurrence = optional, opts = []}],
                   opts = []}]}].
 
 
-get_msg_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
+get_msg_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, peer, newServer, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
+get_msg_or_group_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, peer, newServer, newPeer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
 
 
 get_enum_names() -> ['Type'].
@@ -3518,10 +3759,9 @@ find_msg_def(peerInfo) ->
     [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
      #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = id, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
-find_msg_def(newPeer) ->
-    [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
-     #field{name = ip, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
-     #field{name = port, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
+find_msg_def(peer) -> [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = peerInfo, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = optional, opts = []}];
+find_msg_def(newServer) -> [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = port, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
+find_msg_def(newPeer) -> [#field{name = name, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = peerInfo, fnum = 2, rnum = 3, type = {msg, peerInfo}, occurrence = optional, opts = []}];
 find_msg_def(dotPair) -> [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []}, #field{name = version, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}];
 find_msg_def(voteInfo) -> [#field{name = sum, fnum = 1, rnum = 2, type = uint64, occurrence = optional, opts = []}, #field{name = count, fnum = 2, rnum = 3, type = uint64, occurrence = optional, opts = []}];
 find_msg_def(fileInfo) ->
@@ -3551,12 +3791,13 @@ find_msg_def('Message') ->
                      #field{name = m4, fnum = 5, rnum = 3, type = {msg, quitMessage}, occurrence = optional, opts = []},
                      #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply_message}, occurrence = optional, opts = []},
                      #field{name = m6, fnum = 7, rnum = 3, type = {msg, login_reply}, occurrence = optional, opts = []},
-                     #field{name = m7, fnum = 8, rnum = 3, type = {msg, newPeer}, occurrence = optional, opts = []}],
+                     #field{name = m7, fnum = 8, rnum = 3, type = {msg, peer}, occurrence = optional, opts = []},
+                     #field{name = m8, fnum = 9, rnum = 3, type = {msg, newServer}, occurrence = optional, opts = []}],
                 opts = []}];
 find_msg_def(_) -> error.
 
 
-find_enum_def('Type') -> [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {newServer, 10}];
+find_enum_def('Type') -> [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {new_server, 10}];
 find_enum_def(_) -> error.
 
 
@@ -3576,7 +3817,7 @@ enum_symbol_by_value_Type(6) -> quit;
 enum_symbol_by_value_Type(7) -> reply;
 enum_symbol_by_value_Type(8) -> new_peer;
 enum_symbol_by_value_Type(9) -> peer_left;
-enum_symbol_by_value_Type(10) -> newServer.
+enum_symbol_by_value_Type(10) -> new_server.
 
 
 enum_value_by_symbol_Type(register) -> 0;
@@ -3589,7 +3830,7 @@ enum_value_by_symbol_Type(quit) -> 6;
 enum_value_by_symbol_Type(reply) -> 7;
 enum_value_by_symbol_Type(new_peer) -> 8;
 enum_value_by_symbol_Type(peer_left) -> 9;
-enum_value_by_symbol_Type(newServer) -> 10.
+enum_value_by_symbol_Type(new_server) -> 10.
 
 
 get_service_names() -> [].
@@ -3643,6 +3884,8 @@ fqbin_to_msg_name(<<"login_reply">>) -> login_reply;
 fqbin_to_msg_name(<<"voteValue">>) -> voteValue;
 fqbin_to_msg_name(<<"voteMap">>) -> voteMap;
 fqbin_to_msg_name(<<"peerInfo">>) -> peerInfo;
+fqbin_to_msg_name(<<"peer">>) -> peer;
+fqbin_to_msg_name(<<"newServer">>) -> newServer;
 fqbin_to_msg_name(<<"newPeer">>) -> newPeer;
 fqbin_to_msg_name(<<"dotPair">>) -> dotPair;
 fqbin_to_msg_name(<<"voteInfo">>) -> voteInfo;
@@ -3663,6 +3906,8 @@ msg_name_to_fqbin(login_reply) -> <<"login_reply">>;
 msg_name_to_fqbin(voteValue) -> <<"voteValue">>;
 msg_name_to_fqbin(voteMap) -> <<"voteMap">>;
 msg_name_to_fqbin(peerInfo) -> <<"peerInfo">>;
+msg_name_to_fqbin(peer) -> <<"peer">>;
+msg_name_to_fqbin(newServer) -> <<"newServer">>;
 msg_name_to_fqbin(newPeer) -> <<"newPeer">>;
 msg_name_to_fqbin(dotPair) -> <<"dotPair">>;
 msg_name_to_fqbin(voteInfo) -> <<"voteInfo">>;
@@ -3710,7 +3955,7 @@ get_all_source_basenames() -> ["message.proto"].
 get_all_proto_names() -> ["message"].
 
 
-get_msg_containment("message") -> ['Message', 'ServerInfo', album, crdt, dotPair, fileInfo, groupInfo, login_reply, newPeer, peerInfo, quitMessage, registerLoginFormat, reply_message, sessionStart, voteInfo, voteMap, voteValue];
+get_msg_containment("message") -> ['Message', 'ServerInfo', album, crdt, dotPair, fileInfo, groupInfo, login_reply, newPeer, newServer, peer, peerInfo, quitMessage, registerLoginFormat, reply_message, sessionStart, voteInfo, voteMap, voteValue];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -3731,6 +3976,8 @@ get_enum_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
 get_proto_by_msg_name_as_fqbin(<<"voteMap">>) -> "message";
+get_proto_by_msg_name_as_fqbin(<<"peer">>) -> "message";
+get_proto_by_msg_name_as_fqbin(<<"newServer">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"newPeer">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"dotPair">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"sessionStart">>) -> "message";

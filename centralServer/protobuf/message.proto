@@ -41,14 +41,19 @@ message peerInfo {
   string id   = 3;
 }
 
-message newPeer {
+message peer {
   string   name     = 1;
   peerInfo peerInfo = 2;
 }
 
 message newServer {
-    string ip   = 1;
-    string port = 2;
+  string ip   = 1;
+  string port = 2;
+}
+
+message newPeer {
+  string   name     = 1;
+  peerInfo peerInfo = 2;
 }
 
 message dotPair {
@@ -92,29 +97,29 @@ message quitMessage {
 }
 
 message Message {
-  Type type = 1;
+  Type  type = 1;
   oneof msg {
-    registerLoginFormat m1 = 2;
-    album               m2 = 3;
-    sessionStart        m3 = 4;
-    quitMessage         m4 = 5;
-    reply_message       m5 = 6;
-    login_reply         m6 = 7;
-    newPeer             m7 = 8;
-    newServer           m8 = 9;
+      registerLoginFormat m1 = 2;
+      album               m2 = 3;
+      sessionStart        m3 = 4;
+      quitMessage         m4 = 5;
+      reply_message       m5 = 6;
+      login_reply         m6 = 7;
+      peer                m7 = 8;
+      newServer           m8 = 9;
   }
 }
 
 enum Type {
-  register  = 0; // registerLoginFormat
-  login     = 1; // registerLoginFormat
-  loginReply = 2; // login_reply
-  create    = 3; // album
-  get       = 4; // album
-  send      = 5; // sessionStart
-  quit      = 6; // quitMessage
-  reply     = 7; // reply
-  new_peer  = 8; // newPeer
-  peer_left = 9; // reply
-  newServer = 10; // new Server
+  register   = 0;  // registerLoginFormat
+  login      = 1;  // registerLoginFormat
+  loginReply = 2;  // login_reply
+  create     = 3;  // album
+  get        = 4;  // album
+  send       = 5;  // sessionStart
+  quit       = 6;  // quitMessage
+  reply      = 7;  // reply
+  new_peer   = 8;  // newPeer
+  peer_left  = 9;  // reply
+  new_server  = 10;
 }
