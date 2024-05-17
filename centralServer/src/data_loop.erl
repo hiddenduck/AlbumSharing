@@ -72,8 +72,7 @@ data_server(Sock, Loop) ->
                 ip = "",
                 my_hash = Hash
             }),
-            Size = byte_size(Data),
-            gen_tcp:send(Sock, <<Size:8/integer, Data/binary>>);
+            gen_tcp:send(Sock, Data);
         {{_, _, InfHash}, {IP, PORT, _}, Hash, Loop} -> 
             inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
             Data = message:encode_msg(#'ServerInfo'{
@@ -82,8 +81,7 @@ data_server(Sock, Loop) ->
                 my_hash = Hash,
                 inf_hash = InfHash
             }),
-            Size = byte_size(Data),
-            gen_tcp:send(Sock, <<Size:8/integer, Data/binary>>)
+            gen_tcp:send(Sock, Data)
     end,
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
