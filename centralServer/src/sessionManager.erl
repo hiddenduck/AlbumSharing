@@ -59,7 +59,7 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, SessionUsers, Ip, PORT) ->
     end,
     SessionPeers = maps:map(
         fun(_, {IP, Port, PeerId, Pid}) ->
-            Pid ! {new_peer, {Ip, PORT, UserName, integer_to_list(PeerId)}, self()},
+            Pid ! {new_peer, {Ip, PORT, UserName, integer_to_list(Id)}, self()},
             {IP, Port, integer_to_list(PeerId)}
         end,
         SessionUsers

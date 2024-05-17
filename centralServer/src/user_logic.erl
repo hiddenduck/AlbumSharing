@@ -15,6 +15,7 @@ session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
 session_user_handler(
     {new_peer, {Ip, PORT, PeerUserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName
 ) ->
+    io:format("PeerId to send: ~p~n", [PeerId]),
     Data = message:encode_msg(#'Message'{
         type = 8,
         msg =
@@ -195,6 +196,7 @@ auth_user_handler(
     _,
     UserName
 ) ->
+    io:format("~p~n", [SessionPeers]),
     Data = message:encode_msg(#'Message'{
         type = 5,
         msg =

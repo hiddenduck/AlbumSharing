@@ -145,8 +145,6 @@ func createCrdtMessage(state SessionState) *pb.Crdt {
 
 func ParseProtoReplica(msg *pb.Crdt) crdt.Replica {
 
-	fmt.Printf("file: %v\n", msg.Files)
-
 	crdtFiles := make(map[string]crdt.FileInfo)
 	for filename := range msg.Files {
 
