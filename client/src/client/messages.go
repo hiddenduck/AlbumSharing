@@ -88,7 +88,7 @@ func HeartBeat(state SessionState) {
 		out, err := proto.Marshal(createCrdtMessage(state))
 
 		if err != nil {
-			panic("error")
+			panic(err)
 		}
 
 		err = state.Connector.Send_to_Peers("heartbeat", out)
@@ -98,7 +98,6 @@ func HeartBeat(state SessionState) {
 			return
 		}
 
-		//fmt.Println("Enviado Heartbeat do CRDT")
 	}
 }
 
@@ -125,7 +124,7 @@ func createCrdtMessage(state SessionState) *pb.Crdt {
 		crdtFiles[filename] = &pb.FileInfo{
 			Votes:    crdtVotes,
 			DotSet:   crdtDotSet,
-			FileHash: string(fileInfo.FileHash[:]),
+			FileHash: fmt.Sprint(fileInfo.FileHash),
 		}
 	}
 

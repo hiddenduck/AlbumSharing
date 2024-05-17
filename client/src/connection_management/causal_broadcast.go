@@ -4,7 +4,6 @@ import (
 	"fmt"
 	pb "main/connection_management/cbCastProtobuf"
 	"math/rand"
-	"time"
 
 	// "time"
 
@@ -275,7 +274,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) PrintMessages() {
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) ReceiveVV(bytes []byte) {
-	time.Sleep(10 * time.Second)
+	//time.Sleep(10 * time.Second)
 
 	msg := pb.CbCastMessage{}
 

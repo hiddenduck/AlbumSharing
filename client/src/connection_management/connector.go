@@ -17,12 +17,20 @@ type ConnectorInfo struct {
 	PeerMap      map[string]ClientInfo
 	RouterSocket *zmq.Socket
 	Mutex        *sync.Mutex
+	Context      *zmq.Context
 }
 
 func (connectorInfo ConnectorInfo) Close() {
 	connectorInfo.Mutex.Lock()
 	defer connectorInfo.Mutex.Unlock()
-	connectorInfo.RouterSocket.Close()
+	err := connectorInfo.RouterSocket.Close()
+	if err != nil {
+		panic(err)
+	}
+	err = connectorInfo.Context.Term()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
@@ -34,6 +42,8 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 	connectorInfo.PeerMap = make(map[string]ClientInfo)
 	connectorInfo.RouterSocket = routerSocket
 	connectorInfo.Mutex = &sync.Mutex{}
+	connectorInfo.Context = context
+
 	return
 }
 

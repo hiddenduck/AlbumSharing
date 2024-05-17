@@ -41,9 +41,9 @@ func CommandListen(state *ClientState) {
 
 		state.SessionState.CausalBroadcastInfo.CausalBroadcast([]byte(input))
 
-		//fmt.Println(input)
 		//state.Connector.Send_to_Peers("chat", []byte(input))
 	}
+	fmt.Println("Nunca devia ter chegado aqui")
 }
 
 func ExecuteCommand(list []string, state *ClientState) {
@@ -396,7 +396,12 @@ func getAlbum(msg []string, state *ClientState) {
 	state.SessionState = CreateSessionState(message.Id)
 
 	*state.SessionState.Replica = ParseProtoReplica(message.Crdt) //???????
-	state.SessionState.VoteMap = &message.VoteTable
+	if message.VoteTable != nil {
+		state.SessionState.VoteMap = &message.VoteTable
+	} else {
+		m := make(map[string]bool)
+		state.SessionState.VoteMap = &m
+	}
 
 	connector := state.SessionState.CausalBroadcastInfo.ConnectorInfo
 
@@ -475,8 +480,8 @@ func putAlbum(msg []string, state *ClientState) {
 	if status == "put_album_ok" { // discard replica
 
 		state.IsInSession.Store(false)
-		fmt.Println("Session Has Ended")
 		state.SessionState.Connector.Close()
+		fmt.Println("Session Has Ended")
 
 	} else {
 		fmt.Println("Session failed to end")
