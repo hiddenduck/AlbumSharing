@@ -1,7 +1,5 @@
 -module(data_loop).
 -export([start/3]).
--define(ACTIVE_TIMES, 10).
--include("proto_generated/message.hrl").
 
 start(Port, Central, MainLoop) ->
     register(?MODULE, self()),
@@ -9,7 +7,7 @@ start(Port, Central, MainLoop) ->
 
 start_loop(Port, Central, MainLoop) ->
     Self = self(),
-    {ok, LSock} = gen_tcp:listen(Port, [binary, {active, once}, {packet, raw},
+    {ok, LSock} = gen_tcp:listen(Port, [{active, once}, {packet, line},
                                       {reuseaddr, true}]),
 
     spawn(fun() -> acceptor(LSock, Self) end),
@@ -62,26 +60,21 @@ loop(MainLoop, DataServers, Central) ->
             loop(MainLoop, handler(Msg, {MainLoop, DataServers}, From), Central)
     end.
 
+hash_to_hex(Hash) ->
+    lists:flatten([io_lib:format("~2.16.0b", [B]) || <<B:8>> <= Hash]).
+
 data_server(Sock, Loop) ->
-    {ok, {MyIP, MyPORT}} = inet:peername(Sock),
-    Loop ! {{join, string:join([integer_to_list(I) || I <- tuple_to_list(MyIP)], "."), MyPORT}, self()},
+    {ok, {MyIP, _}} = inet:peername(Sock),
+    receive
+        {tcp, _, Msg} ->
+            {Port,_} = string:to_integer(lists:droplast(Msg)),
+            Loop ! {{join, string:join([integer_to_list(I) || I <- tuple_to_list(MyIP)], "."), Port}, self()}
+    end,
     receive
         {Hash, Loop} ->
-            inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-            Data = message:encode_msg(#'ServerInfo'{
-                ip = "",
-                my_hash = Hash
-            }),
-            gen_tcp:send(Sock, Data);
+            gen_tcp:send(Sock, ""++";"++hash_to_hex(Hash)++":\n");
         {{_, _, InfHash}, {IP, PORT, _}, Hash, Loop} -> 
-            inet:setopts(Sock, [{active, ?ACTIVE_TIMES}]),
-            Data = message:encode_msg(#'ServerInfo'{
-                ip = IP,
-                port = PORT, 
-                my_hash = Hash,
-                inf_hash = InfHash
-            }),
-            gen_tcp:send(Sock, Data)
+            gen_tcp:send(Sock, IP++";"++integer_to_list(PORT)++":"++hash_to_hex(Hash)++":"++hash_to_hex(InfHash)++":\n")
     end,
     receive
         {TCP_Info, _} when TCP_Info =:= tcp_closed; TCP_Info =:= tcp_error ->
