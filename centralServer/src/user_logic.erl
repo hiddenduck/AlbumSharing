@@ -12,7 +12,9 @@ session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, SessionLoop, UserName);
-session_user_handler({new_peer, {Ip, PORT, UserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName) ->
+session_user_handler(
+    {new_peer, {Ip, PORT, UserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName
+) ->
     Data = message:encode_msg(#'Message'{
         type = 8,
         msg =
@@ -55,7 +57,60 @@ session_message_handler(
     SessionLoop,
     UserName
 ) ->
-    SessionLoop ! {{put_album, UserName, {{Files, GroupUsers, VV}, Votetable}}, self()},
+    ParsedFiles = lists:map(
+        fun(
+            {FileName, #fileInfo{
+                votes = Votes,
+                dotSet = DotSet,
+                fileHash = FileHash
+            }}
+        ) ->
+            ParsedVotes = maps:from_list(
+                lists:map(
+                    fun(
+                        {Id, #voteInfo{
+                            sum = Sum,
+                            count = Count
+                        }}
+                    ) ->
+                        {Id, {Sum, Count}}
+                    end,
+                    Votes
+                )
+            ),
+            ParsedDotSet = maps:map(
+                fun(_, _) ->
+                    true
+                end,
+                maps:from_keys(DotSet)
+            ),
+            {FileName, {FileHash, ParsedVotes, ParsedDotSet}}
+        end,
+        Files
+    ),
+    ParsedGroupUsers = maps:from_list(
+        lists:map(
+            fun(
+                {Name, #groupInfo{
+                    dotSet = DotSet
+                }}
+            ) ->
+                ParsedDotSet = maps:map(
+                    fun(_, _) ->
+                        true
+                    end,
+                    maps:from_keys(DotSet)
+                ),
+                {Name, ParsedDotSet}
+            end,
+            GroupUsers
+        )
+    ),
+    SessionLoop !
+        {
+            {put_album, UserName, {{ParsedFiles, ParsedGroupUsers, maps:from_list(VV)}, Votetable}},
+            self()
+        },
     session_user(Sock, SessionLoop, UserName).
 
 session_user(Sock, SessionLoop, UserName) ->
