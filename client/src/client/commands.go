@@ -399,7 +399,7 @@ func getAlbum(msg []string, state *ClientState) {
 
 	for name, peerInfo := range message.SessionPeers {
 
-		connector.Add_Peer(string(peerInfo.Id), name, peerInfo.Ip, peerInfo.Port)
+		connector.Add_Peer(fmt.Sprintf("PEER%v", peerInfo.Id), name, peerInfo.Ip, peerInfo.Port)
 
 	}
 
