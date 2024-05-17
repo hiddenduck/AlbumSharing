@@ -298,7 +298,7 @@ func (replica *Replica) causalContextUnion(versionVector map[uint32]uint64) {
 	replica.joinGroupMaps(peerReplica)
 }*/
 
-func (replica *Replica) Converge(peerReplica Replica) {
+func (replica *Replica) Converge(peerReplica Replica, voteMap *map[string]bool) {
 
 	replica.Mutex.Lock()
 	defer replica.Mutex.Unlock()
@@ -310,4 +310,15 @@ func (replica *Replica) Converge(peerReplica Replica) {
 	replica.joinGroupMaps(peerReplica)
 
 	replica.causalContextUnion(peerReplica.VersionVector)
+
+	replica.Cleanup(voteMap)
+}
+
+func (replica *Replica) Cleanup(voteMap *map[string]bool) {
+	for filename := range *voteMap {
+		_, ok := replica.Files[filename]
+		if !ok {
+			delete(*voteMap, filename)
+		}
+	}
 }

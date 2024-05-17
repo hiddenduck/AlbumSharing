@@ -58,8 +58,7 @@ func joinCrdt(msg []string, state SessionState) {
 
 	//fmt.Printf("Recebido Heartbeat do CRDT do nodo %v\n", protoMsg.Id)
 
-	state.Replica.Converge(peerReplica)
-
+	state.Replica.Converge(peerReplica, state.VoteMap)
 }
 
 func resendRequestVV(msg []string, state SessionState) {
