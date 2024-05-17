@@ -8,15 +8,12 @@ start(Port, Central, MainLoop) ->
     start_loop(Port, Central, MainLoop).
 
 start_loop(Port, Central, MainLoop) ->
+    Self = self(),
     {ok, LSock} = gen_tcp:listen(Port, [binary, {active, once}, {packet, raw},
                                       {reuseaddr, true}]),
 
-    Loop = spawn(fun() -> loop(MainLoop, []) end),
-    spawn(fun() -> acceptor(LSock, Loop) end),
-
-    receive
-        {stop, Central} -> ok
-    end.
+    spawn(fun() -> acceptor(LSock, Self) end),
+    loop(MainLoop, [], Central).
 
 acceptor(LSock, Loop) ->
     {ok, Sock} = gen_tcp:accept(LSock),
@@ -57,10 +54,12 @@ handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a str
     MainLoop ! {{addServer, IP, PORT}, self()},
     FirstHalf ++ [{IP, PORT, Hash}] ++ SecondHalf.
 
-loop(MainLoop, DataServers) ->
+loop(MainLoop, DataServers, Central) ->
     receive
+        {stop, Central} -> 
+            ok;
         {Msg, From} ->
-            loop(MainLoop, handler(Msg, {MainLoop, DataServers}, From))
+            loop(MainLoop, handler(Msg, {MainLoop, DataServers}, From), Central)
     end.
 
 data_server(Sock, Loop) ->
