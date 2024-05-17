@@ -373,6 +373,49 @@ func getAlbum(msg []string, state *ClientState) {
 
 }
 
+func putAlbum(msg []string, state *ClientState) {
+
+	if len(msg) != 0 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
+
+	message := &pb.Message{
+		Type: pb.Type_quit,
+		Msg: &pb.Message_M4{
+			M4: &pb.QuitMessage{
+				Crdt:      createCrdtMessage(state.SessionState),
+				VoteTable: *state.SessionState.VoteMap,
+			},
+		},
+	}
+
+	data, err := proto.Marshal(message)
+
+	if err != nil {
+		panic(err)
+	}
+
+	state.CentralServerConnection.Write(data)
+
+	fmt.Printf("Sent request to session to Central Server\n")
+
+	reply := <-state.CentralServerMessageHandlers[pb.Type_reply]
+
+	fmt.Printf("Received session from Central Server\n")
+
+	status := reply.GetM5().Status
+
+	if status == "put_album_ok" { // discard replica
+
+		state.IsInSession = false
+		fmt.Println("Session Has Ended")
+	} else {
+		fmt.Println("Session failed to end")
+	}
+
+}
+
 func CreateCommandsMap() CommandMap {
 	return map[string]interface{}{
 		"downloadFile": downloadFile,
@@ -390,5 +433,6 @@ func CreateCommandsMap() CommandMap {
 		"register":     register,
 		"createAlbum":  createAlbum,
 		"getAlbum":     getAlbum,
+		"putAlbum":     putAlbum,
 	}
 }
