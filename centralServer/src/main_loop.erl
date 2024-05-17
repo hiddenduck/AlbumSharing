@@ -46,7 +46,7 @@ handler({create_album, Username, AlbumName}, State, From) ->
 handler({get_album, Username, Ip, Port, AlbumName}, {Users, AlbumMap, DataServers} = State, From) ->
     case maps:find(AlbumName, AlbumMap) of
         {ok, Pid} ->
-            Pid ! {join, Username, From, self()},
+            Pid ! {{join, Username, Ip, Port, From}, self()},
             State;
 
         _ ->
