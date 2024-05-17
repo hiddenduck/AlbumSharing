@@ -33,5 +33,6 @@ mvnw
 
 # Erlang build artifacts
 *.beam
+!message.beam
 *.dump
 erl_crash.dump
