@@ -10,6 +10,6 @@ func main() {
 
 	ds.AddServer("localhost", "1234")
 
-    dataservers.UploadFile(ds, "lmao.txt")
+    dataservers.DownLoadFile(ds, "lmao.txt")
 
 }

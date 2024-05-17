@@ -11,13 +11,16 @@ import (
 
 	rxgo "github.com/reactivex/rxgo/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
+    defer close(ch)
+
 	addr := dataServer.Address + ":" + dataServer.Port
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+    conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 
 	if err != nil {
 		panic(err)
@@ -38,7 +41,6 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 		chunk, err := stream.Recv()
 
 		if err == io.EOF {
-			close(ch)
 			break
 		}
 
@@ -47,14 +49,13 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 		}
 
 		ch <- rxgo.Of(chunk)
-
-		// defer close(ch)
-
 	}
 
 }
 
 func uploader(ch chan rxgo.Item, fileName string) {
+
+    defer close(ch)
 
 	fd, err := os.Open(fileName)
 
@@ -79,14 +80,13 @@ func uploader(ch chan rxgo.Item, fileName string) {
 				continue
 			}
 			if err == io.EOF {
-				break
+                break
 			}
 			log.Fatal(err)
 		}
 
 		ch <- rxgo.Of(buff)
 	}
-	defer close(ch)
 	return
 }
 
@@ -102,9 +102,7 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
-	acc := 0
-
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 
 	defer conn.Close()
 
@@ -138,24 +136,16 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 
 			stream.Recv()
 
-			acc++
-
-			fmt.Printf("sent chunk %v\n", acc)
-
 		},
 		func(error error) {
 			panic(error)
 		},
 		func() {
-			reply, err := stream.Recv()
-
-			stream.CloseSend()
+            fmt.Printf("Uploaded File: %v\n", fileName)
 
 			if err != nil {
 				panic(err)
 			}
-
-			fmt.Printf("Uploaded %v lines\n", reply.Lines)
 		})
 	return fileHash, nil
 }
@@ -163,8 +153,6 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 
 	fd, err := os.Create(fileName)
-
-	acc := 0
 
 	defer fd.Close()
 
@@ -185,25 +173,18 @@ func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 
 			fileMessage := item.(*pb.FileMessage)
 
-			// fmt.Printf("fileMessage.GetData(): %v\n", string(fileMessage.GetData()))
-
-			n, err := fd.Write(fileMessage.GetData())
-
-			acc += n
+			_, err := fd.Write(fileMessage.GetData())
 
 			if err != nil {
 				fmt.Printf("err: %v\n", err)
 			}
-
-			fmt.Printf("n: %v\n", n)
 
 		},
 		func(error error) { //OneError
 			panic(error)
 		},
 		func() { //OnComplete
-			fmt.Printf("acc: %v\n", acc)
-			fmt.Printf("Conpleted Download")
+			fmt.Printf("Completed Download\n")
 
 		},
 	)
