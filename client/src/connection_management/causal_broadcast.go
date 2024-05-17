@@ -264,10 +264,14 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalReceive(is_first bool) {
 		causalBroadcastInfo.RequestVV()
 	}
 
+	go causalBroadcastInfo.PrintMessages()
+
+}
+
+func (causalBroadcastInfo *CausalBroadcastInfo) PrintMessages() {
 	for msg := range causalBroadcastInfo.Channel {
 		fmt.Printf("%v: %v\n", msg.Peer, string(msg.Message))
 	}
-
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) ReceiveVV(bytes []byte) {

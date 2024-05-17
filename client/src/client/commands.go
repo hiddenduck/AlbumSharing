@@ -405,7 +405,7 @@ func getAlbum(msg []string, state *ClientState) {
 
 	connector.Connect_to_Peers()
 
-	go state.SessionState.CausalBroadcastInfo.CausalReceive(isAlone)
+	state.SessionState.CausalBroadcastInfo.CausalReceive(isAlone)
 
 	if isAlone {
 		state.SessionState.MessageHandlers["chat"] = ReceiveMsg
