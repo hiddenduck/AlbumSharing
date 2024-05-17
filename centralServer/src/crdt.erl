@@ -7,10 +7,10 @@ createAlbum(UserName) ->
     Files = #{},
 
     %GroupUsers    map[string]DotSet
-    GroupUsers = maps:put(UserName, #{0=>0}, #{}),
+    GroupUsers = maps:put(UserName, #{{0,0}=>true}, #{}),
 
     % VersionVector map[uint32]uint64
-    VersionVector = #{{0,0}=>true},
+    VersionVector = #{0=>0},
 
     % Central Server logic - Votetable, map(userName)->{voteTable}
     UsersInfo = maps:put(UserName, #{}, #{}),
