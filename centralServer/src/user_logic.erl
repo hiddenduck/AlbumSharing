@@ -30,7 +30,9 @@ session_user_handler(
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
-session_user_handler({peer_left, {Ip, PORT, PeerUserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName) ->
+session_user_handler(
+    {peer_left, {Ip, PORT, PeerUserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName
+) ->
     Data = message:encode_msg(#'Message'{
         type = 9,
         msg =
@@ -132,7 +134,9 @@ session_message_handler(
     ),
     SessionLoop !
         {
-            {put_album, UserName, {{ParsedFiles, ParsedGroupUsers, maps:from_list(VV)}, maps:from_list(Votetable)}},
+            {put_album, UserName, {
+                {ParsedFiles, ParsedGroupUsers, maps:from_list(VV)}, maps:from_list(Votetable)
+            }},
             self()
         },
     session_user(Sock, SessionLoop, UserName).
@@ -333,7 +337,13 @@ user_handler({login_ok, UserName, DataServers, MainLoop}, Sock, MainLoop) ->
         msg =
             {m6, #login_reply{
                 status = "login_ok",
-                dataServers = DataServers
+                dataServers = lists:map(
+                    fun({IP, PORT}) ->
+                        #peerInfo{
+                            ip = IP,
+                            port = PORT
+                        }
+                    end, DataServers)
             }}
     }),
     send(Data, Sock),
