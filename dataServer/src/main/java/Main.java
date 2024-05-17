@@ -1,13 +1,24 @@
+import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
 import file.ServerInfo;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+
+import java.io.*;
 import java.net.Socket;
+import java.util.Objects;
 
 
 public class Main {
+    private static byte[] hexToByteArray(String hex) {
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i+1), 16));
+        }
+        return data;
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException, InvalidTargetServerException {
         if(args.length!=3){
             System.out.println("Wrong Arguments! [PORT] [Central Server IP] [Central Server Port]");
@@ -26,28 +37,38 @@ public class Main {
             directory.mkdir();
         }
 
-        ServerInfo serverInfo = null;
-        try (Socket s = new Socket(central_Ip, Integer.parseInt(central_port), null, Integer.parseInt(port))) {
+        String message = "";
+        try (Socket s = new Socket(central_Ip, Integer.parseInt(central_port));
+             BufferedReader input = new BufferedReader(new InputStreamReader(s.getInputStream()));
+             PrintWriter output = new PrintWriter(s.getOutputStream())) {
+            output.println(args[0]);
+            output.flush();
             // Waiting join response...
-            var inputStream = s.getInputStream();
-            byte[] messageBytes = new byte[1024];
-            inputStream.read(messageBytes);
-            serverInfo = ServerInfo.parseFrom(messageBytes);
+            message = input.readLine();
+            System.out.println(message);
         }
-        if(serverInfo== null) throw new InvalidTargetServerException("Target Server values are null");
 
-        byte[] my_hash = serverInfo.getMyHash().toByteArray();
+        byte[] my_hash;
 
-        if(!serverInfo.getIp().equals("")) {
-            var connection = ManagedChannelBuilder.forAddress(serverInfo.getIp(), serverInfo.getPort())
+        String[] messageParts = message.split(";", 2);
+
+        if(!Objects.equals(messageParts[0], "")) {
+
+            String IP = messageParts[0];
+            String[] configs = messageParts[1].split(":", 4);
+            int Port = Integer.parseInt(configs[0]);
+            my_hash = hexToByteArray(configs[1]);
+            byte[] infHash = hexToByteArray(configs[2]);
+
+            var connection = ManagedChannelBuilder.forAddress(IP, Port)
                     .usePlaintext()
                     .build();
 
             var stub = file.Rx3FileGrpc.newRxStub(connection);
 
             file.TransferMessage request = file.TransferMessage.newBuilder()
-                    .setHashKey(serverInfo.getMyHash())
-                    .setInfHash(serverInfo.getInfHash())
+                    .setHashKey(ByteString.copyFrom(my_hash))
+                    .setInfHash(ByteString.copyFrom(infHash))
                     .build();
 
             stub.transfer(request).blockingSubscribe(
@@ -68,6 +89,9 @@ public class Main {
                     },
                     () -> System.out.println("File transfer completed! :)")
             );
+        } else {
+            String[] configs = messageParts[1].split(":", 2);
+            my_hash = hexToByteArray(configs[0]);
         }
 
         ServerBuilder.forPort(Integer.parseInt(args[0]))
