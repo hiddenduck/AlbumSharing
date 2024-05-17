@@ -341,7 +341,7 @@ user_handler({login_ok, UserName, DataServers, MainLoop}, Sock, MainLoop) ->
                     fun({IP, PORT}) ->
                         #peerInfo{
                             ip = IP,
-                            port = PORT
+                            port = integer_to_list(PORT)
                         }
                     end, DataServers)
             }}
