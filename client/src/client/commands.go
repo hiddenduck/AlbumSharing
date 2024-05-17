@@ -133,7 +133,7 @@ func rateFile(msg []string, client_state *ClientState) {
 	state := client_state.SessionState
 	classification, err := strconv.ParseUint(msg[1], 10, 64)
 	if err == nil {
-		if classification > 5 || classification < 1 {
+		if classification > 5 || classification < 0 {
 			fmt.Printf("%v; not a valid clasification, enter a value between 1 and 5!\n", msg[1])
 		} else {
 			fileExists, cantVote := state.Replica.AddUserClassification(msg[0], classification, state.VoteMap)
