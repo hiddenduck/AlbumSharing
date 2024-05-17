@@ -70,8 +70,8 @@ func removeUser(msg []string, state *ClientState) {
 }
 
 func addFile(msg []string, state *ClientState) {
-	fileHash := dataservers.HashFile(msg[0])
 	//TODO enviar para o dataserver
+	fileHash := dataservers.UploadFile(state.DataServers, msg[0])
 	state.SessionState.Replica.AddFile(msg[0], fileHash)
 }
 
@@ -118,7 +118,7 @@ func listReplica(msg []string, state *ClientState) {
 
 func downloadFile(msg []string, state *ClientState) {
 	//TODO download do ficheiro
-	fmt.Printf("Undefined command.")
+	dataservers.DownLoadFile(state.DataServers, msg[0], state.SessionState.Replica.GetFileHash(msg[0]))
 }
 
 func printVV(msg []string, state *ClientState) {
