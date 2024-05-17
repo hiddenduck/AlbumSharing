@@ -476,6 +476,8 @@ func putAlbum(msg []string, state *ClientState) {
 
 		state.IsInSession.Store(false)
 		fmt.Println("Session Has Ended")
+		state.SessionState.Connector.Close()
+
 	} else {
 		fmt.Println("Session failed to end")
 	}

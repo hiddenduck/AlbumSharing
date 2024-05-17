@@ -19,6 +19,12 @@ type ConnectorInfo struct {
 	Mutex        *sync.Mutex
 }
 
+func (connectorInfo ConnectorInfo) Close() {
+	connectorInfo.Mutex.Lock()
+	defer connectorInfo.Mutex.Unlock()
+	connectorInfo.RouterSocket.Close()
+}
+
 func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 
 	context, _ := zmq.NewContext()
@@ -90,7 +96,7 @@ func (connectorInfo ConnectorInfo) Sender(s int, id string, msgType string, msg 
 	connectorInfo.RouterSocket.SendBytes(msg, 0)
 }
 
-func (connectorInfo ConnectorInfo) Send_to_Peers(msgType string, msg []byte) {
+func (connectorInfo ConnectorInfo) Send_to_Peers(msgType string, msg []byte) error {
 
 	// var s int
 
@@ -101,11 +107,15 @@ func (connectorInfo ConnectorInfo) Send_to_Peers(msgType string, msg []byte) {
 
 		id := clientInfo.Id
 
-		connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
+		_, err := connectorInfo.RouterSocket.Send(id, zmq.SNDMORE)
+		if err != nil {
+			return err
+		}
 		connectorInfo.RouterSocket.Send(msgType, zmq.SNDMORE)
 		connectorInfo.RouterSocket.SendBytes(msg, 0)
 	}
 
+	return nil
 }
 
 func (ConnectorInfo ConnectorInfo) SetFilter(filter string) {
