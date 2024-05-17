@@ -29,12 +29,12 @@ session_user_handler(
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
-session_user_handler({peer_left, UserName, SessionLoop}, Sock, SessionLoop, UserName) ->
+session_user_handler({peer_left, PeerUserName, SessionLoop}, Sock, SessionLoop, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 9,
         msg =
             {m5, #reply_message{
-                status = UserName
+                status = PeerUserName
             }}
     }),
     send(Data, Sock),
