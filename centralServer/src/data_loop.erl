@@ -42,14 +42,15 @@ binary_search_aux(Servers, Hash, Left, Right) ->
     end.
 
 handler({join, IP, PORT}, {MainLoop, []}, From) -> 
-    Hash = crypto:hash(<<IP/binary, PORT/binary>>),
+    BinIP = list_to_binary(IP),
+    Hash = crypto:hash(<<BinIP/binary, PORT/integer>>),
     From ! {Hash, self()},
     MainLoop ! {{addServer, IP, PORT}, self()},
     [{IP, PORT, Hash}];
 
 handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
-    BinPORT = list_to_binary(integer_to_list(PORT)),
-    Hash = crypto:hash(<<IP, BinPORT/binary>>),
+    BinIP = list_to_binary(IP),
+    Hash = crypto:hash(<<BinIP/binary, PORT/integer>>),
     {InfServer, TopServer, IndexToAdd} = binary_search(DataServers, Hash, 1, lists:length(DataServers)),
     {FirstHalf, SecondHalf} = lists:split(IndexToAdd, DataServers),
     From ! {InfServer, TopServer, Hash, self()},
