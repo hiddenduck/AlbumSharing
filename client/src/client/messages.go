@@ -13,12 +13,17 @@ import (
 
 func PeerListen(state SessionState) {
 	for {
-		msg, _ := state.Connector.RouterSocket.RecvMessage(0)
+		msg, err := state.Connector.RouterSocket.RecvMessage(0)
+
+		if err != nil {
+			fmt.Printf("Closed PeerListen\n")
+			return
+		}
 
 		function, ok := state.MessageHandlers[msg[1]]
 
 		if msg[1] != "heartbeat" {
-			fmt.Printf("Received message of type %v from peer %v\n", msg[1], msg[0])
+			//fmt.Printf("Received message of type %v from peer %v\n", msg[1], msg[0])
 		}
 
 		if ok {
@@ -86,7 +91,12 @@ func HeartBeat(state SessionState) {
 			panic("error")
 		}
 
-		state.Connector.Send_to_Peers("heartbeat", out)
+		err = state.Connector.Send_to_Peers("heartbeat", out)
+
+		if err != nil {
+			fmt.Printf("Closed heartbeat\n")
+			return
+		}
 
 		//fmt.Println("Enviado Heartbeat do CRDT")
 	}
