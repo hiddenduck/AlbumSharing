@@ -23,61 +23,9 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
     private byte[] my_hash;
 
 
-    public FileService(int port, String central_Ip, int central_port) throws IOException, InvalidTargetServerException {
-        this.folder = String.valueOf(port);
-        File directory = new File(folder);
-
-        if(!directory.exists()){
-            directory.mkdir();
-        }
-
-            file.ServerInfo serverInfo = null;
-            try (Socket s = new Socket(central_Ip, central_port)) {
-                // Waiting join response...
-                var inputStream = s.getInputStream();
-                byte[] prefix = new byte[8];
-                inputStream.read(prefix);
-                int messageSize = ByteBuffer.wrap(prefix).getInt();
-                byte[] messageBytes = new byte[messageSize];
-                inputStream.read(messageBytes);
-                serverInfo = file.ServerInfo.parseFrom(messageBytes);
-            }
-            if(serverInfo== null) throw new InvalidTargetServerException("Target Server values are null");
-
-            if(!serverInfo.getIp().equals("")) {
-                var connection = ManagedChannelBuilder.forAddress(serverInfo.getIp(), serverInfo.getPort())
-                        .usePlaintext()
-                        .build();
-
-                var stub = Rx3FileGrpc.newRxStub(connection);
-
-                file.TransferMessage request = file.TransferMessage.newBuilder()
-                        .setHashKey(serverInfo.getMyHash())
-                        .setInfHash(serverInfo.getInfHash())
-                        .build();
-
-                this.my_hash = serverInfo.getMyHash().toByteArray();
-
-                stub.transfer(request).blockingSubscribe(
-                        fileMessage -> {
-                            byte[] data = fileMessage.getData().toByteArray();
-                            String hash = fileMessage.getHashKey().toStringUtf8();
-
-                            try (FileOutputStream writer = new FileOutputStream(hash, true)) {
-                                writer.write(data);
-                                writer.flush();
-                            } catch (IOException e) {
-                                new File(hash).delete();
-                                throw new ErrorInTransferException("Error while transfering file with hash: " + hash);
-                            }
-                        },
-                        throwable -> {
-                            throw new ErrorInTransferException(throwable.getMessage());
-                        },
-                        () -> System.out.println("File transfer completed! :)")
-                );
-            }
-
+    public FileService(String folder, byte[] my_hash) throws IOException, InvalidTargetServerException {
+        this.folder = folder;
+        this.my_hash = my_hash;
     }
 
 	/**
