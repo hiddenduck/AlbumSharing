@@ -4,8 +4,8 @@
 -include("proto_generated/message.hrl").
 
 start(Port, Central, MainLoop) ->
-    register(?MODULE, spawn(fun() -> start_loop(Port, Central, MainLoop) end)),
-    ok.
+    register(?MODULE, self()),
+    start_loop(Port, Central, MainLoop).
 
 start_loop(Port, Central, MainLoop) ->
     {ok, LSock} = gen_tcp:listen(Port, [binary, {active, once}, {packet, raw},
