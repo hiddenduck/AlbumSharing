@@ -43,9 +43,8 @@ message peerInfo {
 }
 
 message newPeer {
-    string name = 1;
-    string ip   = 2;
-    string port = 3;
+    string   name     = 1;
+    peerInfo peerInfo = 2;
 }
 
 message dotPair {

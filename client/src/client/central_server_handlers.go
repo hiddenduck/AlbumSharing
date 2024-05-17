@@ -5,9 +5,18 @@ import (
 	pb "main/CentralServerComunication/CentralServerProtobuf"
 )
 
-const(
-    CHANNEL_BUFFER_SIZE = 1024
+const (
+	CHANNEL_BUFFER_SIZE = 1024
 )
+
+func HandleNewPeer(ch chan *pb.Message, state ClientState) {
+	for msg := range ch {
+		if state.IsInSession {
+			m7 := msg.GetM7()
+			state.SessionState.CausalBroadcastInfo.ConnectorInfo.Add_Peer(m7.Ip, m7.Name, m7.Ip, m7.Port)
+		}
+	}
+}
 
 func CreateCentralServerMessageHandlers() (handlers cs.Handlers) {
 	handlers = make(cs.Handlers)
@@ -24,14 +33,14 @@ func CreateCentralServerMessageHandlers() (handlers cs.Handlers) {
 		pb.Type_new_peer,
 		pb.Type_peer_left,
 		pb.Type_newServer,
-    }
+	}
 
-    for _, pbType := range typeList{
+	for _, pbType := range typeList {
 
-        handlers[pbType] = make(chan *pb.Message, CHANNEL_BUFFER_SIZE)
+		handlers[pbType] = make(chan *pb.Message, CHANNEL_BUFFER_SIZE)
 
-    }
+	}
 
-    return
+	return
 
 }
