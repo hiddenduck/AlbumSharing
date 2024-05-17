@@ -416,6 +416,7 @@ func getAlbum(msg []string, state *ClientState) {
 
 	go PeerListen(state.SessionState)
 
+	state.IsInSession.Store(true)
 }
 
 func putAlbum(msg []string, state *ClientState) {
