@@ -378,6 +378,11 @@ func getAlbum(msg []string, state *ClientState) {
 
 	message := sessionStart(msg[0], con, state)
 
+	if message.Status != "get_album_ok" {
+		fmt.Println("You don't have permission to edit this album!")
+		return
+	}
+
 	state.SessionState = CreateSessionState(message.Id)
 
 	*state.SessionState.Replica = ParseProtoReplica(message.Crdt) //???????

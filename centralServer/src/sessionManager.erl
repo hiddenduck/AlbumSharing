@@ -24,6 +24,7 @@ saveState(AlbumName, AlbumMetaData, UserMap) ->
     AlbumBin = term_to_binary({ClearedAlbumMetaData, NewUserMap}),
     case file:write_file(AlbumName, AlbumBin) of
                 ok ->
+                    io:format("salvo~p~n", [AlbumMetaData]),
                     ok;
                 {error, _} ->
                     error
@@ -105,7 +106,7 @@ handler(
             case NewSessionUsers of
                 #{} ->
                     MainLoop ! {{end_session, AlbumName}, self()},
-                    saveState(AlbumName, AlbumMetaData, UserMap),
+                    saveState(AlbumName, NewAlbumMetaData, NewUserMap),
                     end_loop();
 
                 _ ->

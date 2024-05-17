@@ -126,7 +126,7 @@ session_message_handler(
     ),
     SessionLoop !
         {
-            {put_album, UserName, {{ParsedFiles, ParsedGroupUsers, maps:from_list(VV)}, Votetable}},
+            {put_album, UserName, {{ParsedFiles, ParsedGroupUsers, maps:from_list(VV)}, maps:from_list(Votetable)}},
             self()
         },
     session_user(Sock, SessionLoop, UserName).
