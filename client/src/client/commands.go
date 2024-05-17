@@ -155,24 +155,34 @@ func test(msg []string, state *ClientState) {
 }
 
 func listUsers(msg []string, state *ClientState) {
-	state.SessionState.Replica.ListUsers()
+	if state.IsInSession.Load() {
+		state.SessionState.Replica.ListUsers()
+	}
 }
 
 func listFiles(msg []string, state *ClientState) {
-	state.SessionState.Replica.ListFiles()
+	if state.IsInSession.Load() {
+		state.SessionState.Replica.ListFiles()
+	}
 }
 
 func listReplica(msg []string, state *ClientState) {
-	state.SessionState.Replica.ListReplica()
+	if state.IsInSession.Load() {
+		state.SessionState.Replica.ListReplica()
+	}
 }
 
 func downloadFile(msg []string, state *ClientState) {
 	//TODO download do ficheiro
-	dataservers.DownLoadFile(state.DataServers, msg[0], state.SessionState.Replica.GetFileHash(msg[0]))
+	if state.IsInSession.Load() {
+		dataservers.DownLoadFile(state.DataServers, msg[0], state.SessionState.Replica.GetFileHash(msg[0]))
+	}
 }
 
 func printVV(msg []string, state *ClientState) {
-	state.SessionState.CausalBroadcastInfo.PrintVV()
+	if state.IsInSession.Load() {
+		state.SessionState.CausalBroadcastInfo.PrintVV()
+	}
 }
 
 func register(msg []string, state *ClientState) {
