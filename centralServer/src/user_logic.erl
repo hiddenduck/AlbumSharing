@@ -13,13 +13,13 @@ session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, SessionLoop, UserName);
 session_user_handler(
-    {new_peer, {Ip, PORT, UserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName
+    {new_peer, {Ip, PORT, PeerUserName, PeerId}, SessionLoop}, Sock, SessionLoop, UserName
 ) ->
     Data = message:encode_msg(#'Message'{
         type = 8,
         msg =
             {m7, #peer{
-                name = UserName,
+                name = PeerUserName,
                 peerInfo = #peerInfo{
                     ip = Ip,
                     port = PORT,
