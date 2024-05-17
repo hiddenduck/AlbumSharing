@@ -76,7 +76,10 @@ func addFile(msg []string, state *ClientState) {
 		return
 	}
 
-	fileHash := dataservers.HashFile(msg[0])
+	fileHash, err := dataservers.HashFile(msg[0])
+	if err != nil {
+		return
+	}
 	//dataservers.UploadFile(state.DataServers, msg[0])
 	//TODO enviar para o dataserver
 	state.SessionState.Replica.AddFile(msg[0], fileHash)

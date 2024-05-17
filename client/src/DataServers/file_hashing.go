@@ -8,14 +8,15 @@ import (
 	"os"
 )
 
-func HashFile(fileName string) Hash {
+func HashFile(fileName string) (Hash, error) {
 
 	h := sha256.New()
 
 	fd, err := os.Open(fileName)
 
 	if err != nil {
-		log.Fatalf("Error to read [file=%v]: %v", fileName, err.Error())
+		log.Printf("Error to read [file=%v]: %v", fileName, err.Error())
+		return Hash{}, err
 	}
 
 	r := bufio.NewReader(fd)
@@ -48,5 +49,5 @@ func HashFile(fileName string) Hash {
 		}
 	}
 
-	return [32]byte(h.Sum(nil))
+	return [32]byte(h.Sum(nil)), nil
 }
