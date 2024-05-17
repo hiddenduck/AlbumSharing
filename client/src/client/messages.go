@@ -61,10 +61,6 @@ func joinCrdt(msg []string, state SessionState) {
 	state.Replica.Converge(peerReplica, state.VoteMap)
 }
 
-func resendRequestVV(msg []string, state SessionState) {
-	state.CausalBroadcastInfo.RequestVV()
-}
-
 func bufferRequest(msg []string, state SessionState) {
 	state.CausalBroadcastInfo.AddVVRequest(msg[0])
 }
