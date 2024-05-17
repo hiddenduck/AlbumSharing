@@ -16,9 +16,11 @@ import (
 
 func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
+    defer close(ch)
+
 	addr := dataServer.Address + ":" + dataServer.Port
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+    conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 
 	if err != nil {
 		panic(err)
@@ -39,7 +41,6 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 		chunk, err := stream.Recv()
 
 		if err == io.EOF {
-			close(ch)
 			break
 		}
 
@@ -48,9 +49,6 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 		}
 
 		ch <- rxgo.Of(chunk)
-
-		// defer close(ch)
-
 	}
 
 }
@@ -143,17 +141,11 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 			panic(error)
 		},
 		func() {
-			// reply, err := stream.Recv()
-
             fmt.Printf("Uploaded File: %v\n", fileName)
-
-			// stream.CloseSend()
 
 			if err != nil {
 				panic(err)
 			}
-
-			// fmt.Printf("Uploaded %v lines\n", reply.Lines)
 		})
 	return fileHash, nil
 }
@@ -181,20 +173,18 @@ func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 
 			fileMessage := item.(*pb.FileMessage)
 
-			n, err := fd.Write(fileMessage.GetData())
+			_, err := fd.Write(fileMessage.GetData())
 
 			if err != nil {
 				fmt.Printf("err: %v\n", err)
 			}
-
-			fmt.Printf("n: %v\n", n)
 
 		},
 		func(error error) { //OneError
 			panic(error)
 		},
 		func() { //OnComplete
-			fmt.Printf("Completed Download")
+			fmt.Printf("Completed Download\n")
 
 		},
 	)
