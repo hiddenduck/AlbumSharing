@@ -24,7 +24,6 @@ session_user_handler({new_peer, {Ip, PORT, UserName}, SessionLoop}, Sock, Sessio
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
-
 session_user_handler({peer_left, UserName, SessionLoop}, Sock, SessionLoop, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 9,
@@ -35,7 +34,6 @@ session_user_handler({peer_left, UserName, SessionLoop}, Sock, SessionLoop, User
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
-
 session_user_handler({put_album_ok, MainLoop, SessionLoop}, Sock, SessionLoop, UserName) ->
     send_reply("put_album_ok", Sock),
     auth_user(Sock, MainLoop, UserName).
@@ -131,14 +129,46 @@ auth_user_handler(
                 id = Id,
                 crdt = #crdt{
                     versionVector = maps:to_list(VV),
-                    files = maps:to_list(Files),
+                    files = maps:to_list(maps:map(
+                        fun(_, {Hash, VoteMap, DotSet}) ->
+                            #fileInfo{
+                                votes = maps:to_list(maps:map(
+                                    fun(_, {Sum, Count}) ->
+                                        #voteInfo{
+                                            sum = Sum,
+                                            count = Count
+                                        }
+                                    end
+                                    ,VoteMap)),
+                                dotSet = lists:map(fun({IdDS, VersionDS}) ->
+                                #dotPair{
+                                    id = IdDS,
+                                    version = VersionDS
+                                }
+                            end, maps:keys(DotSet)),
+                                fileHash   = Hash
+                            }
+                        end,Files)),
                     groupUsers = maps:to_list(maps:map(fun(_, DotSet) ->
                         #groupInfo{
-                            dotSet = maps:to_list(DotSet)
+                            dotSet = lists:map(
+                            fun({IdGDS, VersionGDS}) ->
+                                #dotPair{
+                                    id = IdGDS,
+                                    version = VersionGDS
+                                }
+                            end, maps:keys(DotSet))
                         } 
                     end, GroupUsers))
                 },
-                sessionPeers = maps:to_list(SessionPeers),
+                sessionPeers = maps:to_list(maps:map(
+                fun(_, {IP, Port, IdSP}) ->
+                    #peerInfo{
+                        ip = IP,
+                        port = Port,
+                        id = IdSP
+                    }
+                end,SessionPeers)),
                 voteTable = maps:to_list(Votetable),
                 status = "get_album_ok"
             }}
@@ -151,9 +181,16 @@ auth_user_handler(_, Sock, MainLoop, UserName) ->
 auth_message_handler(create, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{create_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
-auth_message_handler(get, {m2, #album{albumName = AlbumName, port = PORT}}, Sock, MainLoop, UserName) ->
+auth_message_handler(
+    get, {m2, #album{albumName = AlbumName, port = PORT}}, Sock, MainLoop, UserName
+) ->
     {ok, {IP, _}} = inet:peername(Sock),
-    MainLoop ! {{get_album, UserName, string:join([integer_to_list(I) || I <- tuple_to_list(IP)], "."), PORT, AlbumName}, self()},
+    MainLoop !
+        {
+            {get_album, UserName, string:join([integer_to_list(I) || I <- tuple_to_list(IP)], "."),
+                PORT, AlbumName},
+            self()
+        },
     auth_user(Sock, MainLoop, UserName);
 auth_message_handler(
     _, _, Sock, MainLoop, UserName
@@ -190,27 +227,25 @@ send_reply(Status, Sock) ->
 
 user_handler({login_ok, UserName, DataServers, MainLoop}, Sock, MainLoop) ->
     Data = message:encode_msg(#'Message'{
-            type = 2,
-            msg =
-                {m6, #login_reply{
-                    status = "login_ok",
-                    dataServers = DataServers
-                }}
-        }),
+        type = 2,
+        msg =
+            {m6, #login_reply{
+                status = "login_ok",
+                dataServers = DataServers
+            }}
+    }),
     send(Data, Sock),
     auth_user(Sock, MainLoop, UserName);
-
 user_handler({login_error, MainLoop}, Sock, MainLoop) ->
     Data = message:encode_msg(#'Message'{
-            type = 2,
-            msg =
-                {m6, #login_reply{
-                    status = "login_error"
-                }}
-        }),
+        type = 2,
+        msg =
+            {m6, #login_reply{
+                status = "login_error"
+            }}
+    }),
     send(Data, Sock),
     user(Sock, MainLoop);
-
 user_handler({Status, MainLoop}, Sock, MainLoop) when
     Status =:= login_error;
     Status =:= register_ok;
