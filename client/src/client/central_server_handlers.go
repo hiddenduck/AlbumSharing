@@ -11,10 +11,26 @@ const (
 
 func HandleNewPeer(ch chan *pb.Message, state ClientState) {
 	for msg := range ch {
-		if state.IsInSession {
+		if state.IsInSession.Load() {
 			m7 := msg.GetM7()
-			state.SessionState.CausalBroadcastInfo.ConnectorInfo.Add_Peer(m7.Ip, m7.Name, m7.Ip, m7.Port)
+			state.SessionState.CausalBroadcastInfo.ConnectorInfo.Add_Connect_Peer(m7.PeerInfo.Id, m7.Name, m7.PeerInfo.Ip, m7.PeerInfo.Port)
 		}
+	}
+}
+
+func HandleLeftPeer(ch chan *pb.Message, state ClientState) {
+	for msg := range ch {
+		if state.IsInSession.Load() {
+			m7 := msg.GetM7()
+			state.SessionState.CausalBroadcastInfo.ConnectorInfo.Remove_Peer(m7.PeerInfo.Id, m7.Name, m7.PeerInfo.Ip, m7.PeerInfo.Port)
+		}
+	}
+}
+
+func HandleNewServer(ch chan *pb.Message, state ClientState) {
+	for msg := range ch {
+		m8 := msg.GetM8()
+		state.DataServers.AddServer(m8.Ip, m8.Port)
 	}
 }
 

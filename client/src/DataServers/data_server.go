@@ -2,6 +2,7 @@ package dataservers
 
 import (
 	"crypto/sha256"
+	"sync"
 	// "errors"
 )
 
@@ -25,19 +26,24 @@ func (dataservers *DataServers) insert(ds DataServer) {
 
 	_, index := dataservers.binarySearch(value)
 
-	if dataservers.Size == index { // nil or empty slice or after last element
+	func() {
+		dataservers.Mutex.Lock()
+		defer dataservers.Mutex.Unlock()
 
-		dataservers.Servers = append(dataservers.Servers, ds)
+		if dataservers.Size == index { // nil or empty slice or after last element
 
-	} else {
+			dataservers.Servers = append(dataservers.Servers, ds)
 
-		// *a = append((*a)[:index+1], (*a)[index:]) // index < len(a)
+		} else {
 
-		dataservers.Servers = append(dataservers.Servers[:index+1], dataservers.Servers[index:]...)
+			// *a = append((*a)[:index+1], (*a)[index:]) // index < len(a)
 
-		dataservers.Servers[index] = ds
+			dataservers.Servers = append(dataservers.Servers[:index+1], dataservers.Servers[index:]...)
 
-	}
+			dataservers.Servers[index] = ds
+
+		}
+	}()
 
 	dataservers.Size += 1
 }
@@ -86,6 +92,7 @@ func InitDataServer() DataServers {
 	return DataServers{
 		Servers: make([]DataServer, 0),
 		Size:    0,
+		Mutex:   &sync.Mutex{},
 	}
 }
 

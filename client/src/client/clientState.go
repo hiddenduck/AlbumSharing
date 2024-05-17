@@ -6,6 +6,7 @@ import (
 	chat "main/connection_management"
 	"main/crdt"
 	"net"
+	"sync/atomic"
 )
 
 type CommandMap map[string]interface{}
@@ -20,7 +21,7 @@ type SessionState struct {
 
 type ClientState struct {
 	CommandMap                   CommandMap
-	IsInSession                  bool
+	IsInSession                  *atomic.Bool
 	IsLoggedIn                   bool
 	UserName                     string
 	SessionState                 SessionState
@@ -35,9 +36,12 @@ func CreateClientState(routerPort string) (clientState ClientState) {
 
 	conn := centralserver.ConnectToCentralServer()
 
+	isInSession := atomic.Bool{}
+	isInSession.Store(false)
+
 	clientState = ClientState{
 		CommandMap:                   CreateCommandsMap(),
-		IsInSession:                  false,
+		IsInSession:                  &isInSession,
 		IsLoggedIn:                   false,
 		UserName:                     "",
 		SessionState:                 SessionState{},

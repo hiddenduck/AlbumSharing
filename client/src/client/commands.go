@@ -33,7 +33,7 @@ func CommandListen(state *ClientState) {
 			continue
 		}
 
-		if !state.IsInSession {
+		if !state.IsInSession.Load() {
 			fmt.Printf("Not associated with an album\n")
 
 			continue
@@ -62,14 +62,35 @@ func ExecuteCommand(list []string, state *ClientState) {
 }
 
 func addUser(msg []string, state *ClientState) {
+	if !state.IsInSession.Load() {
+		fmt.Printf("Not connected to a session, connect first before storing.\n")
+		return
+	}
+	if len(msg) != 1 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
 	state.SessionState.Replica.AddUser(msg[0])
 }
 
 func removeUser(msg []string, state *ClientState) {
+	if !state.IsInSession.Load() {
+		fmt.Printf("Not connected to a session, connect first before storing.\n")
+		return
+	}
+	if len(msg) != 1 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
 	state.SessionState.Replica.RemoveUser(msg[0])
 }
 
 func addFile(msg []string, state *ClientState) {
+
+	if !state.IsInSession.Load() {
+		fmt.Printf("Not connected to a session, connect first before storing.\n")
+		return
+	}
 
 	if len(msg) != 1 {
 		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
@@ -86,10 +107,29 @@ func addFile(msg []string, state *ClientState) {
 }
 
 func removeFile(msg []string, state *ClientState) {
+	if !state.IsInSession.Load() {
+		fmt.Printf("Not connected to a session, connect first before storing.\n")
+		return
+	}
+
+	if len(msg) != 1 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
 	state.SessionState.Replica.RemoveFile(msg[0])
 }
 
 func rateFile(msg []string, client_state *ClientState) {
+	if !client_state.IsInSession.Load() {
+		fmt.Printf("Not connected to a session, connect first before storing.\n")
+		return
+	}
+
+	if len(msg) != 2 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
+
 	state := client_state.SessionState
 	classification, err := strconv.ParseUint(msg[1], 10, 64)
 	if err == nil {
@@ -324,6 +364,11 @@ func sessionStart(albumName string, conn net.Conn, state *ClientState) *pb.Sessi
 
 func getAlbum(msg []string, state *ClientState) {
 
+	if state.IsInSession.Load() {
+		fmt.Printf("Already connected to a session, leave first before reconnecting.\n")
+		return
+	}
+
 	if len(msg) != 1 {
 		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
 		return
@@ -375,6 +420,11 @@ func getAlbum(msg []string, state *ClientState) {
 
 func putAlbum(msg []string, state *ClientState) {
 
+	if !state.IsInSession.Load() {
+		fmt.Printf("Not connected to a session, connect first before storing.\n")
+		return
+	}
+
 	if len(msg) != 0 {
 		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
 		return
@@ -408,7 +458,7 @@ func putAlbum(msg []string, state *ClientState) {
 
 	if status == "put_album_ok" { // discard replica
 
-		state.IsInSession = false
+		state.IsInSession.Store(false)
 		fmt.Println("Session Has Ended")
 	} else {
 		fmt.Println("Session failed to end")

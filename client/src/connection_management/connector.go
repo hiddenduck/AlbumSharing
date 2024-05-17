@@ -31,6 +31,22 @@ func Make_ConnectorInfo() (connectorInfo ConnectorInfo) {
 	return
 }
 
+func (connectorInfo ConnectorInfo) Remove_Peer(id string, name string, ip string, port string) {
+	connectorInfo.Mutex.Lock()
+	defer connectorInfo.Mutex.Unlock()
+
+	delete(connectorInfo.PeerMap, name)
+	connectorInfo.RouterSocket.Disconnect("tcp://" + ip + ":" + port)
+}
+
+func (connectorInfo ConnectorInfo) Add_Connect_Peer(id string, name string, ip string, port string) {
+	connectorInfo.Mutex.Lock()
+	defer connectorInfo.Mutex.Unlock()
+
+	connectorInfo.Add_Peer(id, name, ip, port)
+	connectorInfo.RouterSocket.Connect("tcp://" + ip + ":" + port)
+}
+
 func (connectorInfo ConnectorInfo) Add_Peer(id string, name string, ip string, port string) {
 
 	clientInfo := ClientInfo{
