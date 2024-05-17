@@ -285,7 +285,9 @@ func (causalBroadcastInfo *CausalBroadcastInfo) ReceiveVV(bytes []byte) {
 
 	//fmt.Printf("received version vector: %v \n", versionVector)
 
-	versionVector[causalBroadcastInfo.self] = causalBroadcastInfo.versionVector[causalBroadcastInfo.self]
+	if versionVector[causalBroadcastInfo.self] < causalBroadcastInfo.versionVector[causalBroadcastInfo.self] {
+		versionVector[causalBroadcastInfo.self] = causalBroadcastInfo.versionVector[causalBroadcastInfo.self]
+	}
 
 	causalBroadcastInfo.versionVector = versionVector
 
