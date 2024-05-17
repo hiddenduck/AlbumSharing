@@ -90,9 +90,13 @@ func uploader(ch chan rxgo.Item, fileName string) {
 	return
 }
 
-func UploadFile(dataServers DataServers, fileName string) Hash {
+func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 
-	fileHash := HashFile(fileName)
+	fileHash, err := HashFile(fileName)
+
+	if err != nil {
+		return Hash{}, err
+	}
 
 	dataServer := dataServers.FindBucket(fileHash)
 
@@ -153,7 +157,7 @@ func UploadFile(dataServers DataServers, fileName string) Hash {
 
 			fmt.Printf("Uploaded %v lines\n", reply.Lines)
 		})
-	return fileHash
+	return fileHash, nil
 }
 
 func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
