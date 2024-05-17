@@ -30,6 +30,7 @@ type CausalBroadcastInfo struct {
 	changedNodes    map[uint32]uint64
 	ReplySocket     *zmq.Socket
 	Channel         chan ChannelWriteMessage
+	Username        string
 }
 
 func (causalBroadcastInfo *CausalBroadcastInfo) PrintVV() {
@@ -81,11 +82,12 @@ func (causalBroadcastInfo *CausalBroadcastInfo) update_state(changedNodes *map[u
 	causalBroadcastInfo.changedNodes[src] = causalBroadcastInfo.versionVector[src]
 }
 
-func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data []byte) {
+func unpack_msg(msg *pb.CbCastMessage) (src uint32, ch map[uint32]uint64, data []byte, username string) {
 	//existe getters do protobuf, nao sei qual a melhor alternativa
 	src = msg.Src
 	ch = msg.ChangedNodes
 	data = msg.Data
+	username = msg.Username
 	return
 }
 
@@ -123,7 +125,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Test_buffer_messages() {
 
 			//fmt.Printf("Testing (my versionVector) %v\n", causalBroadcastInfo.versionVector)
 
-			src, changedNodes, data := unpack_msg(buffered_msg.Message)
+			src, changedNodes, data, username := unpack_msg(buffered_msg.Message)
 
 			//fmt.Printf("Testing (changedNodes) %v\n", changedNodes)
 
@@ -134,7 +136,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Test_buffer_messages() {
 				//fmt.Printf("Delivered a buffered message\n")
 
 				select {
-				case causalBroadcastInfo.Channel <- ChannelWriteMessage{data, buffered_msg.Peer}:
+				case causalBroadcastInfo.Channel <- ChannelWriteMessage{data, username}:
 				default:
 				}
 
@@ -172,7 +174,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Fwd_message(input []string) {
 
 	//fmt.Printf("My previous versionVector is: %v\n", causalBroadcastInfo.versionVector)
 
-	src, changedNodes, data := unpack_msg(&msg)
+	src, changedNodes, data, username := unpack_msg(&msg)
 
 	//fmt.Printf("changed nodes are: %v\n", changedNodes)
 
@@ -183,7 +185,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) Fwd_message(input []string) {
 		//fmt.Printf("delivered message with bytes: %v\n", bytes)
 
 		select {
-		case causalBroadcastInfo.Channel <- ChannelWriteMessage{data, peer}:
+		case causalBroadcastInfo.Channel <- ChannelWriteMessage{data, username}:
 		default:
 		}
 
@@ -280,7 +282,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) ReceiveVV(bytes []byte) {
 
 	proto.Unmarshal(bytes, &msg)
 
-	_, versionVector, _ := unpack_msg(&msg)
+	_, versionVector, _, _ := unpack_msg(&msg)
 
 	//fmt.Printf("received version vector: %v \n", versionVector)
 
@@ -339,6 +341,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 		Src:          causalBroadcastInfo.self,
 		ChangedNodes: changedNodes,
 		Data:         msg,
+		Username:     causalBroadcastInfo.Username,
 	}
 
 	bytes, _ := proto.Marshal(&data)

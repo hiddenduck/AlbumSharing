@@ -11,5 +11,7 @@ message CbCastMessage {
     map<uint32, uint64> ChangedNodes = 2;
 
     bytes Data = 3;
+
+    string Username = 4;
 }
 
