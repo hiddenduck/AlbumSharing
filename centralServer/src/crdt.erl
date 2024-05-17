@@ -91,12 +91,12 @@ joinDotSets(VV, PeerVV, DotSet, PeerDotSet) ->
                 {ok, VVersion} ->
                     case VVersion < Version of
                         true ->
-                            maps:put(DotPair, ACC);
+                            maps:put(DotPair, true, ACC);
                         _ ->
                             ACC
                     end;
                 _ ->
-                    maps:put(DotPair, ACC)
+                    maps:put(DotPair, true, ACC)
             end
         end
     end,
