@@ -96,6 +96,7 @@ handler(
 ) ->
     case maps:find(UserName, UserMap) of
         {ok, _} ->
+            io:format("~p~n", [Crdt]),
             NewAlbumMetaData = crdt:updateMetaData(Crdt, AlbumMetaData),
             NewUserMap = maps:update(UserName, Votetable, UserMap),
             {_, _, Id, _} = maps:get(UserName, SessionUsers),

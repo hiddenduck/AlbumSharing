@@ -36,10 +36,10 @@ updateMetaData(
     {OldFiles, OldGroupUsers, OldVersionVector}
 ) ->
     NewFiles = joinMaps(OldFiles, Files, {
-        fun joinFileInfos/4, fun joinFileInfo/2, {OldVersionVector, VersionVector}
+        fun joinFileInfos/4, fun joinFileInfo/2, OldVersionVector, VersionVector
     }),
     NewGroupUsers = joinMaps(OldGroupUsers, GroupUsers, {
-        fun joinGroupInfos/4, fun joinGroupInfo/2, {OldVersionVector, VersionVector}
+        fun joinGroupInfos/4, fun joinGroupInfo/2, OldVersionVector, VersionVector
     }),
     VV = causalContextUnion(OldVersionVector, maps:to_list(VersionVector)),
     {NewFiles, NewGroupUsers, VV}.

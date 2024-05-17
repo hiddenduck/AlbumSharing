@@ -57,36 +57,46 @@ session_message_handler(
     SessionLoop,
     UserName
 ) ->
-    ParsedFiles = lists:map(
-        fun(
-            {FileName, #fileInfo{
-                votes = Votes,
-                dotSet = DotSet,
-                fileHash = FileHash
-            }}
-        ) ->
-            ParsedVotes = maps:from_list(
-                lists:map(
-                    fun(
-                        {Id, #voteInfo{
-                            sum = Sum,
-                            count = Count
-                        }}
-                    ) ->
-                        {Id, {Sum, Count}}
-                    end,
-                    Votes
-                )
-            ),
-            ParsedDotSet = maps:map(
-                fun(_, _) ->
+    ParsedFiles = maps:from_list(
+        lists:map(
+            fun(
+                {FileName, #fileInfo{
+                    votes = Votes,
+                    dotSet = DotSet,
+                    fileHash = FileHash
+                }}
+            ) ->
+                ParsedVotes = maps:from_list(
+                    lists:map(
+                        fun(
+                            {Id, #voteInfo{
+                                sum = Sum,
+                                count = Count
+                            }}
+                        ) ->
+                            {Id, {Sum, Count}}
+                        end,
+                        Votes
+                    )
+                ),
+                ParsedDotSet = maps:from_keys(
+                    lists:map(
+                        fun(
+                            #dotPair{
+                                id = IDPair,
+                                version = VersionPair
+                            }
+                        ) ->
+                            {IDPair, VersionPair}
+                        end,
+                        DotSet
+                    ),
                     true
-                end,
-                maps:from_keys(DotSet)
-            ),
-            {FileName, {FileHash, ParsedVotes, ParsedDotSet}}
-        end,
-        Files
+                ),
+                {FileName, {FileHash, ParsedVotes, ParsedDotSet}}
+            end,
+            Files
+        )
     ),
     ParsedGroupUsers = maps:from_list(
         lists:map(
@@ -95,11 +105,19 @@ session_message_handler(
                     dotSet = DotSet
                 }}
             ) ->
-                ParsedDotSet = maps:map(
-                    fun(_, _) ->
-                        true
-                    end,
-                    maps:from_keys(DotSet)
+                ParsedDotSet = maps:from_keys(
+                    lists:map(
+                        fun(
+                            #dotPair{
+                                id = IDPair,
+                                version = VersionPair
+                            }
+                        ) ->
+                            {IDPair, VersionPair}
+                        end,
+                        DotSet
+                    ),
+                    true
                 ),
                 {Name, ParsedDotSet}
             end,
