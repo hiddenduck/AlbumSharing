@@ -20,7 +20,7 @@ create_album(AlbumName, UserName) ->
 
 saveState(AlbumName, AlbumMetaData, UserMap) ->
     ClearedAlbumMetaData = crdt:clearState(AlbumMetaData),
-    NewUserMap = crdt:refreshUserMap(AlbumMetaData, UserMap),
+    NewUserMap = crdt:refreshUserMap({AlbumMetaData, UserMap}),
     AlbumBin = term_to_binary({ClearedAlbumMetaData, NewUserMap}),
     case file:write_file(AlbumName, AlbumBin) of
                 ok ->
@@ -101,6 +101,7 @@ handler(
             NewUserMap = maps:update(UserName, Votetable, UserMap),
             {_, _, Id, _} = maps:get(UserName, SessionUsers),
             NewSessionUsers = maps:remove(UserName, SessionUsers),
+            Client ! {put_album_ok, MainLoop, self()},
             case NewSessionUsers of
                 #{} ->
                     MainLoop ! {{end_session, AlbumName}, self()},
