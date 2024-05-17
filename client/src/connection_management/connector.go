@@ -43,7 +43,7 @@ func (connectorInfo ConnectorInfo) Add_Connect_Peer(id string, name string, ip s
 	connectorInfo.Mutex.Lock()
 	defer connectorInfo.Mutex.Unlock()
 
-	connectorInfo.Add_Peer(id, name, ip, port)
+	connectorInfo.Add_Peer("PEER"+id, name, ip, port)
 	connectorInfo.RouterSocket.Connect("tcp://" + ip + ":" + port)
 }
 
