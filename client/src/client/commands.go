@@ -70,8 +70,9 @@ func removeUser(msg []string, state *ClientState) {
 }
 
 func addFile(msg []string, state *ClientState) {
+	fileHash := dataservers.HashFile(msg[0])
+	//dataservers.UploadFile(state.DataServers, msg[0])
 	//TODO enviar para o dataserver
-	fileHash := dataservers.UploadFile(state.DataServers, msg[0])
 	state.SessionState.Replica.AddFile(msg[0], fileHash)
 }
 
