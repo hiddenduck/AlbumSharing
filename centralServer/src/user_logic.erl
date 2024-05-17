@@ -249,7 +249,8 @@ auth_user_handler(
                             end,
                             GroupUsers
                         )
-                    )
+                    ),
+                    id = integer_to_list(Id)
                 },
                 sessionPeers = maps:to_list(
                     maps:map(
