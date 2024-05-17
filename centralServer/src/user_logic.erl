@@ -83,7 +83,6 @@ auth_user_handler(Status, Sock, MainLoop, UserName) when
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
-
 auth_user_handler({new_server, IP, PORT, MainLoop}, Sock, MainLoop, UserName) ->
     Data = message:encode_msg(#'Message'{
         type = 2,
@@ -95,7 +94,6 @@ auth_user_handler({new_server, IP, PORT, MainLoop}, Sock, MainLoop, UserName) ->
     }),
     send(Data, Sock),
     auth_user(Sock, MainLoop, UserName);
-
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= get_album_no_permission;
     Status =:= get_album_error
@@ -109,7 +107,6 @@ auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     }),
     send(Data, Sock),
     auth_user(Sock, MainLoop, UserName);
-
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
     Status =:= create_album_error;
     Status =:= create_album_ok
@@ -129,46 +126,67 @@ auth_user_handler(
                 id = Id,
                 crdt = #crdt{
                     versionVector = maps:to_list(VV),
-                    files = maps:to_list(maps:map(
-                        fun(_, {Hash, VoteMap, DotSet}) ->
-                            #fileInfo{
-                                votes = maps:to_list(maps:map(
-                                    fun(_, {Sum, Count}) ->
-                                        #voteInfo{
-                                            sum = Sum,
-                                            count = Count
-                                        }
-                                    end
-                                    ,VoteMap)),
-                                dotSet = lists:map(fun({IdDS, VersionDS}) ->
-                                #dotPair{
-                                    id = IdDS,
-                                    version = VersionDS
+                    files = maps:to_list(
+                        maps:map(
+                            fun(_, {Hash, VoteMap, DotSet}) ->
+                                #fileInfo{
+                                    votes = maps:to_list(
+                                        maps:map(
+                                            fun(_, {Sum, Count}) ->
+                                                #voteInfo{
+                                                    sum = Sum,
+                                                    count = Count
+                                                }
+                                            end,
+                                            VoteMap
+                                        )
+                                    ),
+                                    dotSet = lists:map(
+                                        fun({IdDS, VersionDS}) ->
+                                            #dotPair{
+                                                id = IdDS,
+                                                version = VersionDS
+                                            }
+                                        end,
+                                        maps:keys(DotSet)
+                                    ),
+                                    fileHash = Hash
                                 }
-                            end, maps:keys(DotSet)),
-                                fileHash   = Hash
-                            }
-                        end,Files)),
-                    groupUsers = maps:to_list(maps:map(fun(_, DotSet) ->
-                        #groupInfo{
-                            dotSet = lists:map(
-                            fun({IdGDS, VersionGDS}) ->
-                                #dotPair{
-                                    id = IdGDS,
-                                    version = VersionGDS
+                            end,
+                            Files
+                        )
+                    ),
+                    groupUsers = maps:to_list(
+                        maps:map(
+                            fun(_, DotSet) ->
+                                #groupInfo{
+                                    dotSet = lists:map(
+                                        fun({IdGDS, VersionGDS}) ->
+                                            #dotPair{
+                                                id = IdGDS,
+                                                version = VersionGDS
+                                            }
+                                        end,
+                                        maps:keys(DotSet)
+                                    )
                                 }
-                            end, maps:keys(DotSet))
-                        } 
-                    end, GroupUsers))
+                            end,
+                            GroupUsers
+                        )
+                    )
                 },
-                sessionPeers = maps:to_list(maps:map(
-                fun(_, {IP, Port, IdSP}) ->
-                    #peerInfo{
-                        ip = IP,
-                        port = Port,
-                        id = IdSP
-                    }
-                end,SessionPeers)),
+                sessionPeers = maps:to_list(
+                    maps:map(
+                        fun(_, {IP, Port, IdSP}) ->
+                            #peerInfo{
+                                ip = IP,
+                                port = Port,
+                                id = IdSP
+                            }
+                        end,
+                        SessionPeers
+                    )
+                ),
                 voteTable = maps:to_list(Votetable),
                 status = "get_album_ok"
             }}
