@@ -303,7 +303,7 @@ func sessionStart(albumName string, conn net.Conn, state *ClientState) *pb.Sessi
 
 	fmt.Printf("Sent request to session to Central Server\n")
 
-	reply := <-state.CentralServerMessageHandlers[pb.Type_get]
+	reply := <-state.CentralServerMessageHandlers[pb.Type_send]
 
 	fmt.Printf("Received session from Central Server\n")
 

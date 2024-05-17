@@ -52,7 +52,7 @@ handler({get_album, Username, Ip, Port, AlbumName}, {Users, AlbumMap, DataServer
         _ ->
             case sessionManager:start(AlbumName, Username, self()) of
                 {ok, Pid} ->
-                    Pid ! {join, Username, Ip, Port, From, self()},
+                    Pid ! {{join, Username, Ip, Port, From}, self()},
                     {Users, maps:put(AlbumName, Pid, AlbumMap), DataServers};
 
                 ErrorMsg ->

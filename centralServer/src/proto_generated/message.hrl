@@ -130,7 +130,8 @@
         {id = 0                 :: non_neg_integer() | undefined, % = 1, optional, 32 bits
          crdt = undefined       :: message:crdt() | undefined, % = 2, optional
          sessionPeers = []      :: [{unicode:chardata(), message:peerInfo()}] | undefined, % = 3
-         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined % = 4
+         voteTable = []         :: [{unicode:chardata(), boolean() | 0 | 1}] | undefined, % = 4
+         status = []            :: unicode:chardata() | undefined % = 5, optional
         }).
 -endif.
 

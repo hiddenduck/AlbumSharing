@@ -79,6 +79,7 @@ message sessionStart {
   crdt            crdt           = 2;
   map<string, peerInfo> sessionPeers = 3;
   map<string, bool> voteTable    = 4;
+  string                status       = 5;
 }
 
 message quitMessage {

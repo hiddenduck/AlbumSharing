@@ -99,10 +99,22 @@ auth_user_handler({new_server, IP, PORT, MainLoop}, Sock, MainLoop, UserName) ->
     auth_user(Sock, MainLoop, UserName);
 
 auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
-    Status =:= create_album_error;
-    Status =:= create_album_ok;
     Status =:= get_album_no_permission;
     Status =:= get_album_error
+->
+    Data = message:encode_msg(#'Message'{
+        type = 5,
+        msg =
+            {m3, #sessionStart{
+                status = atom_to_list(Status)
+            }}
+    }),
+    send(Data, Sock),
+    auth_user(Sock, MainLoop, UserName);
+
+auth_user_handler({Status, MainLoop}, Sock, MainLoop, UserName) when
+    Status =:= create_album_error;
+    Status =:= create_album_ok
 ->
     send_reply(atom_to_list(Status), Sock),
     auth_user(Sock, MainLoop, UserName);
@@ -118,12 +130,17 @@ auth_user_handler(
             {m3, #sessionStart{
                 id = Id,
                 crdt = #crdt{
-                    versionVector = VV,
-                    files = Files,
-                    groupUsers = GroupUsers
+                    versionVector = maps:to_list(VV),
+                    files = maps:to_list(Files),
+                    groupUsers = maps:to_list(maps:map(fun(_, DotSet) ->
+                        #groupInfo{
+                            dotSet = maps:to_list(DotSet)
+                        } 
+                    end, GroupUsers))
                 },
-                sessionPeers = SessionPeers,
-                voteTable = Votetable
+                sessionPeers = maps:to_list(SessionPeers),
+                voteTable = maps:to_list(Votetable),
+                status = "get_album_ok"
             }}
     }),
     send(Data, Sock),
@@ -136,7 +153,7 @@ auth_message_handler(create, {m2, #album{albumName = AlbumName}}, Sock, MainLoop
     auth_user(Sock, MainLoop, UserName);
 auth_message_handler(get, {m2, #album{albumName = AlbumName, port = PORT}}, Sock, MainLoop, UserName) ->
     {ok, {IP, _}} = inet:peername(Sock),
-    MainLoop ! {{get_album, UserName, IP, PORT, AlbumName}, self()},
+    MainLoop ! {{get_album, UserName, string:join([integer_to_list(I) || I <- tuple_to_list(IP)], "."), PORT, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
 auth_message_handler(
     _, _, Sock, MainLoop, UserName

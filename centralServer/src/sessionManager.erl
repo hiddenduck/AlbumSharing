@@ -66,7 +66,7 @@ prepare_replica_state(UserName, {IdPool, IdCounter}, SessionUsers, Ip, PORT) ->
     {{Id, SessionPeers}, NewIdInfo}.
 
 handler(
-    {join, Username, Ip, Port, Client, MainLoop},
+    {join, Username, Ip, Port, Client},
     {AlbumMetaData, IdInfo, SessionUsers, UserMap, MainLoop} = State,
     MainLoop, AlbumName
 ) ->
@@ -130,5 +130,6 @@ end_loop() ->
 loop(AlbumName, State) ->
     receive
         {Msg, From} ->
+            io:format("Session: ~p~n", [Msg]),
             handler(Msg, State, From, AlbumName)
     end.

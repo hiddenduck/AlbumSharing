@@ -499,7 +499,7 @@ encode_msg_crdt(#crdt{versionVector = F1, files = F2, groupUsers = F3, id = F4},
 encode_msg_sessionStart(Msg, TrUserData) -> encode_msg_sessionStart(Msg, <<>>, TrUserData).
 
 
-encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, voteTable = F4}, Bin, TrUserData) ->
+encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, voteTable = F4, status = F5}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
             true ->
                 begin
@@ -524,11 +524,21 @@ encode_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, vot
                 true -> e_field_sessionStart_sessionPeers(TrF3, B2, TrUserData)
              end
          end,
-    begin
-        TrF4 = id(F4, TrUserData),
-        if TrF4 == [] -> B3;
-           true -> e_field_sessionStart_voteTable(TrF4, B3, TrUserData)
-        end
+    B4 = begin
+             TrF4 = id(F4, TrUserData),
+             if TrF4 == [] -> B3;
+                true -> e_field_sessionStart_voteTable(TrF4, B3, TrUserData)
+             end
+         end,
+    if F5 == undefined -> B4;
+       true ->
+           begin
+               TrF5 = id(F5, TrUserData),
+               case is_empty_string(TrF5) of
+                   true -> B4;
+                   false -> e_type_string(TrF5, <<B4/binary, 42>>, TrUserData)
+               end
+           end
     end.
 
 encode_msg_quitMessage(Msg, TrUserData) -> encode_msg_quitMessage(Msg, <<>>, TrUserData).
@@ -1714,43 +1724,54 @@ skip_32_crdt(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserDat
 skip_64_crdt(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
 decode_msg_sessionStart(Bin, TrUserData) ->
-    dfp_read_field_def_sessionStart(Bin, 0, 0, 0, id(0, TrUserData), id(undefined, TrUserData), 'tr_decode_init_default_sessionStart.sessionPeers'([], TrUserData), 'tr_decode_init_default_sessionStart.voteTable'([], TrUserData), TrUserData).
+    dfp_read_field_def_sessionStart(Bin,
+                                    0,
+                                    0,
+                                    0,
+                                    id(0, TrUserData),
+                                    id(undefined, TrUserData),
+                                    'tr_decode_init_default_sessionStart.sessionPeers'([], TrUserData),
+                                    'tr_decode_init_default_sessionStart.voteTable'([], TrUserData),
+                                    id([], TrUserData),
+                                    TrUserData).
 
-dfp_read_field_def_sessionStart(<<8, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_id(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_sessionPeers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<34, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_sessionStart_voteTable(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) ->
-    #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = 'tr_decode_repeated_finalize_sessionStart.sessionPeers'(R1, TrUserData), voteTable = 'tr_decode_repeated_finalize_sessionStart.voteTable'(R2, TrUserData)};
-dfp_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dg_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+dfp_read_field_def_sessionStart(<<8, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_sessionStart_id(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_sessionStart(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_sessionStart_crdt(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_sessionStart(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_sessionStart_sessionPeers(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_sessionStart(<<34, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_sessionStart_voteTable(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_sessionStart(<<42, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_sessionStart_status(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, F@_5, TrUserData) ->
+    #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = 'tr_decode_repeated_finalize_sessionStart.sessionPeers'(R1, TrUserData), voteTable = 'tr_decode_repeated_finalize_sessionStart.voteTable'(R2, TrUserData), status = F@_5};
+dfp_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dg_read_field_def_sessionStart(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-dg_read_field_def_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 32 - 7 -> dg_read_field_def_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dg_read_field_def_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+dg_read_field_def_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 32 - 7 -> dg_read_field_def_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dg_read_field_def_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        8 -> d_field_sessionStart_id(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        18 -> d_field_sessionStart_crdt(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        26 -> d_field_sessionStart_sessionPeers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-        34 -> d_field_sessionStart_voteTable(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+        8 -> d_field_sessionStart_id(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+        18 -> d_field_sessionStart_crdt(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+        26 -> d_field_sessionStart_sessionPeers(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+        34 -> d_field_sessionStart_voteTable(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+        42 -> d_field_sessionStart_status(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                1 -> skip_64_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                2 -> skip_length_delimited_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                3 -> skip_group_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData);
-                5 -> skip_32_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, TrUserData)
+                0 -> skip_varint_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+                1 -> skip_64_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+                2 -> skip_length_delimited_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+                3 -> skip_group_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+                5 -> skip_32_sessionStart(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData)
             end
     end;
-dg_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, TrUserData) ->
-    #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = 'tr_decode_repeated_finalize_sessionStart.sessionPeers'(R1, TrUserData), voteTable = 'tr_decode_repeated_finalize_sessionStart.voteTable'(R2, TrUserData)}.
+dg_read_field_def_sessionStart(<<>>, 0, 0, _, F@_1, F@_2, R1, R2, F@_5, TrUserData) ->
+    #sessionStart{id = F@_1, crdt = F@_2, sessionPeers = 'tr_decode_repeated_finalize_sessionStart.sessionPeers'(R1, TrUserData), voteTable = 'tr_decode_repeated_finalize_sessionStart.voteTable'(R2, TrUserData), status = F@_5}.
 
-d_field_sessionStart_id(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_id(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_id(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, F@_4, TrUserData) ->
+d_field_sessionStart_id(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_sessionStart_id(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_sessionStart_id(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
     {NewFValue, RestF} = {id((X bsl N + Acc) band 4294967295, TrUserData), Rest},
-    dfp_read_field_def_sessionStart(RestF, 0, 0, F, NewFValue, F@_2, F@_3, F@_4, TrUserData).
+    dfp_read_field_def_sessionStart(RestF, 0, 0, F, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-d_field_sessionStart_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3, F@_4, TrUserData) ->
+d_field_sessionStart_crdt(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_sessionStart_crdt(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_sessionStart_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3, F@_4, F@_5, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_crdt(Bs, TrUserData), TrUserData), Rest2} end,
     dfp_read_field_def_sessionStart(RestF,
                                     0,
@@ -1762,34 +1783,40 @@ d_field_sessionStart_crdt(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, F@_3
                                     end,
                                     F@_3,
                                     F@_4,
+                                    F@_5,
                                     TrUserData).
 
-d_field_sessionStart_sessionPeers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_sessionPeers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_sessionPeers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, F@_4, TrUserData) ->
+d_field_sessionStart_sessionPeers(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_sessionStart_sessionPeers(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_sessionStart_sessionPeers(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, Prev, F@_4, F@_5, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id('decode_msg_map<string,peerInfo>'(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, 'tr_decode_repeated_add_elem_sessionStart.sessionPeers'(NewFValue, Prev, TrUserData), F@_4, TrUserData).
+    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, 'tr_decode_repeated_add_elem_sessionStart.sessionPeers'(NewFValue, Prev, TrUserData), F@_4, F@_5, TrUserData).
 
-d_field_sessionStart_voteTable(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_sessionStart_voteTable(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_sessionStart_voteTable(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, Prev, TrUserData) ->
+d_field_sessionStart_voteTable(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_sessionStart_voteTable(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_sessionStart_voteTable(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, Prev, F@_5, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id('decode_msg_map<string,bool>'(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, F@_3, 'tr_decode_repeated_add_elem_sessionStart.voteTable'(NewFValue, Prev, TrUserData), TrUserData).
+    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, F@_3, 'tr_decode_repeated_add_elem_sessionStart.voteTable'(NewFValue, Prev, TrUserData), F@_5, TrUserData).
 
-skip_varint_sessionStart(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> skip_varint_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-skip_varint_sessionStart(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+d_field_sessionStart_status(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_sessionStart_status(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_sessionStart_status(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_sessionStart(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, NewFValue, TrUserData).
 
-skip_length_delimited_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> skip_length_delimited_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData);
-skip_length_delimited_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+skip_varint_sessionStart(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> skip_varint_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+skip_varint_sessionStart(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+
+skip_length_delimited_sessionStart(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> skip_length_delimited_sessionStart(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+skip_length_delimited_sessionStart(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_sessionStart(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+    dfp_read_field_def_sessionStart(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-skip_group_sessionStart(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+skip_group_sessionStart(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_sessionStart(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, F@_4, TrUserData).
+    dfp_read_field_def_sessionStart(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-skip_32_sessionStart(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_32_sessionStart(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-skip_64_sessionStart(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_64_sessionStart(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_sessionStart(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 decode_msg_quitMessage(Bin, TrUserData) -> dfp_read_field_def_quitMessage(Bin, 0, 0, 0, id(undefined, TrUserData), 'tr_decode_init_default_quitMessage.voteTable'([], TrUserData), TrUserData).
 
@@ -2687,7 +2714,8 @@ merge_msg_crdt(#crdt{versionVector = PFversionVector, files = PFfiles, groupUser
               end}.
 
 -compile({nowarn_unused_function,merge_msg_sessionStart/3}).
-merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, sessionPeers = PFsessionPeers, voteTable = PFvoteTable}, #sessionStart{id = NFid, crdt = NFcrdt, sessionPeers = NFsessionPeers, voteTable = NFvoteTable}, TrUserData) ->
+merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, sessionPeers = PFsessionPeers, voteTable = PFvoteTable, status = PFstatus},
+                       #sessionStart{id = NFid, crdt = NFcrdt, sessionPeers = NFsessionPeers, voteTable = NFvoteTable, status = NFstatus}, TrUserData) ->
     #sessionStart{id =
                       if NFid =:= undefined -> PFid;
                          true -> NFid
@@ -2706,6 +2734,10 @@ merge_msg_sessionStart(#sessionStart{id = PFid, crdt = PFcrdt, sessionPeers = PF
                       if PFvoteTable /= undefined, NFvoteTable /= undefined -> 'tr_merge_sessionStart.voteTable'(PFvoteTable, NFvoteTable, TrUserData);
                          PFvoteTable == undefined -> NFvoteTable;
                          NFvoteTable == undefined -> PFvoteTable
+                      end,
+                  status =
+                      if NFstatus =:= undefined -> PFstatus;
+                         true -> NFstatus
                       end}.
 
 -compile({nowarn_unused_function,merge_msg_quitMessage/3}).
@@ -3002,7 +3034,7 @@ v_submsg_sessionStart(Msg, Path, TrUserData) -> v_msg_sessionStart(Msg, Path, Tr
 
 -compile({nowarn_unused_function,v_msg_sessionStart/3}).
 -dialyzer({nowarn_function,v_msg_sessionStart/3}).
-v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, voteTable = F4}, Path, TrUserData) ->
+v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, voteTable = F4, status = F5}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_uint32(F1, [id | Path], TrUserData)
     end,
@@ -3011,6 +3043,9 @@ v_msg_sessionStart(#sessionStart{id = F1, crdt = F2, sessionPeers = F3, voteTabl
     end,
     'v_map<string,peerInfo>'(F3, [sessionPeers | Path], TrUserData),
     'v_map<string,bool>'(F4, [voteTable | Path], TrUserData),
+    if F5 == undefined -> ok;
+       true -> v_type_string(F5, [status | Path], TrUserData)
+    end,
     ok;
 v_msg_sessionStart(X, Path, _TrUserData) -> mk_type_error({expected_msg, sessionStart}, X, Path).
 
@@ -3425,7 +3460,8 @@ get_msg_defs() ->
       [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
        #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
        #field{name = sessionPeers, fnum = 3, rnum = 4, type = {map, string, {msg, peerInfo}}, occurrence = repeated, opts = []},
-       #field{name = voteTable, fnum = 4, rnum = 5, type = {map, string, bool}, occurrence = repeated, opts = []}]},
+       #field{name = voteTable, fnum = 4, rnum = 5, type = {map, string, bool}, occurrence = repeated, opts = []},
+       #field{name = status, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}]},
      {{msg, quitMessage}, [#field{name = crdt, fnum = 1, rnum = 2, type = {msg, crdt}, occurrence = optional, opts = []}, #field{name = voteTable, fnum = 2, rnum = 3, type = {map, string, bool}, occurrence = repeated, opts = []}]},
      {{msg, 'Message'},
       [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'Type'}, occurrence = optional, opts = []},
@@ -3502,7 +3538,8 @@ find_msg_def(sessionStart) ->
     [#field{name = id, fnum = 1, rnum = 2, type = uint32, occurrence = optional, opts = []},
      #field{name = crdt, fnum = 2, rnum = 3, type = {msg, crdt}, occurrence = optional, opts = []},
      #field{name = sessionPeers, fnum = 3, rnum = 4, type = {map, string, {msg, peerInfo}}, occurrence = repeated, opts = []},
-     #field{name = voteTable, fnum = 4, rnum = 5, type = {map, string, bool}, occurrence = repeated, opts = []}];
+     #field{name = voteTable, fnum = 4, rnum = 5, type = {map, string, bool}, occurrence = repeated, opts = []},
+     #field{name = status, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}];
 find_msg_def(quitMessage) -> [#field{name = crdt, fnum = 1, rnum = 2, type = {msg, crdt}, occurrence = optional, opts = []}, #field{name = voteTable, fnum = 2, rnum = 3, type = {map, string, bool}, occurrence = repeated, opts = []}];
 find_msg_def('Message') ->
     [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'Type'}, occurrence = optional, opts = []},
