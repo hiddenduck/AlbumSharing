@@ -112,7 +112,7 @@ handler(
 
                 _ ->
                     maps:foreach(fun(_, {_, _, _, PID}) ->
-                            PID ! {peer_left, {Leaver_IP, Leaver_Port, UserName, Id}, self()}
+                            PID ! {peer_left, {Leaver_IP, Leaver_Port, UserName, integer_to_list(Id)}, self()}
                         end,
                         NewSessionUsers),
                     loop(AlbumName,{NewAlbumMetaData, {[Id | IdPool], IdCounter}, NewSessionUsers, NewUserMap,
