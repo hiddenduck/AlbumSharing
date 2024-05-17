@@ -46,7 +46,7 @@ updateMetaData(
 
 joinDotSet(VV, DotSet) ->
     NewDotSet = maps:filter(
-        fun({ID, Version}) ->
+        fun({ID, Version},_) ->
             case maps:find(ID, VV) of
                 {ok, PeerVersion} ->
                     case PeerVersion < Version of
