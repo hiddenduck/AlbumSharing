@@ -331,7 +331,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) incrementVV() {
 	causalBroadcastInfo.versionVector[causalBroadcastInfo.self]++
 }
 
-func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
+func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte, username string) {
 
 	causalBroadcastInfo.incrementVV()
 
@@ -341,7 +341,7 @@ func (causalBroadcastInfo *CausalBroadcastInfo) CausalBroadcast(msg []byte) {
 		Src:          causalBroadcastInfo.self,
 		ChangedNodes: changedNodes,
 		Data:         msg,
-		Username:     causalBroadcastInfo.Username,
+		Username:     username,
 	}
 
 	bytes, _ := proto.Marshal(&data)

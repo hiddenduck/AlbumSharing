@@ -39,7 +39,7 @@ func CommandListen(state *ClientState) {
 			continue
 		}
 
-		state.SessionState.CausalBroadcastInfo.CausalBroadcast([]byte(input))
+		state.SessionState.CausalBroadcastInfo.CausalBroadcast([]byte(input), state.UserName)
 
 		//state.Connector.Send_to_Peers("chat", []byte(input))
 	}
@@ -103,11 +103,11 @@ func addFile(msg []string, state *ClientState) {
 	}
 	//dataservers.UploadFile(state.DataServers, msg[0])
 	//TODO enviar para o dataserver
-    go func() {
-        dataservers.UploadFile(state.DataServers, msg[0])
+	go func() {
+		dataservers.UploadFile(state.DataServers, msg[0])
 
-        state.SessionState.Replica.AddFile(msg[0], fileHash)
-    }()
+		state.SessionState.Replica.AddFile(msg[0], fileHash)
+	}()
 
 }
 
@@ -294,7 +294,7 @@ func login(msg []string, state *ClientState) {
 		for _, info := range reply.GetM6().DataServers {
 			state.DataServers.AddServer(info.Ip, info.Port)
 		}
-
+		state.UserName = username
 		state.IsLoggedIn = true
 		fmt.Println("Loggin Success")
 	} else {
