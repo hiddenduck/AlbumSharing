@@ -24,6 +24,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
 
 
     public FileService(String folder, byte[] my_hash) throws IOException, InvalidTargetServerException {
+        System.out.println("Server Start");
         this.folder = folder;
         this.my_hash = my_hash;
     }

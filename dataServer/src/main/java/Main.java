@@ -42,6 +42,7 @@ public class Main {
              BufferedReader input = new BufferedReader(new InputStreamReader(s.getInputStream()));
              PrintWriter output = new PrintWriter(s.getOutputStream())) {
             output.println(args[0]);
+            output.flush();
             // Waiting join response...
             message = input.readLine();
             System.out.println(message);
