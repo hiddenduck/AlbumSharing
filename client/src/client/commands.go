@@ -103,7 +103,12 @@ func addFile(msg []string, state *ClientState) {
 	}
 	//dataservers.UploadFile(state.DataServers, msg[0])
 	//TODO enviar para o dataserver
-	state.SessionState.Replica.AddFile(msg[0], fileHash)
+    go func() {
+        dataservers.UploadFile(state.DataServers, msg[0])
+
+        state.SessionState.Replica.AddFile(msg[0], fileHash)
+    }()
+
 }
 
 func removeFile(msg []string, state *ClientState) {

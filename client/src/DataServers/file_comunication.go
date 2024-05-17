@@ -11,6 +11,7 @@ import (
 
 	rxgo "github.com/reactivex/rxgo/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
@@ -56,6 +57,8 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
 func uploader(ch chan rxgo.Item, fileName string) {
 
+    defer close(ch)
+
 	fd, err := os.Open(fileName)
 
 	if err != nil {
@@ -79,14 +82,13 @@ func uploader(ch chan rxgo.Item, fileName string) {
 				continue
 			}
 			if err == io.EOF {
-				break
+                break
 			}
 			log.Fatal(err)
 		}
 
 		ch <- rxgo.Of(buff)
 	}
-	defer close(ch)
 	return
 }
 
@@ -102,9 +104,7 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
-	acc := 0
-
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 
 	defer conn.Close()
 
@@ -138,24 +138,22 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 
 			stream.Recv()
 
-			acc++
-
-			fmt.Printf("sent chunk %v\n", acc)
-
 		},
 		func(error error) {
 			panic(error)
 		},
 		func() {
-			reply, err := stream.Recv()
+			// reply, err := stream.Recv()
 
-			stream.CloseSend()
+            fmt.Printf("Uploaded File: %v\n", fileName)
+
+			// stream.CloseSend()
 
 			if err != nil {
 				panic(err)
 			}
 
-			fmt.Printf("Uploaded %v lines\n", reply.Lines)
+			// fmt.Printf("Uploaded %v lines\n", reply.Lines)
 		})
 	return fileHash, nil
 }
@@ -163,8 +161,6 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 
 	fd, err := os.Create(fileName)
-
-	acc := 0
 
 	defer fd.Close()
 
@@ -185,11 +181,7 @@ func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 
 			fileMessage := item.(*pb.FileMessage)
 
-			// fmt.Printf("fileMessage.GetData(): %v\n", string(fileMessage.GetData()))
-
 			n, err := fd.Write(fileMessage.GetData())
-
-			acc += n
 
 			if err != nil {
 				fmt.Printf("err: %v\n", err)
@@ -202,8 +194,7 @@ func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
 			panic(error)
 		},
 		func() { //OnComplete
-			fmt.Printf("acc: %v\n", acc)
-			fmt.Printf("Conpleted Download")
+			fmt.Printf("Completed Download")
 
 		},
 	)
