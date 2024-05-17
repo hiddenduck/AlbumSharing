@@ -8,6 +8,7 @@ import (
 	"log"
 	pb "main/DataServers/fileChunkProto"
 	"os"
+	"os/exec"
 
 	rxgo "github.com/reactivex/rxgo/v2"
 	"google.golang.org/grpc"
@@ -16,11 +17,11 @@ import (
 
 func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
-    defer close(ch)
+	defer close(ch)
 
 	addr := dataServer.Address + ":" + dataServer.Port
 
-    conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 
 	if err != nil {
 		panic(err)
@@ -55,7 +56,7 @@ func downloader(dataServer DataServer, ch chan rxgo.Item, fileHash Hash) {
 
 func uploader(ch chan rxgo.Item, fileName string) {
 
-    defer close(ch)
+	defer close(ch)
 
 	fd, err := os.Open(fileName)
 
@@ -80,7 +81,7 @@ func uploader(ch chan rxgo.Item, fileName string) {
 				continue
 			}
 			if err == io.EOF {
-                break
+				break
 			}
 			log.Fatal(err)
 		}
@@ -141,13 +142,41 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 			panic(error)
 		},
 		func() {
-            fmt.Printf("Uploaded File: %v\n", fileName)
+			fmt.Printf("Uploaded File: %v\n", fileName)
 
 			if err != nil {
 				panic(err)
 			}
 		})
 	return fileHash, nil
+}
+
+func UploadFile2(dataServers DataServers, fileName string) {
+	/*
+		fileHash, err := HashFile(fileName)
+
+		if err != nil {
+			return Hash{}, err
+		}
+
+		dataServer := dataServers.FindBucket(fileHash)
+	*/
+
+	os.Chdir("../../../dataServer/ ")
+
+	Cmd := "mvn"
+	Args := []string{"exec:java", "-Dexec.mainClass=Main", "-Dexec.args=1311 localhost 8889"} // todo: trocar para comando
+
+	cmd := exec.Command(Cmd, Args...)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("%v\n", output)
+
 }
 
 func DownLoadFile(dataServers DataServers, fileName string, fileHash Hash) {
