@@ -63,23 +63,6 @@ loop(MainLoop, DataServers) ->
             loop(MainLoop, handler(Msg, {MainLoop, DataServers}, From))
     end.
 
--ifdef(comment).
-message_handler(
-    register, {m1, #registerLoginFormat{userName = UserName, password = Password}}, Sock, MainLoop
-) ->
-    MainLoop ! {{register, {UserName, Password}}, self()},
-    data_server(Sock, MainLoop);
-message_handler(
-    login, #registerLoginFormat{userName = UserName, password = Password}, Sock, MainLoop
-) ->
-    MainLoop ! {{login, {UserName, Password}}, self()},
-    data_server(Sock, MainLoop);
-message_handler(
-    _, _, Sock, MainLoop
-) ->
-    data_server(Sock, MainLoop).
--endif().
-
 data_server(Sock, Loop) ->
     {ok, {MyIP, MyPORT}} = inet:peername(Sock),
     Loop ! {{join, string:join([integer_to_list(I) || I <- tuple_to_list(MyIP)], "."), MyPORT}, self()},
