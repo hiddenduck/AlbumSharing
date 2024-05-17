@@ -1,7 +1,6 @@
 package main
 
 import (
-	cs "main/CentralServerComunication"
 	"main/client"
 	"os"
 )
@@ -10,7 +9,7 @@ func main() {
 
 	state := client.CreateClientState(os.Args[1])
 
-	go cs.CentralServerListener(state.CentralServerConnection, state.CentralServerMessageHandlers)
+	client.SpawnCentralServerThreads(&state)
 
 	client.CommandListen(&state)
 }

@@ -9,7 +9,22 @@ const (
 	CHANNEL_BUFFER_SIZE = 1024
 )
 
-func HandleNewPeer(ch chan *pb.Message, state ClientState) {
+func SpawnCentralServerThreads(state *ClientState) {
+
+	handlerMap := map[pb.Type]interface{}{
+		pb.Type_new_peer:  HandleNewPeer,
+		pb.Type_peer_left: HandlePeerLeft,
+		pb.Type_newServer: HandleNewServer,
+	}
+
+	for pbType := range handlerMap {
+		go handlerMap[pbType].(func(chan *pb.Message, *ClientState))(state.CentralServerMessageHandlers[pbType], state)
+	}
+
+	go cs.CentralServerListener(state.CentralServerConnection, state.CentralServerMessageHandlers)
+}
+
+func HandleNewPeer(ch chan *pb.Message, state *ClientState) {
 	for msg := range ch {
 		if state.IsInSession.Load() {
 			m7 := msg.GetM7()
@@ -18,7 +33,7 @@ func HandleNewPeer(ch chan *pb.Message, state ClientState) {
 	}
 }
 
-func HandleLeftPeer(ch chan *pb.Message, state ClientState) {
+func HandlePeerLeft(ch chan *pb.Message, state *ClientState) {
 	for msg := range ch {
 		if state.IsInSession.Load() {
 			m7 := msg.GetM7()
@@ -27,7 +42,7 @@ func HandleLeftPeer(ch chan *pb.Message, state ClientState) {
 	}
 }
 
-func HandleNewServer(ch chan *pb.Message, state ClientState) {
+func HandleNewServer(ch chan *pb.Message, state *ClientState) {
 	for msg := range ch {
 		m8 := msg.GetM8()
 		state.DataServers.AddServer(m8.Ip, m8.Port)

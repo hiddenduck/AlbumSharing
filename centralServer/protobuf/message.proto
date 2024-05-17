@@ -42,9 +42,13 @@ message peerInfo {
 }
 
 message newPeer {
-  string name = 1;
-  string ip   = 2;
-  string port = 3;
+  string   name     = 1;
+  peerInfo peerInfo = 2;
+}
+
+message newServer {
+    string ip   = 1;
+    string port = 2;
 }
 
 message dotPair {
@@ -97,6 +101,7 @@ message Message {
     reply_message       m5 = 6;
     login_reply         m6 = 7;
     newPeer             m7 = 8;
+    newServer           m8 = 9;
   }
 }
 
