@@ -70,6 +70,12 @@ func removeUser(msg []string, state *ClientState) {
 }
 
 func addFile(msg []string, state *ClientState) {
+
+	if len(msg) != 1 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
+
 	fileHash := dataservers.HashFile(msg[0])
 	//dataservers.UploadFile(state.DataServers, msg[0])
 	//TODO enviar para o dataserver
