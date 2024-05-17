@@ -12,9 +12,9 @@ const (
 func SpawnCentralServerThreads(state *ClientState) {
 
 	handlerMap := map[pb.Type]interface{}{
-		pb.Type_new_peer:  HandleNewPeer,
-		pb.Type_peer_left: HandlePeerLeft,
-		pb.Type_newServer: HandleNewServer,
+		pb.Type_new_peer:   HandleNewPeer,
+		pb.Type_peer_left:  HandlePeerLeft,
+		pb.Type_new_server: HandleNewServer,
 	}
 
 	for pbType := range handlerMap {
