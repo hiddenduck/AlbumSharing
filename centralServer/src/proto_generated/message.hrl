@@ -89,14 +89,6 @@
         }).
 -endif.
 
--ifndef('NEWPEER_PB_H').
--define('NEWPEER_PB_H', true).
--record(newPeer,
-        {name = []              :: unicode:chardata() | undefined, % = 1, optional
-         peerInfo = undefined   :: message:peerInfo() | undefined % = 2, optional
-        }).
--endif.
-
 -ifndef('DOTPAIR_PB_H').
 -define('DOTPAIR_PB_H', true).
 -record(dotPair,
