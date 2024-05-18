@@ -6,6 +6,17 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%% In Session %%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+session_user_handler({{new_server, IP, PORT}, _MainLoop}, Sock, SessionLoop, UserName) ->
+    Data = message:encode_msg(#'Message'{
+        type = 2,
+        msg =
+            {m8, #newServer{
+                ip = IP,
+                port = integer_to_list(PORT)
+            }}
+    }),
+    send(Data, Sock),
+    session_user(Sock, SessionLoop, UserName);
 
 session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     Status =:= put_album_no_permission
