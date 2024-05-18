@@ -181,8 +181,10 @@ func UploadFile2(dataServers DataServers, fileName string) {
 		return
 	}
 	if err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
-			fmt.Printf("File upload Completed\n")
+		if exit, ok := err.(*exec.ExitError); ok {
+			if exit.ExitCode() == 0 {
+				fmt.Printf("File upload Completed\n")
+			}
 		} else {
 			fmt.Printf("Error in upload\n")
 		}
