@@ -52,7 +52,7 @@
 -include("gpb.hrl").
 
 %% enumerated types
--type 'Type'() :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | new_server.
+-type 'Type'() :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | new_server | logout.
 -export_type(['Type'/0]).
 
 %% message types
@@ -84,6 +84,8 @@
 
 -type groupInfo() :: #groupInfo{}.
 
+-type log_out() :: #log_out{}.
+
 -type crdt() :: #crdt{}.
 
 -type sessionStart() :: #sessionStart{}.
@@ -92,9 +94,9 @@
 
 -type 'Message'() :: #'Message'{}.
 
--export_type(['ServerInfo'/0, 'registerLoginFormat'/0, 'album'/0, 'reply_message'/0, 'login_reply'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'peer'/0, 'newServer'/0, 'dotPair'/0, 'voteInfo'/0, 'fileInfo'/0, 'groupInfo'/0, 'crdt'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
--type '$msg_name'() :: 'ServerInfo' | registerLoginFormat | album | reply_message | login_reply | voteValue | voteMap | peerInfo | peer | newServer | dotPair | voteInfo | fileInfo | groupInfo | crdt | sessionStart | quitMessage | 'Message'.
--type '$msg'() :: 'ServerInfo'() | registerLoginFormat() | album() | reply_message() | login_reply() | voteValue() | voteMap() | peerInfo() | peer() | newServer() | dotPair() | voteInfo() | fileInfo() | groupInfo() | crdt() | sessionStart() | quitMessage() | 'Message'().
+-export_type(['ServerInfo'/0, 'registerLoginFormat'/0, 'album'/0, 'reply_message'/0, 'login_reply'/0, 'voteValue'/0, 'voteMap'/0, 'peerInfo'/0, 'peer'/0, 'newServer'/0, 'dotPair'/0, 'voteInfo'/0, 'fileInfo'/0, 'groupInfo'/0, 'log_out'/0, 'crdt'/0, 'sessionStart'/0, 'quitMessage'/0, 'Message'/0]).
+-type '$msg_name'() :: 'ServerInfo' | registerLoginFormat | album | reply_message | login_reply | voteValue | voteMap | peerInfo | peer | newServer | dotPair | voteInfo | fileInfo | groupInfo | log_out | crdt | sessionStart | quitMessage | 'Message'.
+-type '$msg'() :: 'ServerInfo'() | registerLoginFormat() | album() | reply_message() | login_reply() | voteValue() | voteMap() | peerInfo() | peer() | newServer() | dotPair() | voteInfo() | fileInfo() | groupInfo() | log_out() | crdt() | sessionStart() | quitMessage() | 'Message'().
 -export_type(['$msg_name'/0, '$msg'/0]).
 
 -record('map<uint32,uint64>',{key, value}).
@@ -142,6 +144,7 @@ encode_msg(Msg, MsgName, Opts) ->
         voteInfo -> encode_msg_voteInfo(id(Msg, TrUserData), TrUserData);
         fileInfo -> encode_msg_fileInfo(id(Msg, TrUserData), TrUserData);
         groupInfo -> encode_msg_groupInfo(id(Msg, TrUserData), TrUserData);
+        log_out -> encode_msg_log_out(id(Msg, TrUserData), TrUserData);
         crdt -> encode_msg_crdt(id(Msg, TrUserData), TrUserData);
         sessionStart -> encode_msg_sessionStart(id(Msg, TrUserData), TrUserData);
         quitMessage -> encode_msg_quitMessage(id(Msg, TrUserData), TrUserData);
@@ -481,6 +484,8 @@ encode_msg_groupInfo(#groupInfo{dotSet = F1}, Bin, TrUserData) ->
         end
     end.
 
+encode_msg_log_out(_Msg, _TrUserData) -> <<>>.
+
 encode_msg_crdt(Msg, TrUserData) -> encode_msg_crdt(Msg, <<>>, TrUserData).
 
 
@@ -601,7 +606,8 @@ encode_msg_Message(#'Message'{type = F1, msg = F2}, Bin, TrUserData) ->
                {m5, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m5(TrTF2, <<B1/binary, 50>>, TrUserData) end;
                {m6, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m6(TrTF2, <<B1/binary, 58>>, TrUserData) end;
                {m7, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m7(TrTF2, <<B1/binary, 66>>, TrUserData) end;
-               {m8, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m8(TrTF2, <<B1/binary, 74>>, TrUserData) end
+               {m8, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m8(TrTF2, <<B1/binary, 74>>, TrUserData) end;
+               {m9, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_Message_m9(TrTF2, <<B1/binary, 82>>, TrUserData) end
            end
     end.
 
@@ -781,6 +787,8 @@ e_mfield_Message_m8(Msg, Bin, TrUserData) ->
     Bin2 = e_varint(byte_size(SubBin), Bin),
     <<Bin2/binary, SubBin/binary>>.
 
+e_mfield_Message_m9(_Msg, Bin, _TrUserData) -> <<Bin/binary, 0>>.
+
 'encode_msg_map<uint32,uint64>'(#'map<uint32,uint64>'{key = F1, value = F2}, Bin, TrUserData) ->
     B1 = begin TrF1 = id(F1, TrUserData), e_varint(TrF1, <<Bin/binary, 8>>, TrUserData) end,
     begin TrF2 = id(F2, TrUserData), e_varint(TrF2, <<B1/binary, 16>>, TrUserData) end.
@@ -845,6 +853,7 @@ e_enum_Type(reply, Bin, _TrUserData) -> <<Bin/binary, 7>>;
 e_enum_Type(new_peer, Bin, _TrUserData) -> <<Bin/binary, 8>>;
 e_enum_Type(peer_left, Bin, _TrUserData) -> <<Bin/binary, 9>>;
 e_enum_Type(new_server, Bin, _TrUserData) -> <<Bin/binary, 10>>;
+e_enum_Type(logout, Bin, _TrUserData) -> <<Bin/binary, 11>>;
 e_enum_Type(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 -compile({nowarn_unused_function,e_type_sint/3}).
@@ -1000,6 +1009,7 @@ decode_msg_2_doit(dotPair, Bin, TrUserData) -> id(decode_msg_dotPair(Bin, TrUser
 decode_msg_2_doit(voteInfo, Bin, TrUserData) -> id(decode_msg_voteInfo(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(fileInfo, Bin, TrUserData) -> id(decode_msg_fileInfo(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(groupInfo, Bin, TrUserData) -> id(decode_msg_groupInfo(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(log_out, Bin, TrUserData) -> id(decode_msg_log_out(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(crdt, Bin, TrUserData) -> id(decode_msg_crdt(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(sessionStart, Bin, TrUserData) -> id(decode_msg_sessionStart(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(quitMessage, Bin, TrUserData) -> id(decode_msg_quitMessage(Bin, TrUserData), TrUserData);
@@ -1736,6 +1746,40 @@ skip_32_groupInfo(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_rea
 
 skip_64_groupInfo(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, TrUserData) -> dfp_read_field_def_groupInfo(Rest, Z1, Z2, F, F@_1, TrUserData).
 
+decode_msg_log_out(Bin, TrUserData) -> dfp_read_field_def_log_out(Bin, 0, 0, 0, TrUserData).
+
+dfp_read_field_def_log_out(<<>>, 0, 0, _, _) -> #log_out{};
+dfp_read_field_def_log_out(Other, Z1, Z2, F, TrUserData) -> dg_read_field_def_log_out(Other, Z1, Z2, F, TrUserData).
+
+dg_read_field_def_log_out(<<1:1, X:7, Rest/binary>>, N, Acc, F, TrUserData) when N < 32 - 7 -> dg_read_field_def_log_out(Rest, N + 7, X bsl N + Acc, F, TrUserData);
+dg_read_field_def_log_out(<<0:1, X:7, Rest/binary>>, N, Acc, _, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key band 7 of
+        0 -> skip_varint_log_out(Rest, 0, 0, Key bsr 3, TrUserData);
+        1 -> skip_64_log_out(Rest, 0, 0, Key bsr 3, TrUserData);
+        2 -> skip_length_delimited_log_out(Rest, 0, 0, Key bsr 3, TrUserData);
+        3 -> skip_group_log_out(Rest, 0, 0, Key bsr 3, TrUserData);
+        5 -> skip_32_log_out(Rest, 0, 0, Key bsr 3, TrUserData)
+    end;
+dg_read_field_def_log_out(<<>>, 0, 0, _, _) -> #log_out{}.
+
+skip_varint_log_out(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, TrUserData) -> skip_varint_log_out(Rest, Z1, Z2, F, TrUserData);
+skip_varint_log_out(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, TrUserData) -> dfp_read_field_def_log_out(Rest, Z1, Z2, F, TrUserData).
+
+skip_length_delimited_log_out(<<1:1, X:7, Rest/binary>>, N, Acc, F, TrUserData) when N < 57 -> skip_length_delimited_log_out(Rest, N + 7, X bsl N + Acc, F, TrUserData);
+skip_length_delimited_log_out(<<0:1, X:7, Rest/binary>>, N, Acc, F, TrUserData) ->
+    Length = X bsl N + Acc,
+    <<_:Length/binary, Rest2/binary>> = Rest,
+    dfp_read_field_def_log_out(Rest2, 0, 0, F, TrUserData).
+
+skip_group_log_out(Bin, _, Z2, FNum, TrUserData) ->
+    {_, Rest} = read_group(Bin, FNum),
+    dfp_read_field_def_log_out(Rest, 0, Z2, FNum, TrUserData).
+
+skip_32_log_out(<<_:32, Rest/binary>>, Z1, Z2, F, TrUserData) -> dfp_read_field_def_log_out(Rest, Z1, Z2, F, TrUserData).
+
+skip_64_log_out(<<_:64, Rest/binary>>, Z1, Z2, F, TrUserData) -> dfp_read_field_def_log_out(Rest, Z1, Z2, F, TrUserData).
+
 decode_msg_crdt(Bin, TrUserData) ->
     dfp_read_field_def_crdt(Bin, 0, 0, 0, 'tr_decode_init_default_crdt.versionVector'([], TrUserData), 'tr_decode_init_default_crdt.files'([], TrUserData), 'tr_decode_init_default_crdt.groupUsers'([], TrUserData), id(0, TrUserData), TrUserData).
 
@@ -1969,6 +2013,7 @@ dfp_read_field_def_Message(<<50, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserDat
 dfp_read_field_def_Message(<<58, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m6(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
 dfp_read_field_def_Message(<<66, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m7(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
 dfp_read_field_def_Message(<<74, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m8(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
+dfp_read_field_def_Message(<<82, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, TrUserData) -> d_field_Message_m9(Rest, Z1, Z2, F, F@_1, F@_2, TrUserData);
 dfp_read_field_def_Message(<<>>, 0, 0, _, F@_1, F@_2, _) -> #'Message'{type = F@_1, msg = F@_2};
 dfp_read_field_def_Message(Other, Z1, Z2, F, F@_1, F@_2, TrUserData) -> dg_read_field_def_Message(Other, Z1, Z2, F, F@_1, F@_2, TrUserData).
 
@@ -1985,6 +2030,7 @@ dg_read_field_def_Message(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, TrUs
         58 -> d_field_Message_m6(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         66 -> d_field_Message_m7(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         74 -> d_field_Message_m8(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
+        82 -> d_field_Message_m9(Rest, 0, 0, 0, F@_1, F@_2, TrUserData);
         _ ->
             case Key band 7 of
                 0 -> skip_varint_Message(Rest, 0, 0, Key bsr 3, F@_1, F@_2, TrUserData);
@@ -2118,6 +2164,21 @@ d_field_Message_m8(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData)
                                    undefined -> id({m8, NewFValue}, TrUserData);
                                    {m8, MVPrev} -> id({m8, merge_msg_newServer(MVPrev, NewFValue, TrUserData)}, TrUserData);
                                    _ -> id({m8, NewFValue}, TrUserData)
+                               end,
+                               TrUserData).
+
+d_field_Message_m9(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, TrUserData) when N < 57 -> d_field_Message_m9(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, TrUserData);
+d_field_Message_m9(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_log_out(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_Message(RestF,
+                               0,
+                               0,
+                               F,
+                               F@_1,
+                               case Prev of
+                                   undefined -> id({m9, NewFValue}, TrUserData);
+                                   {m9, MVPrev} -> id({m9, merge_msg_log_out(MVPrev, NewFValue, TrUserData)}, TrUserData);
+                                   _ -> id({m9, NewFValue}, TrUserData)
                                end,
                                TrUserData).
 
@@ -2546,6 +2607,7 @@ d_enum_Type(7) -> reply;
 d_enum_Type(8) -> new_peer;
 d_enum_Type(9) -> peer_left;
 d_enum_Type(10) -> new_server;
+d_enum_Type(11) -> logout;
 d_enum_Type(V) -> V.
 
 read_group(Bin, FieldNum) ->
@@ -2628,6 +2690,7 @@ merge_msgs(Prev, New, MsgName, Opts) ->
         voteInfo -> merge_msg_voteInfo(Prev, New, TrUserData);
         fileInfo -> merge_msg_fileInfo(Prev, New, TrUserData);
         groupInfo -> merge_msg_groupInfo(Prev, New, TrUserData);
+        log_out -> merge_msg_log_out(Prev, New, TrUserData);
         crdt -> merge_msg_crdt(Prev, New, TrUserData);
         sessionStart -> merge_msg_sessionStart(Prev, New, TrUserData);
         quitMessage -> merge_msg_quitMessage(Prev, New, TrUserData);
@@ -2798,6 +2861,9 @@ merge_msg_groupInfo(#groupInfo{dotSet = PFdotSet}, #groupInfo{dotSet = NFdotSet}
                       NFdotSet == undefined -> PFdotSet
                    end}.
 
+-compile({nowarn_unused_function,merge_msg_log_out/3}).
+merge_msg_log_out(_Prev, New, _TrUserData) -> New.
+
 -compile({nowarn_unused_function,merge_msg_crdt/3}).
 merge_msg_crdt(#crdt{versionVector = PFversionVector, files = PFfiles, groupUsers = PFgroupUsers, id = PFid}, #crdt{versionVector = NFversionVector, files = NFfiles, groupUsers = NFgroupUsers, id = NFid}, TrUserData) ->
     #crdt{versionVector =
@@ -2876,6 +2942,7 @@ merge_msg_Message(#'Message'{type = PFtype, msg = PFmsg}, #'Message'{type = NFty
                        {{m6, OPFmsg}, {m6, ONFmsg}} -> {m6, merge_msg_login_reply(OPFmsg, ONFmsg, TrUserData)};
                        {{m7, OPFmsg}, {m7, ONFmsg}} -> {m7, merge_msg_peer(OPFmsg, ONFmsg, TrUserData)};
                        {{m8, OPFmsg}, {m8, ONFmsg}} -> {m8, merge_msg_newServer(OPFmsg, ONFmsg, TrUserData)};
+                       {{m9, OPFmsg}, {m9, ONFmsg}} -> {m9, merge_msg_log_out(OPFmsg, ONFmsg, TrUserData)};
                        {_, undefined} -> PFmsg;
                        _ -> NFmsg
                    end}.
@@ -2905,6 +2972,7 @@ verify_msg(Msg, MsgName, Opts) ->
         voteInfo -> v_msg_voteInfo(Msg, [MsgName], TrUserData);
         fileInfo -> v_msg_fileInfo(Msg, [MsgName], TrUserData);
         groupInfo -> v_msg_groupInfo(Msg, [MsgName], TrUserData);
+        log_out -> v_msg_log_out(Msg, [MsgName], TrUserData);
         crdt -> v_msg_crdt(Msg, [MsgName], TrUserData);
         sessionStart -> v_msg_sessionStart(Msg, [MsgName], TrUserData);
         quitMessage -> v_msg_quitMessage(Msg, [MsgName], TrUserData);
@@ -3134,6 +3202,15 @@ v_msg_groupInfo(#groupInfo{dotSet = F1}, Path, TrUserData) ->
     ok;
 v_msg_groupInfo(X, Path, _TrUserData) -> mk_type_error({expected_msg, groupInfo}, X, Path).
 
+-compile({nowarn_unused_function,v_submsg_log_out/3}).
+-dialyzer({nowarn_function,v_submsg_log_out/3}).
+v_submsg_log_out(Msg, Path, TrUserData) -> v_msg_log_out(Msg, Path, TrUserData).
+
+-compile({nowarn_unused_function,v_msg_log_out/3}).
+-dialyzer({nowarn_function,v_msg_log_out/3}).
+v_msg_log_out(#log_out{}, _Path, _) -> ok;
+v_msg_log_out(X, Path, _TrUserData) -> mk_type_error({expected_msg, log_out}, X, Path).
+
 -compile({nowarn_unused_function,v_submsg_crdt/3}).
 -dialyzer({nowarn_function,v_submsg_crdt/3}).
 v_submsg_crdt(Msg, Path, TrUserData) -> v_msg_crdt(Msg, Path, TrUserData).
@@ -3201,6 +3278,7 @@ v_msg_Message(#'Message'{type = F1, msg = F2}, Path, TrUserData) ->
         {m6, OF2} -> v_submsg_login_reply(OF2, [m6, msg | Path], TrUserData);
         {m7, OF2} -> v_submsg_peer(OF2, [m7, msg | Path], TrUserData);
         {m8, OF2} -> v_submsg_newServer(OF2, [m8, msg | Path], TrUserData);
+        {m9, OF2} -> v_submsg_log_out(OF2, [m9, msg | Path], TrUserData);
         _ -> mk_type_error(invalid_oneof, F2, [msg | Path])
     end,
     ok;
@@ -3219,6 +3297,7 @@ v_enum_Type(reply, _Path, _TrUserData) -> ok;
 v_enum_Type(new_peer, _Path, _TrUserData) -> ok;
 v_enum_Type(peer_left, _Path, _TrUserData) -> ok;
 v_enum_Type(new_server, _Path, _TrUserData) -> ok;
+v_enum_Type(logout, _Path, _TrUserData) -> ok;
 v_enum_Type(V, _Path, _TrUserData) when -2147483648 =< V, V =< 2147483647, is_integer(V) -> ok;
 v_enum_Type(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'Type'}, X, Path).
 
@@ -3547,7 +3626,7 @@ mt_merge_maptuples_r(L1, L2) -> dict:to_list(dict:merge(fun (_Key, _V1, V2) -> V
 
 
 get_msg_defs() ->
-    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {new_server, 10}]},
+    [{{enum, 'Type'}, [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {new_server, 10}, {logout, 11}]},
      {{msg, 'ServerInfo'},
       [#field{name = ip, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []},
        #field{name = port, fnum = 2, rnum = 3, type = int32, occurrence = optional, opts = []},
@@ -3572,6 +3651,7 @@ get_msg_defs() ->
        #field{name = dotSet, fnum = 2, rnum = 3, type = {msg, dotPair}, occurrence = repeated, opts = []},
        #field{name = fileHash, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
      {{msg, groupInfo}, [#field{name = dotSet, fnum = 1, rnum = 2, type = {msg, dotPair}, occurrence = repeated, opts = []}]},
+     {{msg, log_out}, []},
      {{msg, crdt},
       [#field{name = versionVector, fnum = 1, rnum = 2, type = {map, uint32, uint64}, occurrence = repeated, opts = []},
        #field{name = files, fnum = 2, rnum = 3, type = {map, string, {msg, fileInfo}}, occurrence = repeated, opts = []},
@@ -3595,17 +3675,18 @@ get_msg_defs() ->
                        #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply_message}, occurrence = optional, opts = []},
                        #field{name = m6, fnum = 7, rnum = 3, type = {msg, login_reply}, occurrence = optional, opts = []},
                        #field{name = m7, fnum = 8, rnum = 3, type = {msg, peer}, occurrence = optional, opts = []},
-                       #field{name = m8, fnum = 9, rnum = 3, type = {msg, newServer}, occurrence = optional, opts = []}],
+                       #field{name = m8, fnum = 9, rnum = 3, type = {msg, newServer}, occurrence = optional, opts = []},
+                       #field{name = m9, fnum = 10, rnum = 3, type = {msg, log_out}, occurrence = optional, opts = []}],
                   opts = []}]}].
 
 
-get_msg_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, peer, newServer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
+get_msg_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, peer, newServer, dotPair, voteInfo, fileInfo, groupInfo, log_out, crdt, sessionStart, quitMessage, 'Message'].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, peer, newServer, dotPair, voteInfo, fileInfo, groupInfo, crdt, sessionStart, quitMessage, 'Message'].
+get_msg_or_group_names() -> ['ServerInfo', registerLoginFormat, album, reply_message, login_reply, voteValue, voteMap, peerInfo, peer, newServer, dotPair, voteInfo, fileInfo, groupInfo, log_out, crdt, sessionStart, quitMessage, 'Message'].
 
 
 get_enum_names() -> ['Type'].
@@ -3649,6 +3730,7 @@ find_msg_def(fileInfo) ->
      #field{name = dotSet, fnum = 2, rnum = 3, type = {msg, dotPair}, occurrence = repeated, opts = []},
      #field{name = fileHash, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
 find_msg_def(groupInfo) -> [#field{name = dotSet, fnum = 1, rnum = 2, type = {msg, dotPair}, occurrence = repeated, opts = []}];
+find_msg_def(log_out) -> [];
 find_msg_def(crdt) ->
     [#field{name = versionVector, fnum = 1, rnum = 2, type = {map, uint32, uint64}, occurrence = repeated, opts = []},
      #field{name = files, fnum = 2, rnum = 3, type = {map, string, {msg, fileInfo}}, occurrence = repeated, opts = []},
@@ -3672,12 +3754,13 @@ find_msg_def('Message') ->
                      #field{name = m5, fnum = 6, rnum = 3, type = {msg, reply_message}, occurrence = optional, opts = []},
                      #field{name = m6, fnum = 7, rnum = 3, type = {msg, login_reply}, occurrence = optional, opts = []},
                      #field{name = m7, fnum = 8, rnum = 3, type = {msg, peer}, occurrence = optional, opts = []},
-                     #field{name = m8, fnum = 9, rnum = 3, type = {msg, newServer}, occurrence = optional, opts = []}],
+                     #field{name = m8, fnum = 9, rnum = 3, type = {msg, newServer}, occurrence = optional, opts = []},
+                     #field{name = m9, fnum = 10, rnum = 3, type = {msg, log_out}, occurrence = optional, opts = []}],
                 opts = []}];
 find_msg_def(_) -> error.
 
 
-find_enum_def('Type') -> [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {new_server, 10}];
+find_enum_def('Type') -> [{register, 0}, {login, 1}, {loginReply, 2}, {create, 3}, {get, 4}, {send, 5}, {quit, 6}, {reply, 7}, {new_peer, 8}, {peer_left, 9}, {new_server, 10}, {logout, 11}];
 find_enum_def(_) -> error.
 
 
@@ -3697,7 +3780,8 @@ enum_symbol_by_value_Type(6) -> quit;
 enum_symbol_by_value_Type(7) -> reply;
 enum_symbol_by_value_Type(8) -> new_peer;
 enum_symbol_by_value_Type(9) -> peer_left;
-enum_symbol_by_value_Type(10) -> new_server.
+enum_symbol_by_value_Type(10) -> new_server;
+enum_symbol_by_value_Type(11) -> logout.
 
 
 enum_value_by_symbol_Type(register) -> 0;
@@ -3710,7 +3794,8 @@ enum_value_by_symbol_Type(quit) -> 6;
 enum_value_by_symbol_Type(reply) -> 7;
 enum_value_by_symbol_Type(new_peer) -> 8;
 enum_value_by_symbol_Type(peer_left) -> 9;
-enum_value_by_symbol_Type(new_server) -> 10.
+enum_value_by_symbol_Type(new_server) -> 10;
+enum_value_by_symbol_Type(logout) -> 11.
 
 
 get_service_names() -> [].
@@ -3770,6 +3855,7 @@ fqbin_to_msg_name(<<"dotPair">>) -> dotPair;
 fqbin_to_msg_name(<<"voteInfo">>) -> voteInfo;
 fqbin_to_msg_name(<<"fileInfo">>) -> fileInfo;
 fqbin_to_msg_name(<<"groupInfo">>) -> groupInfo;
+fqbin_to_msg_name(<<"log_out">>) -> log_out;
 fqbin_to_msg_name(<<"crdt">>) -> crdt;
 fqbin_to_msg_name(<<"sessionStart">>) -> sessionStart;
 fqbin_to_msg_name(<<"quitMessage">>) -> quitMessage;
@@ -3791,6 +3877,7 @@ msg_name_to_fqbin(dotPair) -> <<"dotPair">>;
 msg_name_to_fqbin(voteInfo) -> <<"voteInfo">>;
 msg_name_to_fqbin(fileInfo) -> <<"fileInfo">>;
 msg_name_to_fqbin(groupInfo) -> <<"groupInfo">>;
+msg_name_to_fqbin(log_out) -> <<"log_out">>;
 msg_name_to_fqbin(crdt) -> <<"crdt">>;
 msg_name_to_fqbin(sessionStart) -> <<"sessionStart">>;
 msg_name_to_fqbin(quitMessage) -> <<"quitMessage">>;
@@ -3833,7 +3920,7 @@ get_all_source_basenames() -> ["message.proto"].
 get_all_proto_names() -> ["message"].
 
 
-get_msg_containment("message") -> ['Message', 'ServerInfo', album, crdt, dotPair, fileInfo, groupInfo, login_reply, newServer, peer, peerInfo, quitMessage, registerLoginFormat, reply_message, sessionStart, voteInfo, voteMap, voteValue];
+get_msg_containment("message") -> ['Message', 'ServerInfo', album, crdt, dotPair, fileInfo, groupInfo, log_out, login_reply, newServer, peer, peerInfo, quitMessage, registerLoginFormat, reply_message, sessionStart, voteInfo, voteMap, voteValue];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -3859,6 +3946,7 @@ get_proto_by_msg_name_as_fqbin(<<"newServer">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"dotPair">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"sessionStart">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"registerLoginFormat">>) -> "message";
+get_proto_by_msg_name_as_fqbin(<<"log_out">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"crdt">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"voteValue">>) -> "message";
 get_proto_by_msg_name_as_fqbin(<<"reply_message">>) -> "message";

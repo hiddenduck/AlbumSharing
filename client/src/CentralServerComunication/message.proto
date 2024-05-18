@@ -7,6 +7,8 @@ message registerLoginFormat {
     string password = 2;
 }
 
+message log_out {}
+
 message album {
     string albumName = 1;
     string port      = 2;
@@ -103,6 +105,7 @@ message Message {
         login_reply         m6 = 7;
         peer                m7 = 8;
         newServer           m8 = 9;
+        log_out             m9 = 10;
     }
 }
 
@@ -118,4 +121,5 @@ enum Type {
     new_peer   = 8;  // newPeer
     peer_left  = 9;  // reply
     new_server  = 10; // new Server
+    logout      = 11;
 }

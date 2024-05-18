@@ -71,6 +71,8 @@ message groupInfo {
   repeated dotPair      dotSet = 1;
 }
 
+message log_out {}
+
 message crdt {
   map<uint32, uint64>    versionVector = 1;
   map<string, fileInfo>  files         = 2;
@@ -102,6 +104,7 @@ message Message {
       login_reply         m6 = 7;
       peer                m7 = 8;
       newServer           m8 = 9;
+      log_out             m9 = 10;
   }
 }
 
@@ -117,4 +120,5 @@ enum Type {
   new_peer   = 8;  // newPeer
   peer_left  = 9;  // peer
   new_server  = 10;
+  logout      = 11;
 }

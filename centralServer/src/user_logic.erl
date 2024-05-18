@@ -17,7 +17,6 @@ session_user_handler({{new_server, IP, PORT}, _MainLoop}, Sock, SessionLoop, Use
     }),
     send(Data, Sock),
     session_user(Sock, SessionLoop, UserName);
-
 session_user_handler({Status, SessionLoop}, Sock, SessionLoop, UserName) when
     Status =:= put_album_no_permission
 ->
@@ -295,6 +294,22 @@ auth_user_handler(
 auth_user_handler(_, Sock, MainLoop, UserName) ->
     auth_user(Sock, MainLoop, UserName).
 
+auth_message_handler(
+    logout,
+    {m5, #reply_message{}},
+    Sock,
+    MainLoop,
+    UserName
+) ->
+    MainLoop ! {log_out, UserName},
+    Data = message:encode_msg(#'Message'{
+        type = 11,
+        msg =
+            {m9, #log_out{}}
+    }),
+    send(Data, Sock),
+    user(Sock, MainLoop);
+
 auth_message_handler(create, {m2, #album{albumName = AlbumName}}, Sock, MainLoop, UserName) ->
     MainLoop ! {{create_album, UserName, AlbumName}, self()},
     auth_user(Sock, MainLoop, UserName);
@@ -354,7 +369,9 @@ user_handler({login_ok, UserName, DataServers, MainLoop}, Sock, MainLoop) ->
                             ip = IP,
                             port = integer_to_list(PORT)
                         }
-                    end, DataServers)
+                    end,
+                    DataServers
+                )
             }}
     }),
     send(Data, Sock),

@@ -121,6 +121,13 @@
         }).
 -endif.
 
+-ifndef('LOG_OUT_PB_H').
+-define('LOG_OUT_PB_H', true).
+-record(log_out,
+        {
+        }).
+-endif.
+
 -ifndef('CRDT_PB_H').
 -define('CRDT_PB_H', true).
 -record(crdt,
@@ -153,8 +160,8 @@
 -ifndef('MESSAGE_PB_H').
 -define('MESSAGE_PB_H', true).
 -record('Message',
-        {type = register        :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | new_server | integer() | undefined, % = 1, optional, enum Type
-         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:login_reply()} | {m7, message:peer()} | {m8, message:newServer()} | undefined % oneof
+        {type = register        :: register | login | loginReply | create | get | send | quit | reply | new_peer | peer_left | new_server | logout | integer() | undefined, % = 1, optional, enum Type
+         msg                    :: {m1, message:registerLoginFormat()} | {m2, message:album()} | {m3, message:sessionStart()} | {m4, message:quitMessage()} | {m5, message:reply_message()} | {m6, message:login_reply()} | {m7, message:peer()} | {m8, message:newServer()} | {m9, message:log_out()} | undefined % oneof
         }).
 -endif.
 

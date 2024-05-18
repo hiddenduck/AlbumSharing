@@ -29,7 +29,7 @@ func HandleNewPeer(ch chan *pb.Message, state *ClientState) {
 	for msg := range ch {
 		if state.IsInSession.Load() {
 			m7 := msg.GetM7()
-            fmt.Printf("Added peer with PeerInfo: %v\n", m7)
+			fmt.Printf("Added peer with PeerInfo: %v\n", m7)
 			state.SessionState.CausalBroadcastInfo.ConnectorInfo.Add_Connect_Peer(m7.PeerInfo.Id, m7.Name, m7.PeerInfo.Ip, m7.PeerInfo.Port)
 		}
 	}
@@ -66,6 +66,7 @@ func CreateCentralServerMessageHandlers() (handlers cs.Handlers) {
 		pb.Type_new_peer,
 		pb.Type_peer_left,
 		pb.Type_new_server,
+		pb.Type_logout,
 	}
 
 	for _, pbType := range typeList {

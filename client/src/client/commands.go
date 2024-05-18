@@ -519,6 +519,54 @@ func putAlbum(msg []string, state *ClientState) {
 
 }
 
+func logout(msg []string, state *ClientState) {
+
+	if len(msg) != 0 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
+
+	if !state.IsLoggedIn {
+		fmt.Printf("Not logged In\n")
+		return
+	}
+
+	logoutMessage := &pb.ReplyMessage{}
+
+	message := pb.Message{
+		Type: pb.Type_logout,
+		Msg: &pb.Message_M5{
+			M5: logoutMessage,
+		},
+	}
+
+	data, err := proto.Marshal(&message)
+
+	if err != nil {
+		panic(err)
+	}
+
+	state.CentralServerConnection.Write(data)
+
+	fmt.Printf("Sent logout to Central Server\n")
+
+	// reply := &pb.Message{}
+
+	// buff := make([]byte, 1024)
+
+	<-state.CentralServerMessageHandlers[pb.Type_logout]
+
+	fmt.Printf("Received logout from Central Server\n")
+
+	// proto.Unmarshal(buff, reply)
+
+	state.DataServers = dataservers.InitDataServer()
+	state.UserName = ""
+	state.IsLoggedIn = false
+	fmt.Printf("Logging Out..\n")
+
+}
+
 func CreateCommandsMap() CommandMap {
 	return map[string]interface{}{
 		"downloadFile": downloadFile,
@@ -538,5 +586,6 @@ func CreateCommandsMap() CommandMap {
 		"createAlbum":  createAlbum,
 		"getAlbum":     getAlbum,
 		"putAlbum":     putAlbum,
+		"logout":       logout,
 	}
 }
