@@ -1,6 +1,16 @@
 -module(main_loop).
 -export([mainLoop/1]).
 
+insert_server(Servers, Server, Position) ->
+    insert_server(Servers, Server, Position, []).
+insert_server([], Server, _Position, Acc) ->
+    lists:reverse([Server | Acc]);
+insert_server(Servers, Server, 0, Acc) ->
+    lists:reverse([Server | Acc]) ++ Servers;
+insert_server([H|T] = _Servers, Server, Position, Acc) ->
+    insert_server(T, Server, Position-1, [H|Acc]).
+
+
 handler({log_out, UserName}, {UserMap, Metadata, DataServers} = State) ->
     case maps:find(UserName, UserMap) of
         {ok, {From, Passwd}} when From =/= offline ->
@@ -72,11 +82,12 @@ handler({end_session, AlbumName}, {Users, AlbumMap, DataServers}=State, From) ->
             State
     end;
 
-handler({addServer, IP, PORT}, {Users, AlbumMap, {From, Servers}}=_State, From) ->
+handler({addServer, IP, PORT, Position}, {Users, AlbumMap, {From, Servers}}=_State, From) ->
     maps:foreach(fun(_UserName, {Pid, _Password}) ->
             Pid ! {{new_server, IP, PORT}, self()}
         end, Users),
-    {Users, AlbumMap, {From, [{IP, PORT} | Servers]}}.
+    NewServers = insert_server(Servers, {IP, PORT}, Position),
+    {Users, AlbumMap, {From, NewServers}}.
 
 mainLoop({Users, Albums}) ->
     receive

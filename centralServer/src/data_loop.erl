@@ -40,7 +40,7 @@ handler({join, IP, PORT}, {MainLoop, []}, From) ->
     BinIP = list_to_binary(IP),
     Hash = crypto:hash(sha256, <<BinIP/binary, PORT/integer>>),
     From ! {Hash, self()},
-    MainLoop ! {{addServer, IP, PORT}, self()},
+    MainLoop ! {{addServer, IP, PORT, 0}, self()},
     [{IP, PORT, Hash}];
 
 handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a string
@@ -49,7 +49,7 @@ handler({join, IP, PORT}, {MainLoop, DataServers}, From) -> % Port is also a str
     {InfServer, TopServer, IndexToAdd} = binary_search(DataServers, Hash, 1, length(DataServers)),
     {FirstHalf, SecondHalf} = lists:split(IndexToAdd, DataServers),
     From ! {InfServer, TopServer, Hash, self()},
-    MainLoop ! {{addServer, IP, PORT}, self()},
+    MainLoop ! {{addServer, IP, PORT, length(FirstHalf)}, self()},
     FirstHalf ++ [{IP, PORT, Hash}] ++ SecondHalf.
 
 loop(MainLoop, DataServers, Central) ->
