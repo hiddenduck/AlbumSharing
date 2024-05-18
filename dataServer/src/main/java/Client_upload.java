@@ -9,25 +9,23 @@ import java.io.*;
 public class Client_upload {
 
 
-    //System.out.println("Content has been written to " + filePath);
     public static void main(String[] args) throws Exception {
-        var c = ManagedChannelBuilder.forAddress("localhost", 1234)
+
+        String filePath = args[0];
+        String Hash     = args[1];
+        String IP       = args[2];
+        String PORT     = args[3];
+
+        var c = ManagedChannelBuilder.forAddress(IP, Integer.parseInt(PORT))
                 .usePlaintext()
                 .build();
 
         var s = file.Rx3FileGrpc.newRxStub(c);
 
-        String filePath = "output.txt";
+        //String filePath = "output.txt";
 
-        //String content = "1234567";
 
-        //FileWriter writer = new FileWriter(filePath);
-
-        //writer.write(content);
-
-        //writer.close();
-
-        String filePath2 = "output2.txt";
+        //String filePath2 = "output2.txt";
 
         int chunkSize = 4096;
 
@@ -61,8 +59,12 @@ public class Client_upload {
                         e.printStackTrace();
                     }
                 }
-        ).observeOn(Schedulers.io()).map(n -> file.FileMessage.newBuilder().setHashKey(ByteString.copyFromUtf8(filePath2)).setData(ByteString.copyFrom((byte[])n)).build());
+        ).observeOn(Schedulers.io()).map(n -> file.FileMessage.newBuilder().setHashKey(ByteString.copyFromUtf8(Hash)).setData(ByteString.copyFrom((byte[])n)).build());
 
-        s.upload(f).blockingSubscribe();
+        s.upload(f).blockingSubscribe((m) -> System.out.println("received"),
+                (e -> {
+                    System.exit(1);
+                }));
+        System.exit(0);
     }
 }

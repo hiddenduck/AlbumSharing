@@ -111,6 +111,31 @@ func addFile(msg []string, state *ClientState) {
 
 }
 
+func addFile2(msg []string, state *ClientState) {
+
+	if !state.IsInSession.Load() {
+		fmt.Printf("Not connected to a session, connect first before storing.\n")
+		return
+	}
+
+	if len(msg) != 1 {
+		fmt.Printf("Argument list is not the correct and it is therefore the wrong\n")
+		return
+	}
+
+	fileHash, err := dataservers.HashFile(msg[0])
+	if err != nil {
+		return
+	}
+
+	go func() {
+		dataservers.UploadFile2(state.DataServers, msg[0])
+
+		state.SessionState.Replica.AddFile(msg[0], fileHash)
+	}()
+
+}
+
 func removeFile(msg []string, state *ClientState) {
 	if !state.IsInSession.Load() {
 		fmt.Printf("Not connected to a session, connect first before storing.\n")
@@ -504,6 +529,7 @@ func CreateCommandsMap() CommandMap {
 		"addUser":      addUser,
 		"removeUser":   removeUser,
 		"addFile":      addFile,
+		"addFile2":     addFile2,
 		"removeFile":   removeFile,
 		"rateFile":     rateFile,
 		"printVV":      printVV,

@@ -152,30 +152,42 @@ func UploadFile(dataServers DataServers, fileName string) (Hash, error) {
 }
 
 func UploadFile2(dataServers DataServers, fileName string) {
-	/*
-		fileHash, err := HashFile(fileName)
 
-		if err != nil {
-			return Hash{}, err
-		}
+	fileHash, err := HashFile(fileName)
 
-		dataServer := dataServers.FindBucket(fileHash)
-	*/
-
-	os.Chdir("../../../dataServer/ ")
-
-	Cmd := "mvn"
-	Args := []string{"exec:java", "-Dexec.mainClass=Main", "-Dexec.args=1311 localhost 8889"} // todo: trocar para comando
-
-	cmd := exec.Command(Cmd, Args...)
-
-	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("Error hashing file")
 		return
 	}
 
-	fmt.Printf("%v\n", output)
+	dataServer := dataServers.FindBucket(fileHash)
+
+	err = os.Chdir("../../../dataServer")
+	if err != nil {
+		return
+	}
+
+	//mvn exec:java -Dexec.mainClass=Client_upload -Dexec.args="../client/src/main/exemplo.txt hash localhost porta"
+
+	Cmd := "mvn"
+	Args := []string{"exec:java", "-Dexec.mainClass=Client_upload", "-Dexec.args=../client/src/main/" + fileName + " " + string(fileHash[:]) + " " + dataServer.Address + " " + dataServer.Port}
+
+	cmd := exec.Command(Cmd, Args...)
+
+	err = cmd.Run()
+	err2 := os.Chdir("../client/src/main")
+	if err2 != nil {
+		fmt.Printf("error backing\n")
+		return
+	}
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			fmt.Printf("File upload Completed\n")
+		} else {
+			fmt.Printf("Error in upload\n")
+		}
+		return
+	}
 
 }
 
