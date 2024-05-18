@@ -147,7 +147,7 @@ public class FileService extends Rx3FileGrpc.FileImplBase {
                     } else {
                         return Flowable.error(Status.ABORTED.asRuntimeException());
                     }
-                });
+                }).subscribeOn(Schedulers.io());
     }
 
     private int compare(byte[] a, byte[] b){
